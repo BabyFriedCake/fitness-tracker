@@ -1,6 +1,14 @@
 # S2-08 — Sprint 2 Exit Review
 
-Execution Prompt: `tasks/prompts/sprint-exit-review.md`
+Execution Prompt
+
+Before doing anything:
+
+Read and follow:
+
+tasks/prompts/implement-task.md
+
+Implementation MUST stop if this prompt cannot be read.
 
 ## Goal
 
