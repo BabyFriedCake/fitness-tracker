@@ -1,6 +1,5 @@
-import { PlaceholderScreen } from '@/components/placeholder-screen';
-import { getTopLevelRoute } from '@/constants/routes';
+import { ExerciseLibraryScreen } from '@/features/exercise-library/screens/exercise-library-screen';
 
 export default function ExercisesRoute() {
-  return <PlaceholderScreen route={getTopLevelRoute('exercises')} />;
+  return <ExerciseLibraryScreen />;
 }
