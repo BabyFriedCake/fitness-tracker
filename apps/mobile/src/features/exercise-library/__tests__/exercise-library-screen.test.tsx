@@ -16,6 +16,13 @@ import {
   toggleExerciseLibraryEquipment,
   toggleExerciseLibraryMuscleGroup,
 } from '@/features/exercise-library/application/exercise-library-filters';
+import {
+  createExerciseSelectionResultParams,
+  createSessionExerciseSelectionHref,
+  createTemplateExerciseSelectionHref,
+  parseExerciseLibrarySelectionMode,
+  type ExerciseLibrarySelectionMode,
+} from '@/features/exercise-library/application/exercise-selection-flow';
 import { filterExerciseLibrary } from '@/features/exercise-library/application/filter-exercise-library';
 import { loadExerciseLibrary } from '@/features/exercise-library/application/load-exercise-library';
 import type { ExerciseLibraryScreenControls } from '@/features/exercise-library/application/use-exercise-library';
@@ -27,7 +34,10 @@ describe('Exercise Library screen', () => {
       <ExerciseLibraryContent
         state={{ status: 'loading' }}
         controls={buildControls()}
+        selectionMode={buildBrowseMode()}
         onOpenExercise={jest.fn()}
+        onSelectExercise={jest.fn()}
+        onCancelSelection={jest.fn()}
       />,
     );
 
@@ -39,7 +49,10 @@ describe('Exercise Library screen', () => {
       <ExerciseLibraryContent
         state={{ status: 'empty' }}
         controls={buildControls()}
+        selectionMode={buildBrowseMode()}
         onOpenExercise={jest.fn()}
+        onSelectExercise={jest.fn()}
+        onCancelSelection={jest.fn()}
       />,
     );
 
@@ -53,7 +66,10 @@ describe('Exercise Library screen', () => {
     const { getByText } = await render(
       <ExerciseLibraryContent
         controls={buildControls()}
+        selectionMode={buildBrowseMode()}
         onOpenExercise={jest.fn()}
+        onSelectExercise={jest.fn()}
+        onCancelSelection={jest.fn()}
         state={{
           status: 'error',
           message: '动作库加载失败。已保存的训练数据不会受影响，请稍后重试。',
@@ -88,7 +104,10 @@ describe('Exercise Library screen', () => {
     const { getByText, getByLabelText } = await render(
       <ExerciseLibraryContent
         controls={buildControls()}
+        selectionMode={buildBrowseMode()}
         onOpenExercise={jest.fn()}
+        onSelectExercise={jest.fn()}
+        onCancelSelection={jest.fn()}
         state={{
           status: 'ready',
           exercises,
@@ -113,7 +132,10 @@ describe('Exercise Library screen', () => {
     const { getByLabelText } = await render(
       <ExerciseLibraryContent
         controls={buildControls()}
+        selectionMode={buildBrowseMode()}
         onOpenExercise={onOpenExercise}
+        onSelectExercise={jest.fn()}
+        onCancelSelection={jest.fn()}
         state={{
           status: 'ready',
           exercises: [exercise],
@@ -121,7 +143,7 @@ describe('Exercise Library screen', () => {
       />,
     );
 
-    fireEvent.press(getByLabelText('查看杠铃卧推详情，胸，杠铃'));
+    await fireEvent.press(getByLabelText('查看杠铃卧推详情，胸，杠铃'));
 
     expect(onOpenExercise).toHaveBeenCalledWith(exercise);
   });
@@ -138,7 +160,10 @@ describe('Exercise Library screen', () => {
           hasActiveFilters: true,
           clearFilters,
         })}
+        selectionMode={buildBrowseMode()}
         onOpenExercise={jest.fn()}
+        onSelectExercise={jest.fn()}
+        onCancelSelection={jest.fn()}
         state={{
           status: 'ready',
           exercises: [],
@@ -149,7 +174,7 @@ describe('Exercise Library screen', () => {
     expect(getByText('没有找到匹配动作')).toBeTruthy();
     expect(getByText('换个关键词，或清除筛选后再试。')).toBeTruthy();
 
-    fireEvent.press(getAllByLabelText('清除搜索和筛选条件')[0]);
+    await fireEvent.press(getAllByLabelText('清除搜索和筛选条件')[0]);
 
     expect(clearFilters).toHaveBeenCalled();
   });
@@ -159,7 +184,10 @@ describe('Exercise Library screen', () => {
     const { getByLabelText } = await render(
       <ExerciseLibraryContent
         controls={buildControls({ updateQuery })}
+        selectionMode={buildBrowseMode()}
         onOpenExercise={jest.fn()}
+        onSelectExercise={jest.fn()}
+        onCancelSelection={jest.fn()}
         state={{
           status: 'ready',
           exercises: [buildExercise()],
@@ -167,7 +195,7 @@ describe('Exercise Library screen', () => {
       />,
     );
 
-    fireEvent.changeText(getByLabelText('搜索动作'), '卧推');
+    await fireEvent.changeText(getByLabelText('搜索动作'), '卧推');
 
     expect(updateQuery).toHaveBeenCalledWith('卧推');
   });
@@ -186,7 +214,10 @@ describe('Exercise Library screen', () => {
           toggleMuscleGroup,
           toggleEquipment,
         })}
+        selectionMode={buildBrowseMode()}
         onOpenExercise={jest.fn()}
+        onSelectExercise={jest.fn()}
+        onCancelSelection={jest.fn()}
         state={{
           status: 'ready',
           exercises: [buildExercise()],
@@ -200,11 +231,117 @@ describe('Exercise Library screen', () => {
     expect(chestChip.props.accessibilityState).toEqual({ selected: true });
     expect(barbellChip.props.accessibilityState).toEqual({ selected: true });
 
-    fireEvent.press(chestChip);
-    fireEvent.press(barbellChip);
+    await fireEvent.press(chestChip);
+    await fireEvent.press(barbellChip);
 
     expect(toggleMuscleGroup).toHaveBeenCalledWith('chest');
     expect(toggleEquipment).toHaveBeenCalledWith('barbell');
+  });
+
+  it('renders template selection mode with explicit add and cancel actions', async () => {
+    const onOpenExercise = jest.fn();
+    const onSelectExercise = jest.fn();
+    const onCancelSelection = jest.fn();
+    const exercise = buildExercise({
+      id: 'exercise-barbell-bench-press',
+      nameZh: '杠铃卧推',
+      primaryMuscleGroup: 'chest',
+      equipment: 'barbell',
+    });
+    const { getByText, getByLabelText } = await render(
+      <ExerciseLibraryContent
+        controls={buildControls()}
+        selectionMode={buildSelectionMode({ context: 'template' })}
+        onOpenExercise={onOpenExercise}
+        onSelectExercise={onSelectExercise}
+        onCancelSelection={onCancelSelection}
+        state={{
+          status: 'ready',
+          exercises: [exercise],
+        }}
+      />,
+    );
+
+    expect(getByText('为训练模板选择动作')).toBeTruthy();
+    expect(getByText('选择一个标准动作返回来源页面。')).toBeTruthy();
+
+    await fireEvent.press(getByLabelText('添加杠铃卧推'));
+    await fireEvent.press(getByLabelText('取消动作选择'));
+
+    expect(onSelectExercise).toHaveBeenCalledWith(exercise);
+    expect(onOpenExercise).not.toHaveBeenCalled();
+    expect(onCancelSelection).toHaveBeenCalled();
+  });
+
+  it('renders session selection mode with already-selected exercises disabled', async () => {
+    const onSelectExercise = jest.fn();
+    const alreadySelectedExercise = buildExercise({
+      id: 'exercise-barbell-bench-press',
+      nameZh: '杠铃卧推',
+    });
+    const selectableExercise = buildExercise({
+      id: 'exercise-lat-pulldown',
+      slug: 'lat-pulldown',
+      nameZh: '高位下拉',
+      primaryMuscleGroup: 'back',
+      equipment: 'machine',
+    });
+    const { getByText, getByLabelText } = await render(
+      <ExerciseLibraryContent
+        controls={buildControls()}
+        selectionMode={buildSelectionMode({
+          context: 'session',
+          alreadySelectedExerciseIds: [alreadySelectedExercise.id],
+        })}
+        onOpenExercise={jest.fn()}
+        onSelectExercise={onSelectExercise}
+        onCancelSelection={jest.fn()}
+        state={{
+          status: 'ready',
+          exercises: [alreadySelectedExercise, selectableExercise],
+        }}
+      />,
+    );
+
+    expect(getByText('为今日训练选择动作')).toBeTruthy();
+    expect(getByText('已添加，不能重复选择。')).toBeTruthy();
+    expect(
+      getByLabelText('杠铃卧推已添加，不能重复选择').props.accessibilityState,
+    ).toEqual({ disabled: true });
+
+    await fireEvent.press(getByLabelText('杠铃卧推已添加，不能重复选择'));
+    await fireEvent.press(getByLabelText('添加高位下拉'));
+
+    expect(onSelectExercise).toHaveBeenCalledTimes(1);
+    expect(onSelectExercise).toHaveBeenCalledWith(selectableExercise);
+  });
+
+  it('fails safely when selection context is invalid', async () => {
+    const onCancelSelection = jest.fn();
+    const { getByText, getByLabelText, queryByLabelText } = await render(
+      <ExerciseLibraryContent
+        controls={buildControls()}
+        selectionMode={{
+          status: 'invalid',
+          message: '动作选择来源无效，请返回后重试。',
+        }}
+        onOpenExercise={jest.fn()}
+        onSelectExercise={jest.fn()}
+        onCancelSelection={onCancelSelection}
+        state={{
+          status: 'ready',
+          exercises: [buildExercise()],
+        }}
+      />,
+    );
+
+    expect(getByText('无法进入选择模式')).toBeTruthy();
+    expect(getByText('动作选择来源无效，请返回后重试。')).toBeTruthy();
+    expect(queryByLabelText('添加默认动作')).toBeNull();
+
+    await fireEvent.press(getByLabelText('返回动作库浏览模式'));
+
+    expect(onCancelSelection).toHaveBeenCalled();
   });
 });
 
@@ -315,6 +452,107 @@ describe('exercise library filter state', () => {
   });
 });
 
+describe('exercise selection navigation contract', () => {
+  it('keeps browse mode as the default', () => {
+    expect(parseExerciseLibrarySelectionMode({})).toEqual({
+      status: 'browse',
+    });
+    expect(parseExerciseLibrarySelectionMode({ mode: 'browse' })).toEqual({
+      status: 'browse',
+    });
+  });
+
+  it('parses template and session selection contexts with selected IDs', () => {
+    expect(
+      parseExerciseLibrarySelectionMode({
+        mode: 'select',
+        context: 'template',
+        returnTo: '/templates',
+        selectedIds: 'exercise-barbell-bench-press, exercise-lat-pulldown',
+      }),
+    ).toEqual({
+      status: 'selecting',
+      context: 'template',
+      returnTo: '/templates',
+      alreadySelectedExerciseIds: [
+        'exercise-barbell-bench-press',
+        'exercise-lat-pulldown',
+      ],
+    });
+
+    expect(
+      parseExerciseLibrarySelectionMode({
+        mode: 'select',
+        context: 'session',
+        selectedIds: ['exercise-leg-press'],
+      }),
+    ).toEqual({
+      status: 'selecting',
+      context: 'session',
+      returnTo: '/',
+      alreadySelectedExerciseIds: ['exercise-leg-press'],
+    });
+  });
+
+  it('rejects invalid selection route state safely', () => {
+    expect(
+      parseExerciseLibrarySelectionMode({
+        mode: 'select',
+      }),
+    ).toEqual({
+      status: 'invalid',
+      message: '动作选择来源无效，请返回后重试。',
+    });
+    expect(
+      parseExerciseLibrarySelectionMode({
+        mode: 'unexpected',
+      }),
+    ).toEqual({
+      status: 'invalid',
+      message: '动作选择入口无效，请返回后重试。',
+    });
+  });
+
+  it('creates template and session caller href placeholders', () => {
+    expect(
+      createTemplateExerciseSelectionHref({
+        alreadySelectedExerciseIds: [
+          'exercise-barbell-bench-press' as Exercise['id'],
+        ],
+      }),
+    ).toEqual({
+      pathname: '/exercises',
+      params: {
+        mode: 'select',
+        context: 'template',
+        returnTo: '/templates',
+        selectedIds: 'exercise-barbell-bench-press',
+      },
+    });
+
+    expect(createSessionExerciseSelectionHref()).toEqual({
+      pathname: '/exercises',
+      params: {
+        mode: 'select',
+        context: 'session',
+        returnTo: '/',
+      },
+    });
+  });
+
+  it('creates a stable selection result contract', () => {
+    expect(
+      createExerciseSelectionResultParams(
+        'template',
+        'exercise-lat-pulldown' as Exercise['id'],
+      ),
+    ).toEqual({
+      selectedExerciseId: 'exercise-lat-pulldown',
+      selectionContext: 'template',
+    });
+  });
+});
+
 function buildExercise(overrides: Partial<ExerciseInput> = {}): Exercise {
   return createExercise({
     id: 'exercise-default',
@@ -349,6 +587,26 @@ function buildControls(
     toggleMuscleGroup: jest.fn<void, [MuscleGroup]>(),
     toggleEquipment: jest.fn<void, [Equipment]>(),
     clearFilters: jest.fn(),
+    ...overrides,
+  };
+}
+
+function buildBrowseMode(): ExerciseLibrarySelectionMode {
+  return {
+    status: 'browse',
+  };
+}
+
+function buildSelectionMode(
+  overrides: Partial<
+    Extract<ExerciseLibrarySelectionMode, { readonly status: 'selecting' }>
+  > = {},
+): Extract<ExerciseLibrarySelectionMode, { readonly status: 'selecting' }> {
+  return {
+    status: 'selecting',
+    context: 'template',
+    returnTo: '/templates',
+    alreadySelectedExerciseIds: [],
     ...overrides,
   };
 }

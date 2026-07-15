@@ -6,7 +6,7 @@ import {
   StyleSheet,
   TextInput,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -25,6 +25,12 @@ import {
 } from '@/features/exercise-library/components/exercise-labels';
 import { ExerciseRow } from '@/features/exercise-library/components/exercise-row';
 import {
+  createExerciseSelectionResultParams,
+  isExerciseAlreadySelected,
+  parseExerciseLibrarySelectionMode,
+  type ExerciseLibrarySelectionMode,
+} from '@/features/exercise-library/application/exercise-selection-flow';
+import {
   useExerciseLibrary,
   type ExerciseLibraryScreenControls,
   type ExerciseLibraryScreenState,
@@ -33,15 +39,46 @@ import { useTheme } from '@/hooks/use-theme';
 
 export function ExerciseLibraryScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    mode?: string | string[];
+    context?: string | string[];
+    returnTo?: string | string[];
+    selectedIds?: string | string[];
+  }>();
+  const selectionMode = parseExerciseLibrarySelectionMode(params);
 
   return (
     <ExerciseLibraryContent
       {...useExerciseLibrary()}
+      selectionMode={selectionMode}
       onOpenExercise={(exercise) => {
         router.push({
           pathname: '/exercises/[id]',
           params: { id: exercise.id },
         });
+      }}
+      onSelectExercise={(exercise) => {
+        if (
+          selectionMode.status !== 'selecting' ||
+          isExerciseAlreadySelected(selectionMode, exercise.id)
+        ) {
+          return;
+        }
+
+        router.replace({
+          pathname: selectionMode.returnTo,
+          params: createExerciseSelectionResultParams(
+            selectionMode.context,
+            exercise.id,
+          ),
+        });
+      }}
+      onCancelSelection={() => {
+        router.replace(
+          selectionMode.status === 'selecting'
+            ? selectionMode.returnTo
+            : '/exercises',
+        );
       }}
     />
   );
@@ -50,13 +87,19 @@ export function ExerciseLibraryScreen() {
 export type ExerciseLibraryContentProps = {
   readonly state: ExerciseLibraryScreenState;
   readonly controls: ExerciseLibraryScreenControls;
+  readonly selectionMode: ExerciseLibrarySelectionMode;
   readonly onOpenExercise: (exercise: Exercise) => void;
+  readonly onSelectExercise: (exercise: Exercise) => void;
+  readonly onCancelSelection: () => void;
 };
 
 export function ExerciseLibraryContent({
   state,
   controls,
+  selectionMode,
   onOpenExercise,
+  onSelectExercise,
+  onCancelSelection,
 }: ExerciseLibraryContentProps) {
   return (
     <ThemedView style={styles.container}>
@@ -65,10 +108,24 @@ export function ExerciseLibraryContent({
           <ThemedView style={styles.header}>
             <ThemedText type="subtitle">动作库</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              浏览已保存的标准动作。
+              {selectionMode.status === 'selecting'
+                ? '选择一个标准动作返回来源页面。'
+                : '浏览已保存的标准动作。'}
             </ThemedText>
           </ThemedView>
 
+          {selectionMode.status === 'selecting' && (
+            <SelectionBanner
+              selectionMode={selectionMode}
+              onCancelSelection={onCancelSelection}
+            />
+          )}
+          {selectionMode.status === 'invalid' && (
+            <InvalidSelectionState
+              message={selectionMode.message}
+              onCancelSelection={onCancelSelection}
+            />
+          )}
           {state.status === 'loading' && <LoadingState />}
           {state.status === 'empty' && <EmptyState />}
           {state.status === 'error' && <ErrorState message={state.message} />}
@@ -78,7 +135,9 @@ export function ExerciseLibraryContent({
               {state.exercises.length > 0 ? (
                 <ExerciseList
                   exercises={state.exercises}
+                  selectionMode={selectionMode}
                   onOpenExercise={onOpenExercise}
+                  onSelectExercise={onSelectExercise}
                 />
               ) : (
                 <NoResultsState onClearFilters={controls.clearFilters} />
@@ -87,6 +146,84 @@ export function ExerciseLibraryContent({
           )}
         </ThemedView>
       </SafeAreaView>
+    </ThemedView>
+  );
+}
+
+function SelectionBanner({
+  selectionMode,
+  onCancelSelection,
+}: {
+  readonly selectionMode: Extract<
+    ExerciseLibrarySelectionMode,
+    { readonly status: 'selecting' }
+  >;
+  readonly onCancelSelection: () => void;
+}) {
+  const theme = useTheme();
+  const contextLabel =
+    selectionMode.context === 'template' ? '训练模板' : '今日训练';
+  const title = `为${contextLabel}选择动作`;
+
+  return (
+    <ThemedView
+      type="backgroundElement"
+      style={[
+        styles.selectionBanner,
+        { borderColor: theme.backgroundSelected },
+      ]}
+    >
+      <ThemedText type="smallBold">{title}</ThemedText>
+      <Pressable
+        onPress={onCancelSelection}
+        accessibilityRole="button"
+        accessibilityLabel="取消动作选择"
+        style={({ pressed }) => [
+          styles.clearButton,
+          { borderColor: theme.backgroundSelected },
+          pressed && styles.pressed,
+        ]}
+      >
+        <ThemedText type="smallBold">取消</ThemedText>
+      </Pressable>
+    </ThemedView>
+  );
+}
+
+function InvalidSelectionState({
+  message,
+  onCancelSelection,
+}: {
+  readonly message: string;
+  readonly onCancelSelection: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <ThemedView
+      type="backgroundElement"
+      style={[
+        styles.selectionBanner,
+        { borderColor: theme.backgroundSelected },
+      ]}
+      accessibilityRole="alert"
+    >
+      <ThemedText type="smallBold">无法进入选择模式</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        {message}
+      </ThemedText>
+      <Pressable
+        onPress={onCancelSelection}
+        accessibilityRole="button"
+        accessibilityLabel="返回动作库浏览模式"
+        style={({ pressed }) => [
+          styles.clearButton,
+          { borderColor: theme.backgroundSelected },
+          pressed && styles.pressed,
+        ]}
+      >
+        <ThemedText type="smallBold">返回动作库</ThemedText>
+      </Pressable>
     </ThemedView>
   );
 }
@@ -291,17 +428,29 @@ function ErrorState({ message }: { readonly message: string }) {
 
 function ExerciseList({
   exercises,
+  selectionMode,
   onOpenExercise,
+  onSelectExercise,
 }: {
   readonly exercises: readonly Exercise[];
+  readonly selectionMode: ExerciseLibrarySelectionMode;
   readonly onOpenExercise: (exercise: Exercise) => void;
+  readonly onSelectExercise: (exercise: Exercise) => void;
 }) {
   return (
     <FlatList
       data={exercises}
       keyExtractor={(exercise) => exercise.id}
       renderItem={({ item }) => (
-        <ExerciseRow exercise={item} onPress={onOpenExercise} />
+        <ExerciseRow
+          exercise={item}
+          onPress={onOpenExercise}
+          action={getExerciseRowSelectionAction(
+            item,
+            selectionMode,
+            onSelectExercise,
+          )}
+        />
       )}
       contentContainerStyle={styles.listContent}
       ItemSeparatorComponent={ListSeparator}
@@ -312,6 +461,28 @@ function ExerciseList({
       accessibilityLabel="动作列表"
     />
   );
+}
+
+function getExerciseRowSelectionAction(
+  exercise: Exercise,
+  selectionMode: ExerciseLibrarySelectionMode,
+  onSelectExercise: (exercise: Exercise) => void,
+) {
+  if (selectionMode.status !== 'selecting') {
+    return undefined;
+  }
+
+  const alreadySelected = isExerciseAlreadySelected(selectionMode, exercise.id);
+
+  return {
+    label: alreadySelected ? '已添加' : '添加',
+    accessibilityLabel: alreadySelected
+      ? `${exercise.nameZh}已添加，不能重复选择`
+      : `添加${exercise.nameZh}`,
+    disabled: alreadySelected,
+    disabledHint: alreadySelected ? '已添加，不能重复选择。' : undefined,
+    onPress: onSelectExercise,
+  };
 }
 
 function ListSeparator() {
@@ -343,6 +514,12 @@ const styles = StyleSheet.create({
   },
   controls: {
     gap: Spacing.two,
+  },
+  selectionBanner: {
+    gap: Spacing.two,
+    borderRadius: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.three,
   },
   searchInput: {
     minHeight: 48,
