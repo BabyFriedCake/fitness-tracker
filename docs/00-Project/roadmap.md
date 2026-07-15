@@ -24,7 +24,7 @@ Owner: Product Owner
 - [x] S1-02 Code Quality
 - [x] S1-03 Navigation Shell
 - [x] S1-04 SQLite Bootstrap
-- [ ] S1-05 GitHub Actions CI
+- [x] S1-05 GitHub Actions CI
 - [ ] S1-06 Bootstrap Review
 
 ## Sprint 2 — Exercise Library
