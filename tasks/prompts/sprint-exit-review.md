@@ -200,3 +200,23 @@ List improvements before the next Sprint.
 YES / NO
 
 Explain why.
+
+## Output
+
+After completing the review:
+
+Generate:
+
+`docs/09-Release/Sprint-<Sprint Number>-Exit-Report.md`
+
+using:
+
+`docs/09-Release/Sprint-Exit-Report-Template.md`
+
+Requirements:
+
+- Create the Markdown file.
+- Do not only print the report in chat.
+- Fill every applicable section.
+- Use repository evidence whenever possible.
+- Wait for human review before commit.
