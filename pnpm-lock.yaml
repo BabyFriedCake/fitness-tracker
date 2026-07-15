@@ -40,6 +40,9 @@ importers:
       expo-splash-screen:
         specifier: ~57.0.2
         version: 57.0.2(expo@57.0.4(@babel/core@7.29.7)(@expo/dom-webview@57.0.0)(@expo/metro-runtime@57.0.3)(expo-router@57.0.4)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.0(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(typescript@6.0.3)
+      expo-sqlite:
+        specifier: ~57.0.0
+        version: 57.0.0(expo@57.0.4(@babel/core@7.29.7)(@expo/dom-webview@57.0.0)(@expo/metro-runtime@57.0.3)(expo-router@57.0.4)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.0(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
       expo-status-bar:
         specifier: ~57.0.0
         version: 57.0.0(expo@57.0.4(@babel/core@7.29.7)(@expo/dom-webview@57.0.0)(@expo/metro-runtime@57.0.3)(expo-router@57.0.4)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.0(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
@@ -89,6 +92,9 @@ importers:
       '@types/react':
         specifier: ~19.2.2
         version: 19.2.17
+      '@types/sql.js':
+        specifier: ^1.4.11
+        version: 1.4.11
       eslint:
         specifier: ^9.0.0
         version: 9.39.5
@@ -104,6 +110,9 @@ importers:
       prettier:
         specifier: ^3.9.5
         version: 3.9.5
+      sql.js:
+        specifier: ^1.14.1
+        version: 1.14.1
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
@@ -1325,6 +1334,9 @@ packages:
   '@types/babel__traverse@7.28.0':
     resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==, tarball: https://registry.npmjs.org/@types/babel__traverse/-/babel__traverse-7.28.0.tgz}
 
+  '@types/emscripten@1.41.5':
+    resolution: {integrity: sha512-cMQm7pxu6BxtHyqJ7mQZ2kXWV5SLmugybFdHCBbJ5eHzOo6VhBckEgAT3//rP5FwPHNPeEiq4SmQ5ucBwsOo4Q==, tarball: https://registry.npmjs.org/@types/emscripten/-/emscripten-1.41.5.tgz}
+
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==, tarball: https://registry.npmjs.org/@types/estree/-/estree-1.0.9.tgz}
 
@@ -1368,6 +1380,9 @@ packages:
 
   '@types/react@19.2.17':
     resolution: {integrity: sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw==, tarball: https://registry.npmjs.org/@types/react/-/react-19.2.17.tgz}
+
+  '@types/sql.js@1.4.11':
+    resolution: {integrity: sha512-QXIx38p2ZThJaK9vP5ZdqdlRe1FG9I8SmCZOS7FHfB/2qPAjZwkL7/vlfPg6N/oWHuuOaGg/P/IRwfP2W0kWVQ==, tarball: https://registry.npmjs.org/@types/sql.js/-/sql.js-1.4.11.tgz}
 
   '@types/stack-utils@2.0.3':
     resolution: {integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==, tarball: https://registry.npmjs.org/@types/stack-utils/-/stack-utils-2.0.3.tgz}
@@ -1714,6 +1729,9 @@ packages:
   available-typed-arrays@1.0.7:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==, tarball: https://registry.npmjs.org/available-typed-arrays/-/available-typed-arrays-1.0.7.tgz}
     engines: {node: '>= 0.4'}
+
+  await-lock@2.2.2:
+    resolution: {integrity: sha512-aDczADvlvTGajTDjcjpJMqRkOF6Qdz3YbPZm/PyW6tKPkx2hlYBzxMhEywM/tU72HrVZjgl5VCdRuMlA7pZ8Gw==, tarball: https://registry.npmjs.org/await-lock/-/await-lock-2.2.2.tgz}
 
   babel-jest@29.7.0:
     resolution: {integrity: sha512-BrvGY3xZSwEcCzKvKsCi2GgHqDqsYkOP4/by5xCgIwGXQxIEh+8ew3gmrE1y7XRR6LHZIj6yLYnUi/mm2KXKBg==, tarball: https://registry.npmjs.org/babel-jest/-/babel-jest-29.7.0.tgz}
@@ -2498,6 +2516,13 @@ packages:
     resolution: {integrity: sha512-xyfl+Twl5EiFKxYLKlofJi/r7mvdxwr/w9olUWYL4viEEpYCPCvj2YzZQtPptr/wMFe4G+X97W42sRWq6zdSfA==, tarball: https://registry.npmjs.org/expo-splash-screen/-/expo-splash-screen-57.0.2.tgz}
     peerDependencies:
       expo: '*'
+
+  expo-sqlite@57.0.0:
+    resolution: {integrity: sha512-BYTaLjO9+CMaEYIp5fdrO0RGTkaumZrNuDSQgFkeZe1MfKeDjiS1myg66jxJviWaqpycLq7QnRT11+bdO23JHQ==, tarball: https://registry.npmjs.org/expo-sqlite/-/expo-sqlite-57.0.0.tgz}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+      react-native: '*'
 
   expo-status-bar@57.0.0:
     resolution: {integrity: sha512-wq1fDVAjfrzCj67hOcvEkGpgRrb6xVI7oSA3bfsQ08SFk8il7vGixJq+xyEbtdcrI9CDiNKQrT3ZIjgnyGbbBA==, tarball: https://registry.npmjs.org/expo-status-bar/-/expo-status-bar-57.0.0.tgz}
@@ -4240,6 +4265,9 @@ packages:
 
   sprintf-js@1.0.3:
     resolution: {integrity: sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==, tarball: https://registry.npmjs.org/sprintf-js/-/sprintf-js-1.0.3.tgz}
+
+  sql.js@1.14.1:
+    resolution: {integrity: sha512-gcj8zBWU5cFsi9WUP+4bFNXAyF1iRpA3LLyS/DP5xlrNzGmPIizUeBggKa8DbDwdqaKwUcTEnChtd2grWo/x/A==, tarball: https://registry.npmjs.org/sql.js/-/sql.js-1.14.1.tgz}
 
   stable-hash@0.0.5:
     resolution: {integrity: sha512-+L3ccpzibovGXFK+Ap/f8LOS0ahMrHTf3xu7mMLSpEGU0EO9ucaysSylKo9eRDFNhWve/y275iPmIZ4z39a9iA==, tarball: https://registry.npmjs.org/stable-hash/-/stable-hash-0.0.5.tgz}
@@ -6405,6 +6433,8 @@ snapshots:
     dependencies:
       '@babel/types': 7.29.7
 
+  '@types/emscripten@1.41.5': {}
+
   '@types/estree@1.0.9': {}
 
   '@types/graceful-fs@4.1.9':
@@ -6453,6 +6483,11 @@ snapshots:
   '@types/react@19.2.17':
     dependencies:
       csstype: 3.2.3
+
+  '@types/sql.js@1.4.11':
+    dependencies:
+      '@types/emscripten': 1.41.5
+      '@types/node': 26.1.1
 
   '@types/stack-utils@2.0.3': {}
 
@@ -6802,6 +6837,8 @@ snapshots:
   available-typed-arrays@1.0.7:
     dependencies:
       possible-typed-array-names: 1.1.0
+
+  await-lock@2.2.2: {}
 
   babel-jest@29.7.0(@babel/core@7.29.7):
     dependencies:
@@ -7823,6 +7860,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
       - typescript
+
+  expo-sqlite@57.0.0(expo@57.0.4(@babel/core@7.29.7)(@expo/dom-webview@57.0.0)(@expo/metro-runtime@57.0.3)(expo-router@57.0.4)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.0(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3):
+    dependencies:
+      await-lock: 2.2.2
+      expo: 57.0.4(@babel/core@7.29.7)(@expo/dom-webview@57.0.0)(@expo/metro-runtime@57.0.3)(expo-router@57.0.4)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.0(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
+      react: 19.2.3
+      react-native: 0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3)
 
   expo-status-bar@57.0.0(expo@57.0.4(@babel/core@7.29.7)(@expo/dom-webview@57.0.0)(@expo/metro-runtime@57.0.3)(expo-router@57.0.4)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.0(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3):
     dependencies:
@@ -9960,6 +10004,8 @@ snapshots:
   split-on-first@1.1.0: {}
 
   sprintf-js@1.0.3: {}
+
+  sql.js@1.14.1: {}
 
   stable-hash@0.0.5: {}
 

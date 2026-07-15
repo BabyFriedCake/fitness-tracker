@@ -23,7 +23,7 @@ Owner: Product Owner
 - [x] S1-01 Workspace & Expo
 - [x] S1-02 Code Quality
 - [x] S1-03 Navigation Shell
-- [ ] S1-04 SQLite Bootstrap
+- [x] S1-04 SQLite Bootstrap
 - [ ] S1-05 GitHub Actions CI
 - [ ] S1-06 Bootstrap Review
 
