@@ -1,0 +1,17 @@
+{
+  "name": "fitness-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "mobile": "pnpm --filter mobile",
+    "start": "pnpm --filter mobile start",
+    "ios": "pnpm --filter mobile ios",
+    "android": "pnpm --filter mobile android",
+    "web": "pnpm --filter mobile web",
+    "lint": "pnpm --filter mobile lint",
+    "typecheck": "pnpm --filter mobile typecheck",
+    "test": "pnpm --filter mobile test",
+    "format": "pnpm --filter mobile format",
+    "format:check": "pnpm --filter mobile format:check"
+  }
+}
