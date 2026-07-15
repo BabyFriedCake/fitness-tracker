@@ -2,9 +2,21 @@ import { useEffect, useState } from 'react';
 
 import { initializeApplicationDatabase } from '@/database/bootstrap';
 import { createSqliteExerciseRepository } from '@/database/repositories/exercise';
-import type { Exercise } from '@/domain/exercise';
+import type {
+  Equipment,
+  Exercise,
+  ExerciseRepository,
+  MuscleGroup,
+} from '@/domain/exercise';
 
-import { loadExerciseLibrary } from './load-exercise-library';
+import {
+  EMPTY_EXERCISE_LIBRARY_FILTERS,
+  hasActiveExerciseLibraryFilters,
+  toggleExerciseLibraryEquipment,
+  toggleExerciseLibraryMuscleGroup,
+  type ExerciseLibraryFilters,
+} from './exercise-library-filters';
+import { filterExerciseLibrary } from './filter-exercise-library';
 
 export type ExerciseLibraryScreenState =
   | {
@@ -22,15 +34,33 @@ export type ExerciseLibraryScreenState =
       readonly message: string;
     };
 
-export function useExerciseLibrary(): ExerciseLibraryScreenState {
+export type ExerciseLibraryScreenControls = {
+  readonly filters: ExerciseLibraryFilters;
+  readonly hasActiveFilters: boolean;
+  readonly updateQuery: (queryText: string) => void;
+  readonly toggleMuscleGroup: (muscleGroup: MuscleGroup) => void;
+  readonly toggleEquipment: (equipment: Equipment) => void;
+  readonly clearFilters: () => void;
+};
+
+export type ExerciseLibraryScreenModel = {
+  readonly state: ExerciseLibraryScreenState;
+  readonly controls: ExerciseLibraryScreenControls;
+};
+
+export function useExerciseLibrary(): ExerciseLibraryScreenModel {
   const [state, setState] = useState<ExerciseLibraryScreenState>({
     status: 'loading',
   });
+  const [repository, setRepository] = useState<ExerciseRepository | null>(null);
+  const [filters, setFilters] = useState<ExerciseLibraryFilters>(
+    EMPTY_EXERCISE_LIBRARY_FILTERS,
+  );
 
   useEffect(() => {
     let isMounted = true;
 
-    async function loadExercises(): Promise<void> {
+    async function initializeRepository(): Promise<void> {
       const startupResult = await initializeApplicationDatabase();
 
       if (!isMounted) {
@@ -45,8 +75,26 @@ export function useExerciseLibrary(): ExerciseLibraryScreenState {
         return;
       }
 
-      const repository = createSqliteExerciseRepository(startupResult.database);
-      const result = await loadExerciseLibrary(repository);
+      setRepository(createSqliteExerciseRepository(startupResult.database));
+    }
+
+    void initializeRepository();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!repository) {
+      return;
+    }
+
+    const currentRepository = repository;
+    let isMounted = true;
+
+    async function loadExercises(): Promise<void> {
+      const result = await filterExerciseLibrary(currentRepository, filters);
 
       if (!isMounted) {
         return;
@@ -61,7 +109,7 @@ export function useExerciseLibrary(): ExerciseLibraryScreenState {
       }
 
       setState(
-        result.exercises.length > 0
+        result.exercises.length > 0 || hasActiveExerciseLibraryFilters(filters)
           ? {
               status: 'ready',
               exercises: result.exercises,
@@ -77,7 +125,32 @@ export function useExerciseLibrary(): ExerciseLibraryScreenState {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [filters, repository]);
 
-  return state;
+  return {
+    state,
+    controls: {
+      filters,
+      hasActiveFilters: hasActiveExerciseLibraryFilters(filters),
+      updateQuery: (queryText) => {
+        setFilters((currentFilters) => ({
+          ...currentFilters,
+          queryText,
+        }));
+      },
+      toggleMuscleGroup: (muscleGroup) => {
+        setFilters((currentFilters) =>
+          toggleExerciseLibraryMuscleGroup(currentFilters, muscleGroup),
+        );
+      },
+      toggleEquipment: (equipment) => {
+        setFilters((currentFilters) =>
+          toggleExerciseLibraryEquipment(currentFilters, equipment),
+        );
+      },
+      clearFilters: () => {
+        setFilters(EMPTY_EXERCISE_LIBRARY_FILTERS);
+      },
+    },
+  };
 }

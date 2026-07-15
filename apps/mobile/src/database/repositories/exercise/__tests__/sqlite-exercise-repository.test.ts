@@ -118,6 +118,22 @@ describe('SQLite ExerciseRepository', () => {
     ]);
   });
 
+  it('ignores search whitespace and combines search with filters', async () => {
+    const repository = createSqliteExerciseRepository(database);
+
+    const exercises = await repository.search(
+      { text: '  PRESS  ' },
+      {
+        muscleGroups: ['chest'],
+        equipment: ['dumbbell'],
+      },
+    );
+
+    expect(exercises.map((exercise) => exercise.id)).toEqual([
+      'exercise-incline-dumbbell-press',
+    ]);
+  });
+
   it('treats empty search text as the normal filtered list', async () => {
     const repository = createSqliteExerciseRepository(database);
 

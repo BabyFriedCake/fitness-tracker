@@ -1,20 +1,33 @@
 /// <reference types="jest" />
 
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 import {
   createExercise,
+  type Equipment,
   type Exercise,
   type ExerciseInput,
   type ExerciseRepository,
+  type MuscleGroup,
 } from '@/domain/exercise';
+import {
+  EMPTY_EXERCISE_LIBRARY_FILTERS,
+  hasActiveExerciseLibraryFilters,
+  toggleExerciseLibraryEquipment,
+  toggleExerciseLibraryMuscleGroup,
+} from '@/features/exercise-library/application/exercise-library-filters';
+import { filterExerciseLibrary } from '@/features/exercise-library/application/filter-exercise-library';
 import { loadExerciseLibrary } from '@/features/exercise-library/application/load-exercise-library';
+import type { ExerciseLibraryScreenControls } from '@/features/exercise-library/application/use-exercise-library';
 import { ExerciseLibraryContent } from '@/features/exercise-library/screens/exercise-library-screen';
 
 describe('Exercise Library screen', () => {
   it('renders the loading state', async () => {
     const { getByText } = await render(
-      <ExerciseLibraryContent state={{ status: 'loading' }} />,
+      <ExerciseLibraryContent
+        state={{ status: 'loading' }}
+        controls={buildControls()}
+      />,
     );
 
     expect(getByText('正在加载动作库')).toBeTruthy();
@@ -22,7 +35,10 @@ describe('Exercise Library screen', () => {
 
   it('renders the empty state', async () => {
     const { getByText } = await render(
-      <ExerciseLibraryContent state={{ status: 'empty' }} />,
+      <ExerciseLibraryContent
+        state={{ status: 'empty' }}
+        controls={buildControls()}
+      />,
     );
 
     expect(getByText('还没有可用动作')).toBeTruthy();
@@ -34,6 +50,7 @@ describe('Exercise Library screen', () => {
   it('renders the error state with persistent recovery copy', async () => {
     const { getByText } = await render(
       <ExerciseLibraryContent
+        controls={buildControls()}
         state={{
           status: 'error',
           message: '动作库加载失败。已保存的训练数据不会受影响，请稍后重试。',
@@ -67,6 +84,7 @@ describe('Exercise Library screen', () => {
 
     const { getByText, getByLabelText } = await render(
       <ExerciseLibraryContent
+        controls={buildControls()}
         state={{
           status: 'ready',
           exercises,
@@ -78,6 +96,84 @@ describe('Exercise Library screen', () => {
     expect(getByText('高位下拉')).toBeTruthy();
     expect(getByText('胸 · 杠铃')).toBeTruthy();
     expect(getByLabelText('杠铃卧推，胸，杠铃')).toBeTruthy();
+  });
+
+  it('renders actionable no-results copy and clear action', async () => {
+    const clearFilters = jest.fn();
+    const { getByText, getAllByLabelText } = await render(
+      <ExerciseLibraryContent
+        controls={buildControls({
+          filters: {
+            ...EMPTY_EXERCISE_LIBRARY_FILTERS,
+            queryText: 'unknown',
+          },
+          hasActiveFilters: true,
+          clearFilters,
+        })}
+        state={{
+          status: 'ready',
+          exercises: [],
+        }}
+      />,
+    );
+
+    expect(getByText('没有找到匹配动作')).toBeTruthy();
+    expect(getByText('换个关键词，或清除筛选后再试。')).toBeTruthy();
+
+    fireEvent.press(getAllByLabelText('清除搜索和筛选条件')[0]);
+
+    expect(clearFilters).toHaveBeenCalled();
+  });
+
+  it('submits controlled Chinese search text changes', async () => {
+    const updateQuery = jest.fn();
+    const { getByLabelText } = await render(
+      <ExerciseLibraryContent
+        controls={buildControls({ updateQuery })}
+        state={{
+          status: 'ready',
+          exercises: [buildExercise()],
+        }}
+      />,
+    );
+
+    fireEvent.changeText(getByLabelText('搜索动作'), '卧推');
+
+    expect(updateQuery).toHaveBeenCalledWith('卧推');
+  });
+
+  it('toggles muscle-group and equipment filter chips', async () => {
+    const toggleMuscleGroup = jest.fn();
+    const toggleEquipment = jest.fn();
+    const { getByLabelText } = await render(
+      <ExerciseLibraryContent
+        controls={buildControls({
+          filters: {
+            ...EMPTY_EXERCISE_LIBRARY_FILTERS,
+            muscleGroups: ['chest'],
+            equipment: ['barbell'],
+          },
+          toggleMuscleGroup,
+          toggleEquipment,
+        })}
+        state={{
+          status: 'ready',
+          exercises: [buildExercise()],
+        }}
+      />,
+    );
+
+    const chestChip = getByLabelText('按肌群筛选：胸');
+    const barbellChip = getByLabelText('按器械筛选：杠铃');
+
+    expect(chestChip.props.accessibilityState).toEqual({ selected: true });
+    expect(barbellChip.props.accessibilityState).toEqual({ selected: true });
+
+    fireEvent.press(chestChip);
+    fireEvent.press(barbellChip);
+
+    expect(toggleMuscleGroup).toHaveBeenCalledWith('chest');
+    expect(toggleEquipment).toHaveBeenCalledWith('barbell');
   });
 });
 
@@ -108,6 +204,86 @@ describe('loadExerciseLibrary', () => {
   });
 });
 
+describe('filterExerciseLibrary', () => {
+  it('trims English search text and combines repository filters', async () => {
+    const exercises = [buildExercise()];
+    const search = jest.fn(async () => exercises);
+    const repository = buildRepository({
+      search,
+    });
+
+    await expect(
+      filterExerciseLibrary(repository, {
+        queryText: '  bench PRESS  ',
+        muscleGroups: ['chest'],
+        equipment: ['barbell'],
+      }),
+    ).resolves.toEqual({
+      status: 'ready',
+      exercises,
+    });
+
+    expect(search).toHaveBeenCalledWith(
+      { text: 'bench PRESS' },
+      {
+        muscleGroups: ['chest'],
+        equipment: ['barbell'],
+      },
+    );
+  });
+
+  it('uses filtered browse results when the search text is empty', async () => {
+    const exercises = [buildExercise()];
+    const listByFilters = jest.fn(async () => exercises);
+    const repository = buildRepository({
+      listByFilters,
+    });
+
+    await filterExerciseLibrary(repository, {
+      queryText: '   ',
+      muscleGroups: ['back'],
+      equipment: [],
+    });
+
+    expect(listByFilters).toHaveBeenCalledWith({
+      muscleGroups: ['back'],
+      equipment: undefined,
+    });
+  });
+
+  it('uses the full browse list when there are no active filters', async () => {
+    const exercises = [buildExercise()];
+    const list = jest.fn(async () => exercises);
+    const repository = buildRepository({
+      list,
+    });
+
+    await filterExerciseLibrary(repository, EMPTY_EXERCISE_LIBRARY_FILTERS);
+
+    expect(list).toHaveBeenCalled();
+  });
+});
+
+describe('exercise library filter state', () => {
+  it('tracks active filters and clearable state', () => {
+    const selectedMuscleGroup = toggleExerciseLibraryMuscleGroup(
+      EMPTY_EXERCISE_LIBRARY_FILTERS,
+      'chest',
+    );
+    const selectedEquipment = toggleExerciseLibraryEquipment(
+      selectedMuscleGroup,
+      'barbell',
+    );
+
+    expect(hasActiveExerciseLibraryFilters(selectedEquipment)).toBe(true);
+    expect(EMPTY_EXERCISE_LIBRARY_FILTERS).toEqual({
+      queryText: '',
+      muscleGroups: [],
+      equipment: [],
+    });
+  });
+});
+
 function buildExercise(overrides: Partial<ExerciseInput> = {}): Exercise {
   return createExercise({
     id: 'exercise-default',
@@ -127,6 +303,23 @@ function buildExercise(overrides: Partial<ExerciseInput> = {}): Exercise {
     updatedAt: '2026-07-15T00:00:00.000Z',
     ...overrides,
   });
+}
+
+function buildControls(
+  overrides: Partial<ExerciseLibraryScreenControls> = {},
+): ExerciseLibraryScreenControls {
+  const filters = overrides.filters ?? EMPTY_EXERCISE_LIBRARY_FILTERS;
+
+  return {
+    filters,
+    hasActiveFilters:
+      overrides.hasActiveFilters ?? hasActiveExerciseLibraryFilters(filters),
+    updateQuery: jest.fn(),
+    toggleMuscleGroup: jest.fn<void, [MuscleGroup]>(),
+    toggleEquipment: jest.fn<void, [Equipment]>(),
+    clearFilters: jest.fn(),
+    ...overrides,
+  };
 }
 
 function buildRepository(
