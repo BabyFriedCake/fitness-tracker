@@ -1,39 +1,11 @@
+# Prototype Review Checklist
 
-# Prototype Checklist
-
-完成一个页面前，必须全部勾选。
-
-## 产品
-
-- [ ] 页面目标明确
-- [ ] 用户故事完整
-- [ ] 页面入口/出口清晰
-- [ ] V1 范围明确
-
-## 页面
-
-- [ ] ASCII Wireframe
-- [ ] 页面布局
-- [ ] 页面组件
-- [ ] 页面状态
-
-## 交互
-
-- [ ] 每个按钮都有行为定义
-- [ ] State Machine 完整
-- [ ] Navigation 完整
-- [ ] Edge Cases 完整
-
-## 数据
-
-- [ ] Data Dependency
-- [ ] Source of Truth
-- [ ] 与 Domain Model 一致
-
-## 开发
-
-- [ ] Analytics 已定义
-- [ ] Acceptance Criteria 可测试
-- [ ] Future Extension 已说明
-
-只有全部完成，页面才能从 Draft → Approved。
+- [ ] 页面目标、职责和用户故事明确
+- [ ] Entry、Exit、Navigation 完整
+- [ ] Wireframe 与信息层级完整
+- [ ] 组件引用 Design System
+- [ ] Data Dependency 与 Source of Truth 明确
+- [ ] Loading、Empty、Normal、Error 等状态完整
+- [ ] 重复点击、后台、恢复、数据异常已覆盖
+- [ ] Analytics 与 Acceptance Criteria 可执行
+- [ ] 与 PRD、Domain Model、Database、Design System 一致

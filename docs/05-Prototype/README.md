@@ -1,17 +1,23 @@
 # Fitness Tracker Prototype
 
-Version: v1.0  
-Status: Approved
+Version: v1.0
+Status: Review Baseline
 
-页面清单：
+本目录是 V1 页面行为的唯一事实来源。
 
-- P001 Today 首页
-- P002 创建训练模板
-- P003 开始训练与创建 Session
-- P004 训练执行
-- P005 组间休息计时
-- P006 训练总结
-- P007 动作库
-- P008 历史与成长分析
-- P009 我的与设置
-- P010 首次启动流程
+核心流程：
+
+```text
+P010 Onboarding
+→ P002 Workout Template
+→ P001 Today
+→ P003 Start Workout
+→ P004 Workout
+→ P005 Rest Timer
+→ P004
+→ P006 Workout Summary
+→ P008 History
+```
+
+页面：
+P001 Today、P002 Workout Template、P003 Start Workout、P004 Workout、P005 Rest Timer、P006 Workout Summary、P007 Exercise Library、P008 History、P009 Settings、P010 Onboarding。
