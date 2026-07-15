@@ -1,6 +1,14 @@
 # S2-02 — Exercise Seed Data Boundary and Import
 
-Execution Prompt: `tasks/prompts/implement-task.md`
+Execution Prompt
+
+Before doing anything:
+
+Read and follow:
+
+tasks/prompts/implement-task.md
+
+Implementation MUST stop if this prompt cannot be read.
 
 ## Goal
 
