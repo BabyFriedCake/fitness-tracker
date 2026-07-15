@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TextInput,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -31,17 +32,31 @@ import {
 import { useTheme } from '@/hooks/use-theme';
 
 export function ExerciseLibraryScreen() {
-  return <ExerciseLibraryContent {...useExerciseLibrary()} />;
+  const router = useRouter();
+
+  return (
+    <ExerciseLibraryContent
+      {...useExerciseLibrary()}
+      onOpenExercise={(exercise) => {
+        router.push({
+          pathname: '/exercises/[id]',
+          params: { id: exercise.id },
+        });
+      }}
+    />
+  );
 }
 
 export type ExerciseLibraryContentProps = {
   readonly state: ExerciseLibraryScreenState;
   readonly controls: ExerciseLibraryScreenControls;
+  readonly onOpenExercise: (exercise: Exercise) => void;
 };
 
 export function ExerciseLibraryContent({
   state,
   controls,
+  onOpenExercise,
 }: ExerciseLibraryContentProps) {
   return (
     <ThemedView style={styles.container}>
@@ -61,7 +76,10 @@ export function ExerciseLibraryContent({
             <>
               <ExerciseLibraryControls controls={controls} />
               {state.exercises.length > 0 ? (
-                <ExerciseList exercises={state.exercises} />
+                <ExerciseList
+                  exercises={state.exercises}
+                  onOpenExercise={onOpenExercise}
+                />
               ) : (
                 <NoResultsState onClearFilters={controls.clearFilters} />
               )}
@@ -273,14 +291,18 @@ function ErrorState({ message }: { readonly message: string }) {
 
 function ExerciseList({
   exercises,
+  onOpenExercise,
 }: {
   readonly exercises: readonly Exercise[];
+  readonly onOpenExercise: (exercise: Exercise) => void;
 }) {
   return (
     <FlatList
       data={exercises}
       keyExtractor={(exercise) => exercise.id}
-      renderItem={({ item }) => <ExerciseRow exercise={item} />}
+      renderItem={({ item }) => (
+        <ExerciseRow exercise={item} onPress={onOpenExercise} />
+      )}
       contentContainerStyle={styles.listContent}
       ItemSeparatorComponent={ListSeparator}
       initialNumToRender={12}

@@ -27,6 +27,7 @@ describe('Exercise Library screen', () => {
       <ExerciseLibraryContent
         state={{ status: 'loading' }}
         controls={buildControls()}
+        onOpenExercise={jest.fn()}
       />,
     );
 
@@ -38,6 +39,7 @@ describe('Exercise Library screen', () => {
       <ExerciseLibraryContent
         state={{ status: 'empty' }}
         controls={buildControls()}
+        onOpenExercise={jest.fn()}
       />,
     );
 
@@ -51,6 +53,7 @@ describe('Exercise Library screen', () => {
     const { getByText } = await render(
       <ExerciseLibraryContent
         controls={buildControls()}
+        onOpenExercise={jest.fn()}
         state={{
           status: 'error',
           message: '动作库加载失败。已保存的训练数据不会受影响，请稍后重试。',
@@ -85,6 +88,7 @@ describe('Exercise Library screen', () => {
     const { getByText, getByLabelText } = await render(
       <ExerciseLibraryContent
         controls={buildControls()}
+        onOpenExercise={jest.fn()}
         state={{
           status: 'ready',
           exercises,
@@ -95,7 +99,31 @@ describe('Exercise Library screen', () => {
     expect(getByText('杠铃卧推')).toBeTruthy();
     expect(getByText('高位下拉')).toBeTruthy();
     expect(getByText('胸 · 杠铃')).toBeTruthy();
-    expect(getByLabelText('杠铃卧推，胸，杠铃')).toBeTruthy();
+    expect(getByLabelText('查看杠铃卧推详情，胸，杠铃')).toBeTruthy();
+  });
+
+  it('opens the selected exercise detail from the list row', async () => {
+    const onOpenExercise = jest.fn();
+    const exercise = buildExercise({
+      id: 'exercise-barbell-bench-press',
+      nameZh: '杠铃卧推',
+      primaryMuscleGroup: 'chest',
+      equipment: 'barbell',
+    });
+    const { getByLabelText } = await render(
+      <ExerciseLibraryContent
+        controls={buildControls()}
+        onOpenExercise={onOpenExercise}
+        state={{
+          status: 'ready',
+          exercises: [exercise],
+        }}
+      />,
+    );
+
+    fireEvent.press(getByLabelText('查看杠铃卧推详情，胸，杠铃'));
+
+    expect(onOpenExercise).toHaveBeenCalledWith(exercise);
   });
 
   it('renders actionable no-results copy and clear action', async () => {
@@ -110,6 +138,7 @@ describe('Exercise Library screen', () => {
           hasActiveFilters: true,
           clearFilters,
         })}
+        onOpenExercise={jest.fn()}
         state={{
           status: 'ready',
           exercises: [],
@@ -130,6 +159,7 @@ describe('Exercise Library screen', () => {
     const { getByLabelText } = await render(
       <ExerciseLibraryContent
         controls={buildControls({ updateQuery })}
+        onOpenExercise={jest.fn()}
         state={{
           status: 'ready',
           exercises: [buildExercise()],
@@ -156,6 +186,7 @@ describe('Exercise Library screen', () => {
           toggleMuscleGroup,
           toggleEquipment,
         })}
+        onOpenExercise={jest.fn()}
         state={{
           status: 'ready',
           exercises: [buildExercise()],
