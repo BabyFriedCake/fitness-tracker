@@ -6,7 +6,7 @@ Before doing anything:
 
 Read and follow:
 
-tasks/prompts/implement-task.md
+tasks/prompts/sprint-exit-review.md
 
 Implementation MUST stop if this prompt cannot be read.
 
