@@ -331,6 +331,8 @@ function buildEditModel(
       updateName: jest.fn(),
       updateDescription: jest.fn(),
       updateExerciseConfig: jest.fn(),
+      moveExerciseUp: jest.fn(),
+      moveExerciseDown: jest.fn(),
       requestRemoveExercise: jest.fn(),
       cancelRemoveExercise: jest.fn(),
       confirmRemoveExercise: jest.fn(),

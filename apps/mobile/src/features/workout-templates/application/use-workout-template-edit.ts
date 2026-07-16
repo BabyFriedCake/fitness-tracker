@@ -79,6 +79,8 @@ export type WorkoutTemplateEditScreenControls = {
     field: 'targetSets' | 'targetRepsMin' | 'targetRepsMax' | 'restSeconds',
     value: string,
   ) => void;
+  readonly moveExerciseUp: (exerciseId: ExerciseId) => void;
+  readonly moveExerciseDown: (exerciseId: ExerciseId) => void;
   readonly requestRemoveExercise: (exerciseId: ExerciseId) => void;
   readonly cancelRemoveExercise: () => void;
   readonly confirmRemoveExercise: () => void;
@@ -400,6 +402,18 @@ export function useWorkoutTemplateEdit(
     [],
   );
 
+  const moveExerciseUp = useCallback((exerciseId: ExerciseId) => {
+    setState((currentState) =>
+      moveExerciseInReadyDraft(currentState, exerciseId, -1),
+    );
+  }, []);
+
+  const moveExerciseDown = useCallback((exerciseId: ExerciseId) => {
+    setState((currentState) =>
+      moveExerciseInReadyDraft(currentState, exerciseId, 1),
+    );
+  }, []);
+
   const requestRemoveExercise = useCallback((exerciseId: ExerciseId) => {
     setState((currentState) =>
       currentState.status === 'ready' &&
@@ -648,6 +662,8 @@ export function useWorkoutTemplateEdit(
       updateName,
       updateDescription,
       updateExerciseConfig,
+      moveExerciseUp,
+      moveExerciseDown,
       requestRemoveExercise,
       cancelRemoveExercise,
       confirmRemoveExercise,
@@ -771,6 +787,44 @@ function updateReadyDraft(
     },
     fieldErrors: updates.fieldErrors ?? state.fieldErrors,
     saveError: updates.saveError,
+    isSaved: false,
+    isExitAuthorized: false,
+  };
+}
+
+function moveExerciseInReadyDraft(
+  state: WorkoutTemplateEditScreenState,
+  exerciseId: ExerciseId,
+  direction: -1 | 1,
+): WorkoutTemplateEditScreenState {
+  if (
+    state.status !== 'ready' ||
+    state.templateStatus === 'archived' ||
+    state.isSaving
+  ) {
+    return state;
+  }
+
+  const fromIndex = state.draft.exercises.findIndex(
+    (exercise) => exercise.exerciseId === exerciseId,
+  );
+  const toIndex = fromIndex + direction;
+
+  if (fromIndex < 0 || toIndex < 0 || toIndex >= state.draft.exercises.length) {
+    return state;
+  }
+
+  const exercises = [...state.draft.exercises];
+  const [exercise] = exercises.splice(fromIndex, 1);
+  exercises.splice(toIndex, 0, exercise);
+
+  return {
+    ...state,
+    draft: {
+      ...state.draft,
+      exercises,
+    },
+    saveError: undefined,
     isSaved: false,
     isExitAuthorized: false,
   };

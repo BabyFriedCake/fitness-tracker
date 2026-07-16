@@ -469,25 +469,29 @@ function ExerciseEditorList({
                 </ThemedText>
               )}
             </ThemedView>
-            <Pressable
-              disabled={disabled}
-              onPress={() =>
-                controls.requestRemoveExercise(exercise.exerciseId)
-              }
-              accessibilityRole="button"
-              accessibilityState={{ disabled }}
-              accessibilityLabel={`移除动作${exercise.exercise?.nameZh ?? exercise.exerciseId}`}
-              style={({ pressed }) => [
-                styles.dangerButton,
-                {
-                  borderColor: theme.backgroundSelected,
-                  opacity: disabled ? 0.56 : 1,
-                },
-                pressed && !disabled && styles.pressed,
-              ]}
-            >
-              <ThemedText type="smallBold">删除</ThemedText>
-            </Pressable>
+            <ThemedView style={styles.exerciseActions}>
+              <ExerciseActionButton
+                label="上移"
+                accessibilityLabel={`上移动作${exercise.exercise?.nameZh ?? exercise.exerciseId}`}
+                disabled={disabled || index === 0}
+                onPress={() => controls.moveExerciseUp(exercise.exerciseId)}
+              />
+              <ExerciseActionButton
+                label="下移"
+                accessibilityLabel={`下移动作${exercise.exercise?.nameZh ?? exercise.exerciseId}`}
+                disabled={disabled || index === draft.exercises.length - 1}
+                onPress={() => controls.moveExerciseDown(exercise.exerciseId)}
+              />
+              <ExerciseActionButton
+                label="删除"
+                accessibilityLabel={`移除动作${exercise.exercise?.nameZh ?? exercise.exerciseId}`}
+                disabled={disabled}
+                variant="danger"
+                onPress={() =>
+                  controls.requestRemoveExercise(exercise.exerciseId)
+                }
+              />
+            </ThemedView>
           </ThemedView>
 
           <ThemedView style={styles.configGrid}>
@@ -553,6 +557,44 @@ function ExerciseEditorList({
         </ThemedView>
       ))}
     </ThemedView>
+  );
+}
+
+function ExerciseActionButton({
+  label,
+  accessibilityLabel,
+  disabled,
+  variant = 'secondary',
+  onPress,
+}: {
+  readonly label: string;
+  readonly accessibilityLabel: string;
+  readonly disabled: boolean;
+  readonly variant?: 'secondary' | 'danger';
+  readonly onPress: () => void;
+}) {
+  const theme = useTheme();
+  const buttonStyle =
+    variant === 'danger' ? styles.dangerButton : styles.secondaryButton;
+
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      accessibilityLabel={accessibilityLabel}
+      style={({ pressed }) => [
+        buttonStyle,
+        {
+          borderColor: theme.backgroundSelected,
+          opacity: disabled ? 0.56 : 1,
+        },
+        pressed && !disabled && styles.pressed,
+      ]}
+    >
+      <ThemedText type="smallBold">{label}</ThemedText>
+    </Pressable>
   );
 }
 
@@ -780,6 +822,10 @@ const styles = StyleSheet.create({
   },
   exerciseCopy: {
     flex: 1,
+    gap: Spacing.one,
+  },
+  exerciseActions: {
+    alignItems: 'flex-end',
     gap: Spacing.one,
   },
   configGrid: {

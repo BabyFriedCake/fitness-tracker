@@ -520,6 +520,83 @@ describe('useWorkoutTemplateEdit', () => {
     );
   });
 
+  it('reorders exercises and saves stable consecutive positions', async () => {
+    const update = jest.fn(async (input) =>
+      createWorkoutTemplate({
+        ...input,
+        status: 'active',
+        createdAt: '2026-07-16T00:00:00.000Z',
+      }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutTemplateEdit(
+        {
+          id: 'template-push',
+        },
+        {
+          initializeDatabase: async () => buildStartupResult(),
+          createWorkoutTemplateRepository: () =>
+            buildRepository({
+              getById: async () => buildTemplateWithTwoExercises(),
+              update,
+            }),
+          createExerciseRepository: () =>
+            buildExerciseRepository({
+              getById: async (id) =>
+                id === 'exercise-row'
+                  ? buildExercise({ id: 'exercise-row', nameZh: '坐姿划船' })
+                  : buildExercise({ id: 'exercise-bench' }),
+            }),
+          now: () => '2026-07-16T01:00:00.000Z',
+        },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.state).toMatchObject({
+        status: 'ready',
+        draft: {
+          exercises: [
+            expect.objectContaining({ exerciseId: 'exercise-bench' }),
+            expect.objectContaining({ exerciseId: 'exercise-row' }),
+          ],
+        },
+      });
+    });
+
+    await act(async () => {
+      result.current.controls.moveExerciseUp('exercise-row' as ExerciseId);
+    });
+    expect(result.current.state).toMatchObject({
+      status: 'ready',
+      draft: {
+        exercises: [
+          expect.objectContaining({ exerciseId: 'exercise-row' }),
+          expect.objectContaining({ exerciseId: 'exercise-bench' }),
+        ],
+      },
+    });
+
+    await act(async () => {
+      await result.current.controls.save();
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        exercises: [
+          expect.objectContaining({
+            exerciseId: 'exercise-row',
+            position: 1,
+          }),
+          expect.objectContaining({
+            exerciseId: 'exercise-bench',
+            position: 2,
+          }),
+        ],
+      }),
+    );
+  });
+
   it('keeps a valid empty exercise draft across selection return without restoring database exercises', async () => {
     const routeParams = {
       id: 'template-push',
@@ -673,12 +750,15 @@ describe('useWorkoutTemplateEdit', () => {
           initializeDatabase: async () => buildStartupResult(),
           createWorkoutTemplateRepository: () =>
             buildRepository({
-              getById: async () => buildTemplate(),
+              getById: async () => buildTemplateWithTwoExercises(),
               update,
             }),
           createExerciseRepository: () =>
             buildExerciseRepository({
-              getById: async () => buildExercise({ id: 'exercise-bench' }),
+              getById: async (id) =>
+                id === 'exercise-row'
+                  ? buildExercise({ id: 'exercise-row', nameZh: '坐姿划船' })
+                  : buildExercise({ id: 'exercise-bench' }),
             }),
         },
       ),
@@ -709,6 +789,7 @@ describe('useWorkoutTemplateEdit', () => {
         'targetSets',
         '9',
       );
+      result.current.controls.moveExerciseUp('exercise-row' as ExerciseId);
       result.current.controls.requestRemoveExercise(
         'exercise-bench' as ExerciseId,
       );
@@ -719,7 +800,13 @@ describe('useWorkoutTemplateEdit', () => {
       draft: {
         name: 'Push',
         description: 'Chest',
-        exercises: [expect.objectContaining({ targetSets: '3' })],
+        exercises: [
+          expect.objectContaining({
+            exerciseId: 'exercise-bench',
+            targetSets: '3',
+          }),
+          expect.objectContaining({ exerciseId: 'exercise-row' }),
+        ],
       },
     });
     expect('pendingRemoveExerciseId' in result.current.state).toBe(false);
@@ -881,6 +968,18 @@ describe('useWorkoutTemplateEdit', () => {
                       createdAt: '2026-07-16T00:00:00.000Z',
                       updatedAt: '2026-07-16T00:00:00.000Z',
                     },
+                    {
+                      id: 'template-exercise-row',
+                      templateId: 'template-push',
+                      exerciseId: 'exercise-row',
+                      position: 2,
+                      targetSets: 4,
+                      targetRepsMin: 10,
+                      targetRepsMax: 12,
+                      restSeconds: 120,
+                      createdAt: '2026-07-16T00:00:00.000Z',
+                      updatedAt: '2026-07-16T00:00:00.000Z',
+                    },
                   ],
                   createdAt: '2026-07-16T00:00:00.000Z',
                   updatedAt: '2026-07-16T02:00:00.000Z',
@@ -889,7 +988,10 @@ describe('useWorkoutTemplateEdit', () => {
             }),
           createExerciseRepository: () =>
             buildExerciseRepository({
-              getById: async () => buildExercise({ id: 'exercise-bench' }),
+              getById: async (id) =>
+                id === 'exercise-row'
+                  ? buildExercise({ id: 'exercise-row', nameZh: '坐姿划船' })
+                  : buildExercise({ id: 'exercise-bench' }),
             }),
         },
       ),
@@ -910,6 +1012,7 @@ describe('useWorkoutTemplateEdit', () => {
         'targetSets',
         '9',
       );
+      result.current.controls.moveExerciseDown('exercise-bench' as ExerciseId);
       result.current.controls.requestRemoveExercise(
         'exercise-bench' as ExerciseId,
       );
@@ -922,7 +1025,13 @@ describe('useWorkoutTemplateEdit', () => {
       status: 'ready',
       draft: {
         name: 'Archived Push',
-        exercises: [expect.objectContaining({ targetSets: '3' })],
+        exercises: [
+          expect.objectContaining({
+            exerciseId: 'exercise-bench',
+            targetSets: '3',
+          }),
+          expect.objectContaining({ exerciseId: 'exercise-row' }),
+        ],
       },
     });
     expect('pendingRemoveExerciseId' in result.current.state).toBe(false);
@@ -1131,6 +1240,53 @@ describe('WorkoutTemplateEditContent', () => {
     expect(confirmRemoveExercise).toHaveBeenCalled();
   });
 
+  it('renders reorder controls and disables impossible moves', async () => {
+    const moveExerciseUp = jest.fn();
+    const moveExerciseDown = jest.fn();
+    const { getByLabelText } = await render(
+      <WorkoutTemplateEditContent
+        state={buildReadyState({
+          draft: {
+            ...buildReadyState().draft,
+            exercises: [
+              buildEditExercise(),
+              buildEditExercise({
+                id: 'template-exercise-row' as TemplateExerciseId,
+                exerciseId: 'exercise-row' as ExerciseId,
+                exercise: buildExercise({
+                  id: 'exercise-row',
+                  nameZh: '坐姿划船',
+                }),
+              }),
+            ],
+          },
+        })}
+        controls={buildControls({ moveExerciseUp, moveExerciseDown })}
+        onAddExercise={jest.fn()}
+        onExit={jest.fn()}
+        onCancelExit={jest.fn()}
+        onConfirmExit={jest.fn()}
+      />,
+    );
+
+    expect(getByLabelText('上移动作杠铃卧推').props.accessibilityState).toEqual(
+      {
+        disabled: true,
+      },
+    );
+    expect(getByLabelText('下移动作坐姿划船').props.accessibilityState).toEqual(
+      {
+        disabled: true,
+      },
+    );
+
+    await fireEvent.press(getByLabelText('下移动作杠铃卧推'));
+    await fireEvent.press(getByLabelText('上移动作坐姿划船'));
+
+    expect(moveExerciseDown).toHaveBeenCalledWith('exercise-bench');
+    expect(moveExerciseUp).toHaveBeenCalledWith('exercise-row');
+  });
+
   it('shows archived templates as read-only', async () => {
     const { getByText, getByLabelText } = await render(
       <WorkoutTemplateEditContent
@@ -1172,6 +1328,16 @@ describe('WorkoutTemplateEditContent', () => {
       },
     );
     expect(getByLabelText('移除动作杠铃卧推').props.accessibilityState).toEqual(
+      {
+        disabled: true,
+      },
+    );
+    expect(getByLabelText('上移动作杠铃卧推').props.accessibilityState).toEqual(
+      {
+        disabled: true,
+      },
+    );
+    expect(getByLabelText('下移动作杠铃卧推').props.accessibilityState).toEqual(
       {
         disabled: true,
       },
@@ -1229,7 +1395,48 @@ function buildTemplate(): WorkoutTemplate {
   });
 }
 
-function buildEditExercise() {
+function buildTemplateWithTwoExercises(): WorkoutTemplate {
+  return createWorkoutTemplate({
+    ...buildTemplate(),
+    exercises: [
+      {
+        id: 'template-exercise-bench',
+        templateId: 'template-push',
+        exerciseId: 'exercise-bench',
+        position: 1,
+        targetSets: 3,
+        targetRepsMin: 8,
+        targetRepsMax: 10,
+        restSeconds: 90,
+        createdAt: '2026-07-16T00:10:00.000Z',
+        updatedAt: '2026-07-16T00:10:00.000Z',
+      },
+      {
+        id: 'template-exercise-row',
+        templateId: 'template-push',
+        exerciseId: 'exercise-row',
+        position: 2,
+        targetSets: 4,
+        targetRepsMin: 10,
+        targetRepsMax: 12,
+        restSeconds: 120,
+        createdAt: '2026-07-16T00:20:00.000Z',
+        updatedAt: '2026-07-16T00:20:00.000Z',
+      },
+    ],
+  });
+}
+
+function buildEditExercise(
+  overrides: Partial<ReturnType<typeof buildEditExerciseBase>> = {},
+) {
+  return {
+    ...buildEditExerciseBase(),
+    ...overrides,
+  };
+}
+
+function buildEditExerciseBase() {
   return {
     id: 'template-exercise-bench' as TemplateExerciseId,
     exerciseId: 'exercise-bench' as ExerciseId,
@@ -1344,6 +1551,8 @@ function buildControls(
     updateName: jest.fn(),
     updateDescription: jest.fn(),
     updateExerciseConfig: jest.fn(),
+    moveExerciseUp: jest.fn(),
+    moveExerciseDown: jest.fn(),
     requestRemoveExercise: jest.fn(),
     cancelRemoveExercise: jest.fn(),
     confirmRemoveExercise: jest.fn(),

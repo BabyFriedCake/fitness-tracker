@@ -307,6 +307,54 @@ describe('SQLite WorkoutTemplateRepository', () => {
     );
   });
 
+  it('persists reordered template exercises with consecutive positions', async () => {
+    const repository = createSqliteWorkoutTemplateRepository(database);
+
+    await repository.create(
+      buildCreateInput({
+        exercises: [
+          buildTemplateExerciseInput({
+            id: 'template-exercise-bench',
+            position: 1,
+            exerciseId: 'exercise-bench-press',
+          }),
+          buildTemplateExerciseInput({
+            id: 'template-exercise-row',
+            position: 2,
+            exerciseId: 'exercise-row',
+          }),
+        ],
+      }),
+    );
+
+    await repository.update(
+      buildUpdateInput({
+        exercises: [
+          buildTemplateExerciseInput({
+            id: 'template-exercise-row',
+            position: 1,
+            exerciseId: 'exercise-row',
+          }),
+          buildTemplateExerciseInput({
+            id: 'template-exercise-bench',
+            position: 2,
+            exerciseId: 'exercise-bench-press',
+          }),
+        ],
+      }),
+    );
+
+    const detail = await repository.getById(toTemplateId('template-push'));
+
+    expect(detail?.exercises.map((exercise) => exercise.exerciseId)).toEqual([
+      'exercise-row',
+      'exercise-bench-press',
+    ]);
+    expect(detail?.exercises.map((exercise) => exercise.position)).toEqual([
+      1, 2,
+    ]);
+  });
+
   it('updates template content without overwriting lifecycle fields', async () => {
     const repository = createSqliteWorkoutTemplateRepository(database);
 
