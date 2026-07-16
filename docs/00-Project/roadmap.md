@@ -65,17 +65,29 @@ Exit Review：PASS
 
 ---
 
-## Sprint 3（🚧 计划中）
+## Sprint 3（✅ 已完成）
 
 ### 训练模板（Workout Templates）
 
-- [ ] Template Repository
-- [ ] 模板列表
-- [ ] 创建模板
-- [ ] 编辑模板
-- [ ] 动作配置
-- [ ] 动作排序
-- [ ] 模板归档
+完成时间：2026-07-16
+
+Tag：待创建
+
+Release：待创建
+
+Exit Review：PASS WITH WARNINGS
+
+#### 已完成
+
+- [x] S3-01 Template domain and contracts
+- [x] S3-02 Template schema and migration
+- [x] S3-03 Template repository
+- [x] S3-04 Template list screen
+- [x] S3-05 Create template
+- [x] S3-06 Edit template
+- [x] S3-07 Exercise configuration and reordering
+- [x] S3-08 Template archive
+- [x] S3-09 Sprint exit review
 
 ---
 

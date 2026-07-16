@@ -9,6 +9,8 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="exercises/[id]" />
+        <Stack.Screen name="templates/new" />
+        <Stack.Screen name="templates/[id]" />
       </Stack>
     </ThemeProvider>
   );

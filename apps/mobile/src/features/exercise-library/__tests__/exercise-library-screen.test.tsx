@@ -474,6 +474,7 @@ describe('exercise selection navigation contract', () => {
       status: 'selecting',
       context: 'template',
       returnTo: '/templates',
+      returnParams: {},
       alreadySelectedExerciseIds: [
         'exercise-barbell-bench-press',
         'exercise-lat-pulldown',
@@ -490,6 +491,7 @@ describe('exercise selection navigation contract', () => {
       status: 'selecting',
       context: 'session',
       returnTo: '/',
+      returnParams: {},
       alreadySelectedExerciseIds: ['exercise-leg-press'],
     });
   });
@@ -527,6 +529,24 @@ describe('exercise selection navigation contract', () => {
         context: 'template',
         returnTo: '/templates',
         selectedIds: 'exercise-barbell-bench-press',
+      },
+    });
+
+    expect(
+      createTemplateExerciseSelectionHref({
+        returnTo: '/templates/new',
+        returnParams: {
+          draftName: 'Push',
+          draftDescription: 'Chest day',
+        },
+      }),
+    ).toEqual({
+      pathname: '/exercises',
+      params: {
+        mode: 'select',
+        context: 'template',
+        returnTo: '/templates/new',
+        returnParams: 'draftName=Push&draftDescription=Chest+day',
       },
     });
 
@@ -606,6 +626,7 @@ function buildSelectionMode(
     status: 'selecting',
     context: 'template',
     returnTo: '/templates',
+    returnParams: {},
     alreadySelectedExerciseIds: [],
     ...overrides,
   };

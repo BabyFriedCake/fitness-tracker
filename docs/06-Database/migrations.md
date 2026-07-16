@@ -2,7 +2,7 @@
 
 Version: v1.0  
 Status: Approved  
-Last Updated: 2026-07-14
+Last Updated: 2026-07-16
 
 ---
 
@@ -63,6 +63,43 @@ V1 初始迁移：
 - daily_statuses
 - user_settings
 - 所有索引
+
+## 3.1 Workout Template 约束迁移
+
+第二个迁移：
+
+```text
+0002_workout_template_constraints
+```
+
+目的：
+
+- 在不修改已执行 `0001_initial_schema` 的前提下，为训练模板表补充约束
+- 通过重建 `workout_templates` 和 `workout_template_exercises` 增加 CHECK 约束
+- 保留已有合法模板和模板动作数据
+- 重建模板相关索引和外键
+
+新增约束：
+
+- `workout_templates.status` 只能是 `active` 或 `archived`
+- `active` 模板必须没有 `archived_at`
+- `archived` 模板必须有 `archived_at`
+- `workout_template_exercises.position > 0`
+- `workout_template_exercises.target_sets > 0`
+- `workout_template_exercises.target_reps_min > 0`
+- `workout_template_exercises.target_reps_max >= target_reps_min`
+- `workout_template_exercises.rest_seconds >= 0`
+
+迁移策略：
+
+1. 创建带新约束的临时 v2 表
+2. 从旧表复制合法数据
+3. 删除旧模板动作表和旧模板表
+4. 将 v2 表重命名为正式表
+5. 重建模板相关索引
+6. 提交前执行外键一致性检查
+
+如现有数据不满足新约束，迁移失败并回滚，`schema_migrations` 不记录版本 2。
 
 ---
 

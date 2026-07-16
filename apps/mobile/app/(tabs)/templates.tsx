@@ -1,6 +1,5 @@
-import { PlaceholderScreen } from '@/components/placeholder-screen';
-import { getTopLevelRoute } from '@/constants/routes';
+import { WorkoutTemplateListScreen } from '@/features/workout-templates/screens/workout-template-list-screen';
 
 export default function TemplatesRoute() {
-  return <PlaceholderScreen route={getTopLevelRoute('templates')} />;
+  return <WorkoutTemplateListScreen />;
 }

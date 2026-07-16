@@ -2,7 +2,7 @@
 
 Version: v1.0  
 Status: Approved  
-Last Updated: 2026-07-14
+Last Updated: 2026-07-16
 
 ---
 
@@ -77,10 +77,15 @@ CREATE TABLE workout_templates (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
-  status TEXT NOT NULL DEFAULT 'active',
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'archived')),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  archived_at TEXT
+  archived_at TEXT,
+  CHECK (
+    (status = 'active' AND archived_at IS NULL)
+    OR (status = 'archived' AND archived_at IS NOT NULL)
+  )
 );
 ```
 
@@ -110,11 +115,12 @@ CREATE TABLE workout_template_exercises (
   id TEXT PRIMARY KEY,
   template_id TEXT NOT NULL,
   exercise_id TEXT NOT NULL,
-  position INTEGER NOT NULL,
-  target_sets INTEGER NOT NULL,
-  target_reps_min INTEGER NOT NULL,
-  target_reps_max INTEGER NOT NULL,
-  rest_seconds INTEGER NOT NULL,
+  position INTEGER NOT NULL CHECK (position > 0),
+  target_sets INTEGER NOT NULL CHECK (target_sets > 0),
+  target_reps_min INTEGER NOT NULL CHECK (target_reps_min > 0),
+  target_reps_max INTEGER NOT NULL
+    CHECK (target_reps_max >= target_reps_min),
+  rest_seconds INTEGER NOT NULL CHECK (rest_seconds >= 0),
   group_key TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,

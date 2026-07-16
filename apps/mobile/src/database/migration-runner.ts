@@ -16,6 +16,13 @@ type SchemaVersionRow = {
   readonly version: number;
 };
 
+type ForeignKeyViolationRow = {
+  readonly table: string;
+  readonly rowid: number;
+  readonly parent: string;
+  readonly fkid: number;
+};
+
 export async function runMigrations(
   database: DatabaseConnection,
   migrations: readonly Migration[] = MIGRATIONS,
@@ -67,10 +74,20 @@ async function runMigration(
   migration: Migration,
   now: () => string,
 ): Promise<void> {
-  await database.execAsync('BEGIN IMMEDIATE;');
+  const shouldDisableForeignKeys =
+    migration.disableForeignKeysDuringMigration === true;
+  let transactionStarted = false;
 
   try {
+    if (shouldDisableForeignKeys) {
+      await database.execAsync('PRAGMA foreign_keys = OFF;');
+    }
+
+    await database.execAsync('BEGIN IMMEDIATE;');
+    transactionStarted = true;
+
     await database.execAsync(migration.sql);
+    await assertNoForeignKeyViolations(database);
     await database.runAsync(
       'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?);',
       migration.version,
@@ -78,9 +95,16 @@ async function runMigration(
       now(),
     );
     await database.execAsync('COMMIT;');
+    transactionStarted = false;
   } catch (error) {
-    await rollback(database);
+    if (transactionStarted) {
+      await rollback(database);
+    }
     throw error;
+  } finally {
+    if (shouldDisableForeignKeys) {
+      await database.execAsync('PRAGMA foreign_keys = ON;');
+    }
   }
 }
 
@@ -106,5 +130,17 @@ function assertMigrationsAreOrdered(migrations: readonly Migration[]): void {
 
   if (latestMigrationVersion !== LATEST_SCHEMA_VERSION) {
     throw new Error('Latest migration does not match the schema version.');
+  }
+}
+
+async function assertNoForeignKeyViolations(
+  database: DatabaseConnection,
+): Promise<void> {
+  const violations = await database.getAllAsync<ForeignKeyViolationRow>(
+    'PRAGMA foreign_key_check;',
+  );
+
+  if (violations.length > 0) {
+    throw new Error('Migration produced foreign key violations.');
   }
 }
