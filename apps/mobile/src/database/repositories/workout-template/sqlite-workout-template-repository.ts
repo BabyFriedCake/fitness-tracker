@@ -154,6 +154,10 @@ async function archiveTemplate(
     throw new Error(`WorkoutTemplate not found: ${id}.`);
   }
 
+  if (existingTemplate.status === 'archived') {
+    return existingTemplate;
+  }
+
   const template = createWorkoutTemplate({
     id: existingTemplate.id,
     name: existingTemplate.name,

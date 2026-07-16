@@ -1041,6 +1041,341 @@ describe('useWorkoutTemplateEdit', () => {
     );
   });
 
+  it('archives an active template after confirmation and marks the flow complete', async () => {
+    const archive = jest.fn(async (id, archivedAt) =>
+      buildArchivedTemplate(id, archivedAt),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutTemplateEdit(
+        {
+          id: 'template-push',
+        },
+        {
+          initializeDatabase: async () => buildStartupResult(),
+          createWorkoutTemplateRepository: () =>
+            buildRepository({
+              getById: async () => buildTemplate(),
+              archive,
+            }),
+          createExerciseRepository: () =>
+            buildExerciseRepository({
+              getById: async () => buildExercise({ id: 'exercise-bench' }),
+            }),
+          now: () => '2026-07-16T02:00:00.000Z',
+        },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('ready');
+    });
+
+    await act(async () => {
+      result.current.controls.requestArchive();
+    });
+    expect(result.current.state).toMatchObject({
+      status: 'ready',
+      isConfirmingArchive: true,
+    });
+
+    await act(async () => {
+      await result.current.controls.confirmArchive();
+    });
+
+    expect(archive).toHaveBeenCalledWith(
+      'template-push',
+      '2026-07-16T02:00:00.000Z',
+    );
+    await waitFor(() => {
+      expect(result.current.state).toMatchObject({
+        status: 'ready',
+        templateStatus: 'archived',
+        isArchiveComplete: true,
+        isConfirmingArchive: false,
+        isArchiving: false,
+      });
+    });
+  });
+
+  it('does not archive unless archive confirmation is currently open', async () => {
+    const archive = jest.fn(async (id, archivedAt) =>
+      buildArchivedTemplate(id, archivedAt),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutTemplateEdit(
+        {
+          id: 'template-push',
+        },
+        {
+          initializeDatabase: async () => buildStartupResult(),
+          createWorkoutTemplateRepository: () =>
+            buildRepository({
+              getById: async () => buildTemplate(),
+              archive,
+            }),
+          createExerciseRepository: () =>
+            buildExerciseRepository({
+              getById: async () => buildExercise({ id: 'exercise-bench' }),
+            }),
+          now: () => '2026-07-16T02:00:00.000Z',
+        },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('ready');
+    });
+
+    await act(async () => {
+      await result.current.controls.confirmArchive();
+    });
+    expect(archive).not.toHaveBeenCalled();
+
+    await act(async () => {
+      result.current.controls.requestArchive();
+    });
+    expect(result.current.state).toMatchObject({
+      status: 'ready',
+      isConfirmingArchive: true,
+    });
+
+    await act(async () => {
+      result.current.controls.cancelArchive();
+    });
+    expect(result.current.state).toMatchObject({
+      status: 'ready',
+      isConfirmingArchive: false,
+    });
+
+    await act(async () => {
+      await result.current.controls.confirmArchive();
+    });
+
+    expect(archive).not.toHaveBeenCalled();
+    expect(result.current.state).toMatchObject({
+      status: 'ready',
+      templateStatus: 'active',
+      isConfirmingArchive: false,
+      isArchiveComplete: false,
+    });
+  });
+
+  it('freezes draft edits while archive confirmation is open and resumes after cancel', async () => {
+    const update = jest.fn();
+    const { result } = await renderHook(() =>
+      useWorkoutTemplateEdit(
+        {
+          id: 'template-push',
+        },
+        {
+          initializeDatabase: async () => buildStartupResult(),
+          createWorkoutTemplateRepository: () =>
+            buildRepository({
+              getById: async () => buildTemplateWithTwoExercises(),
+              update,
+            }),
+          createExerciseRepository: () =>
+            buildExerciseRepository({
+              getById: async (id) =>
+                id === 'exercise-row'
+                  ? buildExercise({ id: 'exercise-row', nameZh: '坐姿划船' })
+                  : buildExercise({ id: 'exercise-bench' }),
+            }),
+        },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('ready');
+    });
+
+    await act(async () => {
+      result.current.controls.requestArchive();
+    });
+    await waitFor(() => {
+      expect(result.current.state).toMatchObject({
+        status: 'ready',
+        isConfirmingArchive: true,
+      });
+    });
+
+    await act(async () => {
+      result.current.controls.updateName('Should not change');
+      result.current.controls.updateDescription('Should not change');
+      result.current.controls.updateExerciseConfig(
+        'exercise-bench' as ExerciseId,
+        'targetSets',
+        '9',
+      );
+      result.current.controls.moveExerciseUp('exercise-row' as ExerciseId);
+      result.current.controls.requestRemoveExercise(
+        'exercise-bench' as ExerciseId,
+      );
+      result.current.controls.confirmRemoveExercise();
+      await result.current.controls.save();
+    });
+
+    expect(update).not.toHaveBeenCalled();
+    expect(result.current.state).toMatchObject({
+      status: 'ready',
+      isConfirmingArchive: true,
+      draft: {
+        name: 'Push',
+        description: 'Chest',
+        exercises: [
+          expect.objectContaining({
+            exerciseId: 'exercise-bench',
+            targetSets: '3',
+          }),
+          expect.objectContaining({ exerciseId: 'exercise-row' }),
+        ],
+      },
+    });
+    expect('pendingRemoveExerciseId' in result.current.state).toBe(false);
+
+    await act(async () => {
+      result.current.controls.cancelArchive();
+      result.current.controls.updateName('Editable Again');
+    });
+
+    expect(result.current.state).toMatchObject({
+      status: 'ready',
+      isConfirmingArchive: false,
+      draft: {
+        name: 'Editable Again',
+      },
+    });
+  });
+
+  it('keeps archive confirmation open while archive is pending', async () => {
+    const archiveRequest = createDeferred<WorkoutTemplate>();
+    const archive = jest.fn(() => archiveRequest.promise);
+    const { result } = await renderHook(() =>
+      useWorkoutTemplateEdit(
+        {
+          id: 'template-push',
+        },
+        {
+          initializeDatabase: async () => buildStartupResult(),
+          createWorkoutTemplateRepository: () =>
+            buildRepository({
+              getById: async () => buildTemplate(),
+              archive,
+            }),
+          createExerciseRepository: () =>
+            buildExerciseRepository({
+              getById: async () => buildExercise({ id: 'exercise-bench' }),
+            }),
+        },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('ready');
+    });
+
+    await act(async () => {
+      result.current.controls.requestArchive();
+    });
+    let archivePromise: ReturnType<
+      typeof result.current.controls.confirmArchive
+    >;
+
+    await act(async () => {
+      archivePromise = result.current.controls.confirmArchive();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(result.current.state).toMatchObject({
+        status: 'ready',
+        isArchiving: true,
+        isConfirmingArchive: true,
+      });
+    });
+
+    await act(async () => {
+      result.current.controls.cancelArchive();
+    });
+    expect(result.current.state).toMatchObject({
+      status: 'ready',
+      isArchiving: true,
+      isConfirmingArchive: true,
+    });
+
+    await act(async () => {
+      archiveRequest.resolve(
+        buildArchivedTemplate(
+          'template-push' as WorkoutTemplateId,
+          '2026-07-16T02:00:00.000Z',
+        ),
+      );
+      await archivePromise!;
+    });
+  });
+
+  it('keeps active UI state and allows retry when archive fails', async () => {
+    const archive = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('sqlite failed'))
+      .mockImplementationOnce(async (id, archivedAt) =>
+        buildArchivedTemplate(id, archivedAt),
+      );
+    const { result } = await renderHook(() =>
+      useWorkoutTemplateEdit(
+        {
+          id: 'template-push',
+        },
+        {
+          initializeDatabase: async () => buildStartupResult(),
+          createWorkoutTemplateRepository: () =>
+            buildRepository({
+              getById: async () => buildTemplate(),
+              archive,
+            }),
+          createExerciseRepository: () =>
+            buildExerciseRepository({
+              getById: async () => buildExercise({ id: 'exercise-bench' }),
+            }),
+          now: () => '2026-07-16T02:00:00.000Z',
+        },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('ready');
+    });
+
+    await act(async () => {
+      result.current.controls.requestArchive();
+    });
+    await act(async () => {
+      await result.current.controls.confirmArchive();
+    });
+    expect(result.current.state).toMatchObject({
+      status: 'ready',
+      templateStatus: 'active',
+      archiveError: '训练模板归档失败。当前模板仍保留，请重新归档。',
+      isArchiveComplete: false,
+    });
+
+    await act(async () => {
+      result.current.controls.requestArchive();
+    });
+    await act(async () => {
+      await result.current.controls.confirmArchive();
+    });
+
+    await waitFor(() => {
+      expect(archive).toHaveBeenCalledTimes(2);
+      expect(result.current.state).toMatchObject({
+        status: 'ready',
+        templateStatus: 'archived',
+        archiveError: undefined,
+        isArchiveComplete: true,
+      });
+    });
+  });
+
   it('keeps draft after save failure and allows retry', async () => {
     const update = jest
       .fn()
@@ -1240,6 +1575,51 @@ describe('WorkoutTemplateEditContent', () => {
     expect(confirmRemoveExercise).toHaveBeenCalled();
   });
 
+  it('shows archive confirmation and explains historical data is retained', async () => {
+    const confirmArchive = jest.fn(async () => undefined);
+    const { getAllByText, getByLabelText, getByText } = await render(
+      <WorkoutTemplateEditContent
+        state={buildReadyState({
+          isConfirmingArchive: true,
+        })}
+        controls={buildControls({ confirmArchive })}
+        onAddExercise={jest.fn()}
+        onExit={jest.fn()}
+        onCancelExit={jest.fn()}
+        onConfirmExit={jest.fn()}
+      />,
+    );
+
+    expect(getByText('归档训练模板？')).toBeTruthy();
+    expect(getAllByText(/历史训练记录不会被删除/)).toHaveLength(2);
+
+    await fireEvent.press(getByLabelText('确认归档训练模板'));
+    expect(confirmArchive).toHaveBeenCalledTimes(1);
+  });
+
+  it('warns that unsaved draft changes are not saved before archiving', async () => {
+    const { getByText } = await render(
+      <WorkoutTemplateEditContent
+        state={buildReadyState({
+          isConfirmingArchive: true,
+        })}
+        controls={buildControls({
+          shouldConfirmExit: jest.fn(() => true),
+        })}
+        onAddExercise={jest.fn()}
+        onExit={jest.fn()}
+        onCancelExit={jest.fn()}
+        onConfirmExit={jest.fn()}
+      />,
+    );
+
+    expect(
+      getByText(
+        '当前未保存修改不会保存。归档后默认列表将不再显示该模板，历史训练记录不会被删除。',
+      ),
+    ).toBeTruthy();
+  });
+
   it('renders reorder controls and disables impossible moves', async () => {
     const moveExerciseUp = jest.fn();
     const moveExerciseDown = jest.fn();
@@ -1303,9 +1683,10 @@ describe('WorkoutTemplateEditContent', () => {
 
     expect(getByText('已归档模板不能编辑')).toBeTruthy();
     expect(getByLabelText('已归档模板不能保存')).toBeTruthy();
+    expect(() => getByLabelText('归档训练模板')).toThrow();
   });
 
-  it('disables all edit controls while saving', async () => {
+  it('disables all edit controls while saving or archiving', async () => {
     const { getByLabelText } = await render(
       <WorkoutTemplateEditContent
         state={buildReadyState({
@@ -1343,6 +1724,55 @@ describe('WorkoutTemplateEditContent', () => {
       },
     );
     expect(getByLabelText('退出编辑训练模板').props.accessibilityState).toEqual(
+      {
+        disabled: true,
+      },
+    );
+
+    const archivingState = buildReadyState({
+      isArchiving: true,
+    });
+    const { getByLabelText: getArchivingLabel } = await render(
+      <WorkoutTemplateEditContent
+        state={archivingState}
+        controls={buildControls()}
+        onAddExercise={jest.fn()}
+        onExit={jest.fn()}
+        onCancelExit={jest.fn()}
+        onConfirmExit={jest.fn()}
+      />,
+    );
+
+    expect(getArchivingLabel('归档训练模板').props.accessibilityState).toEqual({
+      disabled: true,
+    });
+    expect(
+      getArchivingLabel('正在归档训练模板').props.accessibilityState,
+    ).toEqual({
+      disabled: true,
+    });
+
+    const confirmingState = buildReadyState({
+      isConfirmingArchive: true,
+    });
+    const { getByLabelText: getConfirmingLabel } = await render(
+      <WorkoutTemplateEditContent
+        state={confirmingState}
+        controls={buildControls()}
+        onAddExercise={jest.fn()}
+        onExit={jest.fn()}
+        onCancelExit={jest.fn()}
+        onConfirmExit={jest.fn()}
+      />,
+    );
+
+    expect(getConfirmingLabel('训练模板名称').props.editable).toBe(false);
+    expect(getConfirmingLabel('归档训练模板').props.accessibilityState).toEqual(
+      {
+        disabled: true,
+      },
+    );
+    expect(getConfirmingLabel('保存训练模板').props.accessibilityState).toEqual(
       {
         disabled: true,
       },
@@ -1392,6 +1822,35 @@ function buildTemplate(): WorkoutTemplate {
     ],
     createdAt: '2026-07-16T00:00:00.000Z',
     updatedAt: '2026-07-16T00:10:00.000Z',
+  });
+}
+
+function buildArchivedTemplate(
+  id: WorkoutTemplateId,
+  archivedAt: string,
+): WorkoutTemplate {
+  return createWorkoutTemplate({
+    id,
+    name: 'Push',
+    description: 'Chest',
+    status: 'archived',
+    exercises: [
+      {
+        id: 'template-exercise-bench',
+        templateId: id,
+        exerciseId: 'exercise-bench',
+        position: 1,
+        targetSets: 3,
+        targetRepsMin: 8,
+        targetRepsMax: 10,
+        restSeconds: 90,
+        createdAt: '2026-07-16T00:10:00.000Z',
+        updatedAt: '2026-07-16T00:10:00.000Z',
+      },
+    ],
+    createdAt: '2026-07-16T00:00:00.000Z',
+    updatedAt: archivedAt,
+    archivedAt,
   });
 }
 
@@ -1537,6 +1996,9 @@ function buildReadyState(
     },
     fieldErrors: {},
     isSaving: false,
+    isArchiving: false,
+    isConfirmingArchive: false,
+    isArchiveComplete: false,
     isConfirmingDiscard: false,
     isExitAuthorized: false,
     isSaved: false,
@@ -1556,6 +2018,9 @@ function buildControls(
     requestRemoveExercise: jest.fn(),
     cancelRemoveExercise: jest.fn(),
     confirmRemoveExercise: jest.fn(),
+    requestArchive: jest.fn(),
+    cancelArchive: jest.fn(),
+    confirmArchive: jest.fn(async () => undefined),
     createExerciseSelectionHref: jest.fn(() => '/exercises' as never),
     save: jest.fn(async () => ({
       status: 'invalid' as const,

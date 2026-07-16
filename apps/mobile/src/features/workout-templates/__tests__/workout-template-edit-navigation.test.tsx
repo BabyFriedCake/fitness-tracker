@@ -239,6 +239,35 @@ describe('WorkoutTemplateEditScreen navigation', () => {
     expect(mockEditModel.controls.requestExit).not.toHaveBeenCalled();
   });
 
+  it('navigates to templates after archive completion is rendered', async () => {
+    mockEditModel = buildEditModel({
+      state: {
+        isArchiveComplete: false,
+      },
+    });
+    const { rerender } = await render(
+      <WorkoutTemplateEditScreen routeParams={{ id: 'template-push' }} />,
+    );
+
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+
+    mockEditModel = buildEditModel({
+      state: {
+        templateStatus: 'archived',
+        isArchiveComplete: true,
+      },
+    });
+    await act(async () => {
+      rerender(
+        <WorkoutTemplateEditScreen routeParams={{ id: 'template-push' }} />,
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockRouter.dismissTo).toHaveBeenCalledWith('/templates');
+    });
+  });
+
   it('blocks system back while saving without showing discard confirmation or saving the action', async () => {
     const requestExit = jest.fn(() => false);
     const preventedAction = { type: 'GO_BACK' };
@@ -322,6 +351,9 @@ function buildEditModel(
       },
       fieldErrors: {},
       isSaving: false,
+      isArchiving: false,
+      isConfirmingArchive: false,
+      isArchiveComplete: false,
       isConfirmingDiscard: false,
       isExitAuthorized: false,
       isSaved: false,
@@ -336,6 +368,9 @@ function buildEditModel(
       requestRemoveExercise: jest.fn(),
       cancelRemoveExercise: jest.fn(),
       confirmRemoveExercise: jest.fn(),
+      requestArchive: jest.fn(),
+      cancelArchive: jest.fn(),
+      confirmArchive: jest.fn(async () => undefined),
       createExerciseSelectionHref: jest.fn(() => '/exercises' as never),
       save: jest.fn(async () => ({
         status: 'invalid' as const,

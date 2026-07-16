@@ -538,6 +538,51 @@ describe('SQLite WorkoutTemplateRepository', () => {
     expect(await getTableCount('workout_template_exercises')).toBe(1);
   });
 
+  it('archives templates idempotently without replacing the original archivedAt', async () => {
+    const repository = createSqliteWorkoutTemplateRepository(database);
+
+    await repository.create(buildCreateInput());
+
+    await repository.archive(toTemplateId('template-push'), ARCHIVED_AT);
+    const archivedAgain = await repository.archive(
+      toTemplateId('template-push'),
+      '2026-07-16T03:00:00.000Z',
+    );
+
+    expect(archivedAgain.status).toBe('archived');
+    expect(archivedAgain.archivedAt).toBe(ARCHIVED_AT);
+    expect(archivedAgain.updatedAt).toBe(ARCHIVED_AT);
+  });
+
+  it('keeps existing session snapshots unchanged when a source template is archived', async () => {
+    const repository = createSqliteWorkoutTemplateRepository(database);
+
+    await repository.create(buildCreateInput());
+    await insertSessionSnapshot();
+
+    await repository.archive(toTemplateId('template-push'), ARCHIVED_AT);
+
+    const sessionRow = await database.getFirstAsync<{
+      readonly name_snapshot: string;
+    }>("SELECT name_snapshot FROM workout_sessions WHERE id = 'session-push';");
+    const sessionExerciseRow = await database.getFirstAsync<{
+      readonly exercise_id: string;
+      readonly exercise_name_snapshot: string;
+      readonly target_sets: number;
+    }>(
+      "SELECT exercise_id, exercise_name_snapshot, target_sets FROM workout_session_exercises WHERE id = 'session-exercise-bench';",
+    );
+
+    expect(sessionRow).toEqual({
+      name_snapshot: 'Push Snapshot',
+    });
+    expect(sessionExerciseRow).toEqual({
+      exercise_id: 'exercise-bench-press',
+      exercise_name_snapshot: 'Bench Snapshot',
+      target_sets: 3,
+    });
+  });
+
   it('rejects malformed database rows during row mapping', () => {
     expect(() =>
       mapWorkoutTemplateRows(

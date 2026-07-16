@@ -39,9 +39,14 @@ export function WorkoutTemplateEditScreen({
   const navigation = useNavigation();
   const model = useWorkoutTemplateEdit(routeParams);
   const pendingNavigationActionRef = useRef<NavigationAction | null>(null);
+  const isArchiveComplete =
+    model.state.status === 'ready' && model.state.isArchiveComplete;
 
   usePreventRemove(model.controls.shouldConfirmExit(), ({ data }) => {
-    if (model.state.status === 'ready' && model.state.isSaving) {
+    if (
+      model.state.status === 'ready' &&
+      (model.state.isSaving || model.state.isArchiving)
+    ) {
       return;
     }
 
@@ -50,12 +55,12 @@ export function WorkoutTemplateEditScreen({
   });
 
   useEffect(() => {
-    if (!model.state.isSaved) {
+    if (!model.state.isSaved && !isArchiveComplete) {
       return;
     }
 
     router.dismissTo('/templates');
-  }, [model.state.isSaved, router]);
+  }, [isArchiveComplete, model.state.isSaved, router]);
 
   useEffect(() => {
     if (!model.state.isExitAuthorized) {
@@ -115,7 +120,9 @@ export function WorkoutTemplateEditContent({
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.content}>
           <Header
-            isSaving={state.status === 'ready' && state.isSaving}
+            isBusy={
+              state.status === 'ready' && (state.isSaving || state.isArchiving)
+            }
             onCancel={() => {
               if (controls.requestExit()) {
                 onExit();
@@ -143,6 +150,14 @@ export function WorkoutTemplateEditContent({
               onConfirm={controls.confirmRemoveExercise}
             />
           )}
+          {state.status === 'ready' && state.isConfirmingArchive && (
+            <ArchiveTemplateModal
+              isArchiving={state.isArchiving}
+              hasUnsavedChanges={controls.shouldConfirmExit()}
+              onCancel={controls.cancelArchive}
+              onConfirm={controls.confirmArchive}
+            />
+          )}
           {state.isConfirmingDiscard && (
             <DiscardConfirmModal
               onCancel={onCancelExit}
@@ -156,10 +171,10 @@ export function WorkoutTemplateEditContent({
 }
 
 function Header({
-  isSaving,
+  isBusy,
   onCancel,
 }: {
-  readonly isSaving: boolean;
+  readonly isBusy: boolean;
   readonly onCancel: () => void;
 }) {
   const theme = useTheme();
@@ -173,18 +188,18 @@ function Header({
         </ThemedText>
       </ThemedView>
       <Pressable
-        disabled={isSaving}
+        disabled={isBusy}
         onPress={onCancel}
         accessibilityRole="button"
-        accessibilityState={{ disabled: isSaving }}
+        accessibilityState={{ disabled: isBusy }}
         accessibilityLabel="退出编辑训练模板"
         style={({ pressed }) => [
           styles.secondaryButton,
           {
             borderColor: theme.backgroundSelected,
-            opacity: isSaving ? 0.56 : 1,
+            opacity: isBusy ? 0.56 : 1,
           },
-          pressed && !isSaving && styles.pressed,
+          pressed && !isBusy && styles.pressed,
         ]}
       >
         <ThemedText type="smallBold">取消</ThemedText>
@@ -252,8 +267,18 @@ function EditForm({
   const theme = useTheme();
   const isArchived = state.templateStatus === 'archived';
   const isExerciseLoading = state.draft.exerciseLoadStatus === 'loading';
-  const isFormDisabled = isArchived || state.isSaving;
-  const isSaveDisabled = state.isSaving || isExerciseLoading || isArchived;
+  const isFormDisabled =
+    isArchived ||
+    state.isSaving ||
+    state.isArchiving ||
+    state.isConfirmingArchive;
+  const isSaveDisabled =
+    state.isSaving ||
+    state.isArchiving ||
+    state.isConfirmingArchive ||
+    isExerciseLoading ||
+    isArchived;
+  const isArchiveDisabled = isFormDisabled;
 
   return (
     <>
@@ -389,6 +414,39 @@ function EditForm({
             </ThemedText>
           </ThemedView>
         )}
+        {state.archiveError && (
+          <ThemedView style={styles.inlineError} accessibilityRole="alert">
+            <ThemedText type="smallBold">训练模板归档失败</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {state.archiveError}
+            </ThemedText>
+          </ThemedView>
+        )}
+        {!isArchived && (
+          <ThemedView style={styles.archiveSection}>
+            <ThemedText type="smallBold">归档</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              不再使用的模板可以归档，历史训练记录不会被删除。
+            </ThemedText>
+            <Pressable
+              disabled={isArchiveDisabled}
+              onPress={controls.requestArchive}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isArchiveDisabled }}
+              accessibilityLabel="归档训练模板"
+              style={({ pressed }) => [
+                styles.dangerButton,
+                {
+                  borderColor: theme.backgroundSelected,
+                  opacity: isArchiveDisabled ? 0.56 : 1,
+                },
+                pressed && !isArchiveDisabled && styles.pressed,
+              ]}
+            >
+              <ThemedText type="smallBold">归档模板</ThemedText>
+            </Pressable>
+          </ThemedView>
+        )}
       </ScrollView>
 
       <Pressable
@@ -401,11 +459,13 @@ function EditForm({
         accessibilityLabel={
           state.isSaving
             ? '正在保存训练模板'
-            : isExerciseLoading
-              ? '正在加载模板动作'
-              : isArchived
-                ? '已归档模板不能保存'
-                : '保存训练模板'
+            : state.isArchiving
+              ? '正在归档训练模板'
+              : isExerciseLoading
+                ? '正在加载模板动作'
+                : isArchived
+                  ? '已归档模板不能保存'
+                  : '保存训练模板'
         }
         style={({ pressed }) => [
           styles.primaryButton,
@@ -422,9 +482,11 @@ function EditForm({
         >
           {state.isSaving
             ? '保存中'
-            : isExerciseLoading
-              ? '加载动作中'
-              : '保存模板'}
+            : state.isArchiving
+              ? '归档中'
+              : isExerciseLoading
+                ? '加载动作中'
+                : '保存模板'}
         </ThemedText>
       </Pressable>
     </>
@@ -674,11 +736,46 @@ function DiscardConfirmModal({
   );
 }
 
+function ArchiveTemplateModal({
+  isArchiving,
+  hasUnsavedChanges,
+  onCancel,
+  onConfirm,
+}: {
+  readonly isArchiving: boolean;
+  readonly hasUnsavedChanges: boolean;
+  readonly onCancel: () => void;
+  readonly onConfirm: () => Promise<void>;
+}) {
+  return (
+    <ConfirmModal
+      title="归档训练模板？"
+      message={
+        hasUnsavedChanges
+          ? '当前未保存修改不会保存。归档后默认列表将不再显示该模板，历史训练记录不会被删除。'
+          : '归档后默认列表将不再显示该模板，历史训练记录不会被删除。'
+      }
+      confirmLabel={isArchiving ? '归档中' : '归档模板'}
+      confirmAccessibilityLabel={
+        isArchiving ? '正在归档训练模板' : '确认归档训练模板'
+      }
+      confirmDisabled={isArchiving}
+      cancelDisabled={isArchiving}
+      onCancel={onCancel}
+      onConfirm={() => {
+        void onConfirm();
+      }}
+    />
+  );
+}
+
 function ConfirmModal({
   title,
   message,
   confirmLabel,
   confirmAccessibilityLabel,
+  confirmDisabled = false,
+  cancelDisabled = false,
   onCancel,
   onConfirm,
 }: {
@@ -686,6 +783,8 @@ function ConfirmModal({
   readonly message: string;
   readonly confirmLabel: string;
   readonly confirmAccessibilityLabel: string;
+  readonly confirmDisabled?: boolean;
+  readonly cancelDisabled?: boolean;
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
 }) {
@@ -708,25 +807,35 @@ function ConfirmModal({
           </ThemedText>
           <ThemedView style={styles.modalActions}>
             <Pressable
+              disabled={cancelDisabled}
               onPress={onCancel}
               accessibilityRole="button"
+              accessibilityState={{ disabled: cancelDisabled }}
               accessibilityLabel="继续编辑训练模板"
               style={({ pressed }) => [
                 styles.secondaryButton,
-                { borderColor: theme.backgroundSelected },
-                pressed && styles.pressed,
+                {
+                  borderColor: theme.backgroundSelected,
+                  opacity: cancelDisabled ? 0.56 : 1,
+                },
+                pressed && !cancelDisabled && styles.pressed,
               ]}
             >
               <ThemedText type="smallBold">继续编辑</ThemedText>
             </Pressable>
             <Pressable
+              disabled={confirmDisabled}
               onPress={onConfirm}
               accessibilityRole="button"
+              accessibilityState={{ disabled: confirmDisabled }}
               accessibilityLabel={confirmAccessibilityLabel}
               style={({ pressed }) => [
                 styles.dangerButton,
-                { borderColor: theme.backgroundSelected },
-                pressed && styles.pressed,
+                {
+                  borderColor: theme.backgroundSelected,
+                  opacity: confirmDisabled ? 0.56 : 1,
+                },
+                pressed && !confirmDisabled && styles.pressed,
               ]}
             >
               <ThemedText type="smallBold">{confirmLabel}</ThemedText>
@@ -862,6 +971,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  archiveSection: {
+    gap: Spacing.one,
   },
   primaryButton: {
     minHeight: 52,

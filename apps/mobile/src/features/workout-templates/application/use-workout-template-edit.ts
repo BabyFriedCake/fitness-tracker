@@ -57,7 +57,11 @@ export type WorkoutTemplateEditScreenState =
       readonly draft: WorkoutTemplateEditDraftState;
       readonly fieldErrors: WorkoutTemplateEditFieldErrors;
       readonly saveError?: string;
+      readonly archiveError?: string;
       readonly isSaving: boolean;
+      readonly isArchiving: boolean;
+      readonly isConfirmingArchive: boolean;
+      readonly isArchiveComplete: boolean;
       readonly pendingRemoveExerciseId?: ExerciseId;
     } & WorkoutTemplateEditExitState)
   | ({
@@ -84,6 +88,9 @@ export type WorkoutTemplateEditScreenControls = {
   readonly requestRemoveExercise: (exerciseId: ExerciseId) => void;
   readonly cancelRemoveExercise: () => void;
   readonly confirmRemoveExercise: () => void;
+  readonly requestArchive: () => void;
+  readonly cancelArchive: () => void;
+  readonly confirmArchive: () => Promise<void>;
   readonly createExerciseSelectionHref: () => Href;
   readonly save: () => Promise<WorkoutTemplateEditSaveResult>;
   readonly reload: () => void;
@@ -121,6 +128,8 @@ const TEMPLATE_EDIT_LOAD_ERROR_MESSAGE =
 const TEMPLATE_EDIT_NOT_FOUND_MESSAGE = '找不到要编辑的训练模板。';
 const TEMPLATE_EDIT_SAVE_ERROR_MESSAGE =
   '训练模板保存失败。当前修改仍保留，请重新保存。';
+const TEMPLATE_ARCHIVE_ERROR_MESSAGE =
+  '训练模板归档失败。当前模板仍保留，请重新归档。';
 const EXERCISE_LOAD_ERROR_MESSAGE =
   '动作信息加载失败。当前修改仍保留，请重新打开动作库后再试。';
 const EXERCISE_LOADING_ERROR_MESSAGE = '动作信息正在加载，请稍后保存。';
@@ -156,6 +165,7 @@ export function useWorkoutTemplateEdit(
   const isMountedRef = useRef(false);
   const requestIdRef = useRef(0);
   const isSavingRef = useRef(false);
+  const isArchivingRef = useRef(false);
   const repositoriesRef = useRef<{
     readonly workoutTemplateRepository: WorkoutTemplateRepository;
     readonly exerciseRepository: ExerciseRepository;
@@ -300,7 +310,11 @@ export function useWorkoutTemplateEdit(
             : {}),
         },
         saveError: undefined,
+        archiveError: undefined,
         isSaving: false,
+        isArchiving: false,
+        isConfirmingArchive: false,
+        isArchiveComplete: false,
         isConfirmingDiscard: false,
         isExitAuthorized: false,
         isSaved: false,
@@ -366,7 +380,9 @@ export function useWorkoutTemplateEdit(
         if (
           currentState.status !== 'ready' ||
           currentState.templateStatus === 'archived' ||
-          currentState.isSaving
+          currentState.isSaving ||
+          currentState.isArchiving ||
+          currentState.isConfirmingArchive
         ) {
           return currentState;
         }
@@ -394,6 +410,7 @@ export function useWorkoutTemplateEdit(
             exerciseConfigs,
           },
           saveError: undefined,
+          archiveError: undefined,
           isSaved: false,
           isExitAuthorized: false,
         };
@@ -418,7 +435,9 @@ export function useWorkoutTemplateEdit(
     setState((currentState) =>
       currentState.status === 'ready' &&
       currentState.templateStatus !== 'archived' &&
-      !currentState.isSaving
+      !currentState.isSaving &&
+      !currentState.isArchiving &&
+      !currentState.isConfirmingArchive
         ? {
             ...currentState,
             pendingRemoveExerciseId: exerciseId,
@@ -444,6 +463,8 @@ export function useWorkoutTemplateEdit(
         currentState.status !== 'ready' ||
         currentState.templateStatus === 'archived' ||
         currentState.isSaving ||
+        currentState.isArchiving ||
+        currentState.isConfirmingArchive ||
         !currentState.pendingRemoveExerciseId
       ) {
         return currentState;
@@ -463,6 +484,7 @@ export function useWorkoutTemplateEdit(
           exercises: undefined,
         },
         saveError: undefined,
+        archiveError: undefined,
         pendingRemoveExerciseId: undefined,
         isSaved: false,
         isExitAuthorized: false,
@@ -477,7 +499,10 @@ export function useWorkoutTemplateEdit(
     if (
       !currentDraft ||
       (currentState.status === 'ready' &&
-        (currentState.templateStatus === 'archived' || currentState.isSaving))
+        (currentState.templateStatus === 'archived' ||
+          currentState.isSaving ||
+          currentState.isArchiving ||
+          currentState.isConfirmingArchive))
     ) {
       return '/exercises' as Href;
     }
@@ -497,7 +522,7 @@ export function useWorkoutTemplateEdit(
   }, []);
 
   const save = useCallback(async (): Promise<WorkoutTemplateEditSaveResult> => {
-    if (isSavingRef.current) {
+    if (isSavingRef.current || isArchivingRef.current) {
       return {
         status: 'error',
         message: TEMPLATE_EDIT_SAVE_ERROR_MESSAGE,
@@ -510,7 +535,9 @@ export function useWorkoutTemplateEdit(
     if (
       !repositories ||
       currentState.status !== 'ready' ||
-      currentState.templateStatus === 'archived'
+      currentState.templateStatus === 'archived' ||
+      currentState.isArchiving ||
+      currentState.isConfirmingArchive
     ) {
       return {
         status: 'error',
@@ -552,6 +579,7 @@ export function useWorkoutTemplateEdit(
             ...latestState,
             fieldErrors: {},
             saveError: undefined,
+            archiveError: undefined,
             isSaving: true,
           }
         : latestState,
@@ -607,6 +635,108 @@ export function useWorkoutTemplateEdit(
     return result;
   }, []);
 
+  const requestArchive = useCallback(() => {
+    setState((currentState) =>
+      currentState.status === 'ready' &&
+      currentState.templateStatus === 'active' &&
+      !currentState.isSaving &&
+      !currentState.isArchiving &&
+      !currentState.isConfirmingArchive
+        ? {
+            ...currentState,
+            archiveError: undefined,
+            isConfirmingArchive: true,
+          }
+        : currentState,
+    );
+  }, []);
+
+  const cancelArchive = useCallback(() => {
+    setState((currentState) =>
+      currentState.status === 'ready' && !currentState.isArchiving
+        ? {
+            ...currentState,
+            isConfirmingArchive: false,
+          }
+        : currentState,
+    );
+  }, []);
+
+  const confirmArchive = useCallback(async (): Promise<void> => {
+    if (isSavingRef.current || isArchivingRef.current) {
+      return;
+    }
+
+    const currentState = stateRef.current;
+    const repositories = repositoriesRef.current;
+
+    if (
+      !repositories ||
+      currentState.status !== 'ready' ||
+      currentState.templateStatus !== 'active' ||
+      !currentState.isConfirmingArchive
+    ) {
+      return;
+    }
+
+    isArchivingRef.current = true;
+    setState((latestState) =>
+      latestState.status === 'ready'
+        ? {
+            ...latestState,
+            archiveError: undefined,
+            isArchiving: true,
+          }
+        : latestState,
+    );
+
+    try {
+      const archivedTemplate =
+        await repositories.workoutTemplateRepository.archive(
+          currentState.draft.templateId,
+          dependenciesRef.current.now(),
+        );
+
+      isArchivingRef.current = false;
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setState((latestState) =>
+        latestState.status === 'ready'
+          ? {
+              ...latestState,
+              templateStatus: archivedTemplate.status,
+              isArchiving: false,
+              isConfirmingArchive: false,
+              isArchiveComplete: true,
+              isConfirmingDiscard: false,
+              isExitAuthorized: false,
+              isSaved: true,
+            }
+          : latestState,
+      );
+    } catch {
+      isArchivingRef.current = false;
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setState((latestState) =>
+        latestState.status === 'ready'
+          ? {
+              ...latestState,
+              archiveError: TEMPLATE_ARCHIVE_ERROR_MESSAGE,
+              isArchiving: false,
+              isConfirmingArchive: false,
+            }
+          : latestState,
+      );
+    }
+  }, []);
+
   const reload = useCallback(() => {
     void loadTemplate();
   }, [loadTemplate]);
@@ -616,7 +746,10 @@ export function useWorkoutTemplateEdit(
   }, [state]);
 
   const requestExit = useCallback((): boolean => {
-    if (stateRef.current.status === 'ready' && stateRef.current.isSaving) {
+    if (
+      stateRef.current.status === 'ready' &&
+      (stateRef.current.isSaving || stateRef.current.isArchiving)
+    ) {
       return false;
     }
 
@@ -648,11 +781,13 @@ export function useWorkoutTemplateEdit(
     setState((currentState) =>
       currentState.status === 'ready' && currentState.isSaving
         ? currentState
-        : {
-            ...currentState,
-            isConfirmingDiscard: false,
-            isExitAuthorized: true,
-          },
+        : currentState.status === 'ready' && currentState.isArchiving
+          ? currentState
+          : {
+              ...currentState,
+              isConfirmingDiscard: false,
+              isExitAuthorized: true,
+            },
     );
   }, []);
 
@@ -667,6 +802,9 @@ export function useWorkoutTemplateEdit(
       requestRemoveExercise,
       cancelRemoveExercise,
       confirmRemoveExercise,
+      requestArchive,
+      cancelArchive,
+      confirmArchive,
       createExerciseSelectionHref,
       save,
       reload,
@@ -771,7 +909,9 @@ function updateReadyDraft(
   if (
     state.status !== 'ready' ||
     state.templateStatus === 'archived' ||
-    state.isSaving
+    state.isSaving ||
+    state.isArchiving ||
+    state.isConfirmingArchive
   ) {
     return state;
   }
@@ -787,6 +927,7 @@ function updateReadyDraft(
     },
     fieldErrors: updates.fieldErrors ?? state.fieldErrors,
     saveError: updates.saveError,
+    archiveError: undefined,
     isSaved: false,
     isExitAuthorized: false,
   };
@@ -800,7 +941,9 @@ function moveExerciseInReadyDraft(
   if (
     state.status !== 'ready' ||
     state.templateStatus === 'archived' ||
-    state.isSaving
+    state.isSaving ||
+    state.isArchiving ||
+    state.isConfirmingArchive
   ) {
     return state;
   }
@@ -825,6 +968,7 @@ function moveExerciseInReadyDraft(
       exercises,
     },
     saveError: undefined,
+    archiveError: undefined,
     isSaved: false,
     isExitAuthorized: false,
   };
@@ -868,7 +1012,7 @@ function shouldConfirmExitForState(
     return false;
   }
 
-  if (state.status === 'ready' && state.isSaving) {
+  if (state.status === 'ready' && (state.isSaving || state.isArchiving)) {
     return true;
   }
 
