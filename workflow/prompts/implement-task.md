@@ -216,28 +216,33 @@ git clean -nd
 提交最终结果前检查：
 
 ### Scope
+
 - 是否只完成当前 Task
 - 是否提前实现后续任务
 - 是否加入无关依赖或重构
 
 ### Specification
+
 - 是否符合 `AGENTS.md`
 - 是否符合 Prototype / Domain / Database / Design System
 - 是否同步了必要文档
 
 ### Architecture
+
 - 依赖方向是否正确
 - 是否存在基础设施泄漏
 - Route / Screen 是否过重
 - Repository contract 是否被破坏
 
 ### Quality
+
 - 类型是否严格
 - 错误处理是否明确
 - 测试是否覆盖关键风险
 - 是否存在重复写入风险
 
 ### Future Compatibility
+
 - 当前设计是否会强迫下一 Sprint 进行破坏性重写
 - 命名是否稳定
 - 是否过度为未来设计
@@ -252,33 +257,42 @@ git clean -nd
 最终回复必须包含：
 
 ### Summary
+
 完成了什么。
 
 ### Files Changed
+
 新增、修改、删除了哪些文件。
 
 ### Decisions
+
 列出重要实现决定及原因；没有重要决定时写 N/A。
 
 ### Commands Run
+
 实际执行的命令。
 
 ### Validation
+
 逐项报告 format、lint、typecheck、tests，以及 Task 额外验证。
 
 ### Repository Hygiene
+
 说明工作区、未跟踪文件、Scope 外修改、临时配置等状态。
 
 ### Acceptance Criteria
+
 逐条说明是否满足。
 
 ### Known Limitations
+
 只列出真实存在的限制。
 
 ### Review Status
+
 写明：
 
 - `Ready for Human Review`
 - 或 `Blocked`
 
-不得自行 Commit、Push、Merge 或修改 Roadmap，除非当前 Task 明确要求。
+不得自行执行 git add、git commit、git push、merge、tag 或 release，除非当前 Task 明确要求。
