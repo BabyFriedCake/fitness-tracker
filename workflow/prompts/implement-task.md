@@ -1,6 +1,6 @@
 # Implement Task Prompt
 
-Version: 2.0  
+Version: 2.1
 Status: Draft for Validation
 
 ## 使命
@@ -35,7 +35,27 @@ Status: Draft for Validation
 
 ---
 
-## 2. Task 理解
+## 2. 执行效率规则
+
+- 只使用当前 Agent，不启动 subagent。
+- 实现期间优先运行当前 Task 的定向测试。
+- 不要在每次小修改后运行完整测试套件。
+- Self Review 只执行一轮。
+- 自动修正最多执行一轮。
+- 一轮修正后仍存在阻塞问题时，停止并报告，不继续循环。
+- 修正后只重新运行受影响的定向测试。
+- 完整的 `format`、`lint`、`typecheck` 和 `test`
+  只在实现和 Self Review 完成后运行一次。
+- 不自动触发 GitHub PR Code Review。
+- Final Report 不超过 50 行，不复述 Task 原文。
+- 不重复读取与当前 Task 无关的文档。
+- Human Review 修正时，只读取受影响文件和相关契约。
+- 不执行 `git add`、`git commit`、`git push`、merge、tag 或 release，
+  除非当前 Task 明确要求。
+
+---
+
+## 3. Task 理解
 
 在修改文件前，先确认：
 
@@ -52,7 +72,7 @@ Status: Draft for Validation
 
 ---
 
-## 3. Scope 控制
+## 4. Scope 控制
 
 必须遵守：
 
@@ -69,9 +89,9 @@ Status: Draft for Validation
 
 ---
 
-## 4. 实现原则
+## 5. 实现原则
 
-### 4.1 架构
+### 5.1 架构
 
 遵守仓库定义的依赖方向。
 
@@ -97,7 +117,7 @@ Infrastructure Implementation
 - Infrastructure 反向定义领域规则
 - Hook 绕过 Application 层直接拼装复杂业务流程
 
-### 4.2 领域模型
+### 5.2 领域模型
 
 如果 Task 新增或修改核心领域对象，检查：
 
@@ -108,7 +128,7 @@ Infrastructure Implementation
 - 是否错误地加入了未批准的未来字段
 - 是否为未来 Sprint 保留合理扩展空间，但不提前实现未来需求
 
-### 4.3 数据与持久化
+### 5.3 数据与持久化
 
 如果 Task 涉及数据库：
 
@@ -120,7 +140,7 @@ Infrastructure Implementation
 - 重复点击不得造成重复持久化
 - 修改模板不得影响历史快照等既定事实
 
-### 4.4 UI
+### 5.4 UI
 
 如果 Task 涉及 UI：
 
@@ -134,7 +154,7 @@ Infrastructure Implementation
 
 ---
 
-## 5. 测试策略
+## 6. 测试策略
 
 根据改动补充适当层级的测试：
 
@@ -144,6 +164,12 @@ Infrastructure Implementation
 - UI：组件和交互测试
 - Bugfix：回归测试
 
+实现期间：
+
+- 优先运行当前 Task 的定向测试
+- 定向测试失败时，先修复当前问题
+- 不要反复运行完整测试套件
+
 不得：
 
 - 删除失败测试来让 CI 通过
@@ -152,9 +178,31 @@ Infrastructure Implementation
 
 ---
 
-## 6. Validation
+## 7. Self Review
 
-执行当前 Task 要求的命令。
+完成实现和定向测试后，读取并遵循：
+
+`workflow/prompts/self-review.md`
+
+如果该文件无法读取，必须停止并报告。
+
+Self Review 必须：
+
+- 只使用当前 Agent
+- 只审查当前 Task 的未提交 Diff
+- 只执行一轮
+- 自动修正最多一轮
+- 修正后只重新运行受影响的定向测试
+- 仍存在阻塞问题时停止并报告
+- 不执行完整 Validation
+
+Self Review 完成前，不得运行完整 Validation。
+
+---
+
+## 8. 最终 Validation
+
+Self Review 完成且没有遗留阻塞问题后，执行当前 Task 要求的验证命令。
 
 默认至少包括：
 
@@ -163,7 +211,16 @@ pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
+git diff --check
 ```
+
+完整 Validation 原则上只运行一次。
+
+如果某项失败：
+
+- 只修复导致失败的问题
+- 优先重新运行受影响的检查
+- 最终必须重新确认完整 Validation 全部通过
 
 如 Task 要求，还应执行：
 
@@ -177,7 +234,7 @@ pnpm test
 
 ---
 
-## 7. Repository Hygiene
+## 9. Repository Hygiene
 
 完成实现后执行：
 
@@ -211,50 +268,9 @@ git clean -nd
 
 ---
 
-## 8. 自我审查
+## 10. 最终报告
 
-提交最终结果前检查：
-
-### Scope
-
-- 是否只完成当前 Task
-- 是否提前实现后续任务
-- 是否加入无关依赖或重构
-
-### Specification
-
-- 是否符合 `AGENTS.md`
-- 是否符合 Prototype / Domain / Database / Design System
-- 是否同步了必要文档
-
-### Architecture
-
-- 依赖方向是否正确
-- 是否存在基础设施泄漏
-- Route / Screen 是否过重
-- Repository contract 是否被破坏
-
-### Quality
-
-- 类型是否严格
-- 错误处理是否明确
-- 测试是否覆盖关键风险
-- 是否存在重复写入风险
-
-### Future Compatibility
-
-- 当前设计是否会强迫下一 Sprint 进行破坏性重写
-- 命名是否稳定
-- 是否过度为未来设计
-- 是否保留了合理扩展点
-
-发现问题后先修复，再重新执行 Validation 和 Hygiene。
-
----
-
-## 9. 最终报告
-
-最终回复必须包含：
+最终回复不得超过 50 行，并必须包含：
 
 ### Summary
 
@@ -268,11 +284,19 @@ git clean -nd
 
 列出重要实现决定及原因；没有重要决定时写 N/A。
 
-### Commands Run
+### Self Review
 
-实际执行的命令。
+报告：
 
-### Validation
+- Self Review 是否发现阻塞问题
+- 自动修正了哪些问题
+- 是否仍有遗留问题
+
+### Focused Tests
+
+列出实现期间实际运行的定向测试。
+
+### Final Validation
 
 逐项报告 format、lint、typecheck、tests，以及 Task 额外验证。
 
@@ -295,4 +319,5 @@ git clean -nd
 - `Ready for Human Review`
 - 或 `Blocked`
 
-不得自行执行 git add、git commit、git push、merge、tag 或 release，除非当前 Task 明确要求。
+不得自行执行 `git add`、`git commit`、`git push`、merge、tag 或 release，
+除非当前 Task 明确要求。
