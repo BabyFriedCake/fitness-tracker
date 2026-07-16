@@ -6,11 +6,18 @@ import type {
   WorkoutTemplateListQuery,
 } from './types';
 
+export type WorkoutTemplateDetailQuery = {
+  readonly includeArchived?: boolean;
+};
+
 export type WorkoutTemplateRepository = {
   readonly list: (
     query?: WorkoutTemplateListQuery,
   ) => Promise<readonly WorkoutTemplate[]>;
-  readonly getById: (id: WorkoutTemplateId) => Promise<WorkoutTemplate | null>;
+  readonly getById: (
+    id: WorkoutTemplateId,
+    query?: WorkoutTemplateDetailQuery,
+  ) => Promise<WorkoutTemplate | null>;
   readonly create: (
     input: CreateWorkoutTemplateInput,
   ) => Promise<WorkoutTemplate>;

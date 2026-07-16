@@ -18,7 +18,10 @@ export type {
   WorkoutTemplateStatus,
 } from './types';
 export { WORKOUT_TEMPLATE_STATUSES } from './types';
-export type { WorkoutTemplateRepository } from './repository';
+export type {
+  WorkoutTemplateDetailQuery,
+  WorkoutTemplateRepository,
+} from './repository';
 export {
   WorkoutTemplateValidationError,
   assertWorkoutTemplateCanStart,
