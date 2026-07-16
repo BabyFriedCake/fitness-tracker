@@ -18,14 +18,17 @@ Owner: Product Owner
 - [x] AGENTS.md
 - [x] Sprint Task Workflow
 
-## Sprint 1 — Project Bootstrap
+## Sprint 1（✅ Completed）
 
-- [x] S1-01 Workspace & Expo
-- [x] S1-02 Code Quality
-- [x] S1-03 Navigation Shell
-- [x] S1-04 SQLite Bootstrap
-- [x] S1-05 GitHub Actions CI
-- [x] S1-06 Sprint Exit Review
+- [x] Workspace
+- [x] Code Quality
+- [x] Navigation Shell
+- [x] SQLite Bootstrap
+- [x] GitHub Actions CI
+- [x] Sprint Exit Review
+
+Tag: sprint-1
+Completed: 2026-07-15
 
 ## Sprint 2 — Exercise Library
 
