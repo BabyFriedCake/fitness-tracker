@@ -2,7 +2,7 @@
 
 Version: v1.0  
 Status: Approved  
-Last Updated: 2026-07-14
+Last Updated: 2026-07-16
 
 ---
 
@@ -46,6 +46,25 @@ Last Updated: 2026-07-14
 
 - active：可使用
 - archived：已归档
+
+### workout_templates.archived_at
+
+模板归档时间，UTC ISO 8601。
+
+规则：
+
+- active 模板必须为空
+- archived 模板必须有值
+
+### workout_template_exercises.position
+
+模板内动作顺序，从 1 开始。
+
+同一模板内 position 必须唯一。
+
+### workout_template_exercises.target_sets
+
+目标组数，必须大于 0。
 
 ### session status
 
@@ -100,11 +119,15 @@ V1：
 
 目标次数范围下限。
 
+必须大于 0。
+
 例如 8–10 次时保存 8。
 
 ### workout_template_exercises.target_reps_max
 
 目标次数范围上限。
+
+必须大于等于 `target_reps_min`。
 
 例如 8–10 次时保存 10。
 
@@ -114,6 +137,10 @@ V1：
 target_reps_min = 10
 target_reps_max = 10
 ```
+
+### workout_template_exercises.rest_seconds
+
+默认休息秒数，必须大于等于 0。
 
 ### workout_sessions.name_snapshot
 
