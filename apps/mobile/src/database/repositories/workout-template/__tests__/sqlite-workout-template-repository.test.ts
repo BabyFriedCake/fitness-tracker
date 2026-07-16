@@ -390,6 +390,87 @@ describe('SQLite WorkoutTemplateRepository', () => {
     ]);
   });
 
+  it('removes exercises only from the template and keeps source Exercise rows', async () => {
+    const repository = createSqliteWorkoutTemplateRepository(database);
+
+    await repository.create(
+      buildCreateInput({
+        exercises: [
+          buildTemplateExerciseInput({
+            id: 'template-exercise-bench',
+            position: 1,
+            exerciseId: 'exercise-bench-press',
+          }),
+          buildTemplateExerciseInput({
+            id: 'template-exercise-row',
+            position: 2,
+            exerciseId: 'exercise-row',
+          }),
+        ],
+      }),
+    );
+
+    await repository.update(
+      buildUpdateInput({
+        exercises: [
+          buildTemplateExerciseInput({
+            id: 'template-exercise-row',
+            position: 1,
+            exerciseId: 'exercise-row',
+          }),
+        ],
+      }),
+    );
+
+    const detail = await repository.getById(toTemplateId('template-push'));
+
+    expect(detail?.exercises.map((exercise) => exercise.exerciseId)).toEqual([
+      'exercise-row',
+    ]);
+    expect(await getTableCount('exercises')).toBe(2);
+  });
+
+  it('keeps existing session snapshots unchanged when a source template is edited', async () => {
+    const repository = createSqliteWorkoutTemplateRepository(database);
+
+    await repository.create(buildCreateInput());
+    await insertSessionSnapshot();
+
+    await repository.update(
+      buildUpdateInput({
+        name: 'Updated Push',
+        exercises: [
+          buildTemplateExerciseInput({
+            id: 'template-exercise-row',
+            position: 1,
+            exerciseId: 'exercise-row',
+            targetSets: 5,
+          }),
+        ],
+      }),
+    );
+
+    const sessionRow = await database.getFirstAsync<{
+      readonly name_snapshot: string;
+    }>("SELECT name_snapshot FROM workout_sessions WHERE id = 'session-push';");
+    const sessionExerciseRow = await database.getFirstAsync<{
+      readonly exercise_id: string;
+      readonly exercise_name_snapshot: string;
+      readonly target_sets: number;
+    }>(
+      "SELECT exercise_id, exercise_name_snapshot, target_sets FROM workout_session_exercises WHERE id = 'session-exercise-bench';",
+    );
+
+    expect(sessionRow).toEqual({
+      name_snapshot: 'Push Snapshot',
+    });
+    expect(sessionExerciseRow).toEqual({
+      exercise_id: 'exercise-bench-press',
+      exercise_name_snapshot: 'Bench Snapshot',
+      target_sets: 3,
+    });
+  });
+
   it('archives templates without deleting exercise configuration', async () => {
     const repository = createSqliteWorkoutTemplateRepository(database);
 
@@ -541,6 +622,87 @@ describe('SQLite WorkoutTemplateRepository', () => {
     );
 
     return row?.count ?? 0;
+  }
+
+  async function insertSessionSnapshot(): Promise<void> {
+    await database.runAsync(
+      `
+      INSERT INTO workout_sessions (
+        id,
+        source_template_id,
+        name_snapshot,
+        status,
+        daily_status,
+        started_at,
+        ended_at,
+        note,
+        current_session_exercise_id,
+        current_set_number,
+        was_edited,
+        edited_at,
+        is_deleted,
+        created_at,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      `,
+      'session-push',
+      'template-push',
+      'Push Snapshot',
+      'completed',
+      null,
+      '2026-07-16T03:00:00.000Z',
+      '2026-07-16T04:00:00.000Z',
+      null,
+      null,
+      null,
+      0,
+      null,
+      0,
+      CREATED_AT,
+      UPDATED_AT,
+    );
+    await database.runAsync(
+      `
+      INSERT INTO workout_session_exercises (
+        id,
+        session_id,
+        exercise_id,
+        exercise_name_snapshot,
+        primary_muscle_group_snapshot,
+        equipment_snapshot,
+        position,
+        target_sets,
+        target_reps_min,
+        target_reps_max,
+        rest_seconds,
+        group_key,
+        is_enabled,
+        is_skipped,
+        completed_at,
+        created_at,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      `,
+      'session-exercise-bench',
+      'session-push',
+      'exercise-bench-press',
+      'Bench Snapshot',
+      'chest',
+      'barbell',
+      1,
+      3,
+      8,
+      10,
+      90,
+      null,
+      1,
+      0,
+      '2026-07-16T04:00:00.000Z',
+      CREATED_AT,
+      UPDATED_AT,
+    );
   }
 
   async function createPaginationTemplates(
