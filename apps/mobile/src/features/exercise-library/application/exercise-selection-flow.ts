@@ -6,7 +6,14 @@ export type ExerciseSelectionContext =
   (typeof EXERCISE_SELECTION_CONTEXTS)[number];
 
 export type ExerciseSelectionReturnPath =
-  '/' | '/templates' | '/exercises' | '/history' | '/settings';
+  | '/'
+  | '/templates'
+  | '/templates/new'
+  | '/exercises'
+  | '/history'
+  | '/settings';
+
+export type ExerciseSelectionReturnParams = Readonly<Record<string, string>>;
 
 export type ExerciseLibrarySelectionMode =
   | {
@@ -16,6 +23,7 @@ export type ExerciseLibrarySelectionMode =
       readonly status: 'selecting';
       readonly context: ExerciseSelectionContext;
       readonly returnTo: ExerciseSelectionReturnPath;
+      readonly returnParams: ExerciseSelectionReturnParams;
       readonly alreadySelectedExerciseIds: readonly ExerciseId[];
     }
   | {
@@ -27,6 +35,7 @@ export type ExerciseSelectionRouteParams = {
   readonly mode?: string | readonly string[];
   readonly context?: string | readonly string[];
   readonly returnTo?: string | readonly string[];
+  readonly returnParams?: string | readonly string[];
   readonly selectedIds?: string | readonly string[];
 };
 
@@ -36,6 +45,7 @@ export type ExerciseSelectionHref = {
     readonly mode: 'select';
     readonly context: ExerciseSelectionContext;
     readonly returnTo: ExerciseSelectionReturnPath;
+    readonly returnParams?: string;
     readonly selectedIds?: string;
   };
 };
@@ -50,6 +60,7 @@ const DEFAULT_SESSION_RETURN_PATH = '/';
 const VALID_RETURN_PATHS = [
   '/',
   '/templates',
+  '/templates/new',
   '/exercises',
   '/history',
   '/settings',
@@ -84,6 +95,7 @@ export function parseExerciseLibrarySelectionMode(
     status: 'selecting',
     context,
     returnTo: parseReturnTo(params.returnTo, context),
+    returnParams: parseReturnParams(params.returnParams),
     alreadySelectedExerciseIds: parseAlreadySelectedExerciseIds(
       params.selectedIds,
     ),
@@ -93,12 +105,14 @@ export function parseExerciseLibrarySelectionMode(
 export function createTemplateExerciseSelectionHref(
   options: {
     readonly returnTo?: ExerciseSelectionReturnPath;
+    readonly returnParams?: ExerciseSelectionReturnParams;
     readonly alreadySelectedExerciseIds?: readonly ExerciseId[];
   } = {},
 ): ExerciseSelectionHref {
   return createExerciseSelectionHref({
     context: 'template',
     returnTo: options.returnTo ?? DEFAULT_TEMPLATE_RETURN_PATH,
+    returnParams: options.returnParams ?? {},
     alreadySelectedExerciseIds: options.alreadySelectedExerciseIds ?? [],
   });
 }
@@ -106,12 +120,14 @@ export function createTemplateExerciseSelectionHref(
 export function createSessionExerciseSelectionHref(
   options: {
     readonly returnTo?: ExerciseSelectionReturnPath;
+    readonly returnParams?: ExerciseSelectionReturnParams;
     readonly alreadySelectedExerciseIds?: readonly ExerciseId[];
   } = {},
 ): ExerciseSelectionHref {
   return createExerciseSelectionHref({
     context: 'session',
     returnTo: options.returnTo ?? DEFAULT_SESSION_RETURN_PATH,
+    returnParams: options.returnParams ?? {},
     alreadySelectedExerciseIds: options.alreadySelectedExerciseIds ?? [],
   });
 }
@@ -139,9 +155,11 @@ export function isExerciseAlreadySelected(
 function createExerciseSelectionHref(options: {
   readonly context: ExerciseSelectionContext;
   readonly returnTo: ExerciseSelectionReturnPath;
+  readonly returnParams: ExerciseSelectionReturnParams;
   readonly alreadySelectedExerciseIds: readonly ExerciseId[];
 }): ExerciseSelectionHref {
   const selectedIds = options.alreadySelectedExerciseIds.join(',');
+  const returnParams = encodeReturnParams(options.returnParams);
 
   return {
     pathname: '/exercises',
@@ -149,9 +167,20 @@ function createExerciseSelectionHref(options: {
       mode: 'select',
       context: options.context,
       returnTo: options.returnTo,
+      ...(returnParams ? { returnParams } : {}),
       ...(selectedIds ? { selectedIds } : {}),
     },
   };
+}
+
+function encodeReturnParams(params: ExerciseSelectionReturnParams): string {
+  const entries = Object.entries(params).filter(([, value]) => value);
+
+  if (entries.length === 0) {
+    return '';
+  }
+
+  return new URLSearchParams(entries).toString();
 }
 
 function parseReturnTo(
@@ -179,6 +208,18 @@ function parseAlreadySelectedExerciseIds(
     .map((rawValue) => rawValue.trim())
     .filter(Boolean)
     .map((rawValue) => rawValue as ExerciseId);
+}
+
+function parseReturnParams(
+  value: string | readonly string[] | undefined,
+): ExerciseSelectionReturnParams {
+  const rawValue = firstParamValue(value);
+
+  if (!rawValue) {
+    return {};
+  }
+
+  return Object.fromEntries(new URLSearchParams(rawValue).entries());
 }
 
 function firstParamValue(

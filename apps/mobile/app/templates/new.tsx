@@ -1,10 +1,15 @@
-import { WorkoutTemplateEntryPlaceholderScreen } from '@/features/workout-templates/screens/workout-template-entry-placeholder-screen';
+import { useLocalSearchParams } from 'expo-router';
+
+import { WorkoutTemplateCreateScreen } from '@/features/workout-templates/screens/workout-template-create-screen';
 
 export default function NewWorkoutTemplateRoute() {
-  return (
-    <WorkoutTemplateEntryPlaceholderScreen
-      title="创建训练模板"
-      note="创建表单将在后续任务实现。"
-    />
-  );
+  const params = useLocalSearchParams<{
+    draftName?: string | string[];
+    draftDescription?: string | string[];
+    selectedIds?: string | string[];
+    selectedExerciseId?: string | string[];
+    selectionContext?: string | string[];
+  }>();
+
+  return <WorkoutTemplateCreateScreen routeParams={params} />;
 }

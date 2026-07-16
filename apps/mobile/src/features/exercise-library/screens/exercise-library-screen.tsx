@@ -6,7 +6,7 @@ import {
   StyleSheet,
   TextInput,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -43,6 +43,7 @@ export function ExerciseLibraryScreen() {
     mode?: string | string[];
     context?: string | string[];
     returnTo?: string | string[];
+    returnParams?: string | string[];
     selectedIds?: string | string[];
   }>();
   const selectionMode = parseExerciseLibrarySelectionMode(params);
@@ -65,20 +66,27 @@ export function ExerciseLibraryScreen() {
           return;
         }
 
-        router.replace({
+        router.dismissTo({
           pathname: selectionMode.returnTo,
-          params: createExerciseSelectionResultParams(
-            selectionMode.context,
-            exercise.id,
-          ),
-        });
+          params: {
+            ...selectionMode.returnParams,
+            ...createExerciseSelectionResultParams(
+              selectionMode.context,
+              exercise.id,
+            ),
+          },
+        } as Href);
       }}
       onCancelSelection={() => {
-        router.replace(
-          selectionMode.status === 'selecting'
-            ? selectionMode.returnTo
-            : '/exercises',
-        );
+        if (selectionMode.status === 'selecting') {
+          router.dismissTo({
+            pathname: selectionMode.returnTo,
+            params: selectionMode.returnParams,
+          } as Href);
+          return;
+        }
+
+        router.replace('/exercises');
       }}
     />
   );
