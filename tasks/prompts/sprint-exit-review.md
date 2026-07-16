@@ -220,3 +220,29 @@ Requirements:
 - Fill every applicable section.
 - Use repository evidence whenever possible.
 - Wait for human review before commit.
+
+## Exit Decision
+
+Code Quality Gate:
+
+These items determine PASS/FAIL:
+
+- typecheck
+- lint
+- tests
+- format
+- repository hygiene
+- acceptance criteria
+
+Release Readiness:
+
+These items should NOT fail the sprint:
+
+- GitHub CI not yet executed
+- Local commits ahead of upstream
+- Native device verification pending
+- Roadmap pending update
+
+Instead list them under:
+
+Warnings
