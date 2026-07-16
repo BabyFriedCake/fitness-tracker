@@ -1,24 +1,30 @@
-# Fitness Tracker Roadmap
+# Fitness Tracker 路线图（Roadmap）
 
-Version: v1.0  
-Status: Active  
-Owner: Product Owner
+版本：v1.0  
+状态：开发中（Active）  
+负责人：Product Owner
 
-## Milestone 0 — Product Foundation
+---
 
-- [x] Vision
-- [x] Constitution
-- [x] PRD
-- [x] Architecture
-- [x] Domain Model
-- [x] Prototype P001–P010
-- [x] Database Design
+## 里程碑 0：项目基础（✅ 已完成）
+
+- [x] 产品愿景（Vision）
+- [x] 项目宪章（Constitution）
+- [x] 产品需求文档（PRD）
+- [x] 系统架构（Architecture）
+- [x] 领域模型（Domain Model）
+- [x] 原型（P001–P010）
+- [x] 数据库设计（Database Design）
 - [x] Design System
-- [x] Development Guide
+- [x] 开发指南（Development Guide）
 - [x] AGENTS.md
-- [x] Sprint Task Workflow
+- [x] Sprint 开发流程
 
-## Sprint 1（✅ Completed）
+---
+
+## Sprint 1（✅ 已完成）
+
+### 工程基础
 
 - [x] Workspace
 - [x] Code Quality
@@ -27,70 +33,104 @@ Owner: Product Owner
 - [x] GitHub Actions CI
 - [x] Sprint Exit Review
 
-Tag: sprint-1
-Completed: 2026-07-15
+完成时间：2026-07-15
 
-## Sprint 2 — Exercise Library
+Tag：sprint-1
 
-- [ ] Exercise domain model implementation
-- [ ] Exercise seed import
-- [ ] Exercise repository
-- [ ] Search
-- [ ] Muscle-group filters
-- [ ] Equipment filters
-- [ ] Exercise detail
-- [ ] Exercise selection flow
+---
 
-## Sprint 3 — Workout Templates
+## Sprint 2（✅ 已完成）
 
-- [ ] Template repository
-- [ ] Template list
-- [ ] Create template
-- [ ] Edit template
-- [ ] Exercise configuration
-- [ ] Reordering
-- [ ] Archive template
+### 动作库（Exercise Library）
 
-## Sprint 4 — Workout Flow
+完成时间：2026-07-16
 
-- [ ] Today Dashboard
-- [ ] Start Workout
-- [ ] Workout Execution
-- [ ] Rest Timer
-- [ ] Workout Summary
-- [ ] Workout recovery
-- [ ] Cancelled-session handling
+Tag：sprint-2
 
-## Sprint 5 — History & Settings
+Release：Sprint 2：动作库
 
-- [ ] Workout history
-- [ ] Workout detail
-- [ ] Progress statistics
-- [ ] Historical correction
-- [ ] Settings
-- [ ] Data export
-- [ ] Data clearing
+Exit Review：PASS
 
-## Sprint 6 — Beta & Release
+#### 已完成
 
-- [ ] Full regression testing
-- [ ] iPhone device testing
-- [ ] Performance review
-- [ ] Accessibility review
-- [ ] TestFlight build
-- [ ] Beta feedback fixes
-- [ ] V1 release
+- [x] 动作领域模型（Exercise Domain）
+- [x] Seed 数据导入
+- [x] SQLite Repository
+- [x] 动作列表
+- [x] 搜索
+- [x] 筛选
+- [x] 动作详情
+- [x] 动作选择流程
+- [x] Sprint Exit Review
 
-## V2 Backlog
+---
 
-- AI-generated training plans
-- Advanced progression recommendations
-- Super sets
-- Warm-up and drop sets
+## Sprint 3（🚧 计划中）
+
+### 训练模板（Workout Templates）
+
+- [ ] Template Repository
+- [ ] 模板列表
+- [ ] 创建模板
+- [ ] 编辑模板
+- [ ] 动作配置
+- [ ] 动作排序
+- [ ] 模板归档
+
+---
+
+## Sprint 4（🚧 计划中）
+
+### 训练流程（Workout Flow）
+
+- [ ] 今日训练（Today Dashboard）
+- [ ] 开始训练
+- [ ] 训练执行
+- [ ] 休息计时器
+- [ ] 训练总结
+- [ ] 恢复训练
+- [ ] 取消训练处理
+
+---
+
+## Sprint 5（🚧 计划中）
+
+### 历史记录与设置（History & Settings）
+
+- [ ] 训练历史
+- [ ] 训练详情
+- [ ] 训练统计
+- [ ] 历史修正
+- [ ] 设置
+- [ ] 数据导出
+- [ ] 清空数据
+
+---
+
+## Sprint 6（🚧 计划中）
+
+### Beta 与正式发布（Beta & Release）
+
+- [ ] 完整回归测试
+- [ ] iPhone 真机测试
+- [ ] 性能优化
+- [ ] 无障碍检查
+- [ ] TestFlight 发布
+- [ ] Beta 用户反馈修复
+- [ ] V1 正式发布
+
+---
+
+## V2 Backlog（后续规划）
+
+- AI 生成训练计划
+- 高级训练进阶建议
+- 超级组（Super Sets）
+- 热身组 / 掉重组
 - RPE / RIR
 - Apple Watch
-- Huawei Health
-- Cloud sync
-- Account system
+- 华为运动健康
+- 云同步
+- 账号系统
 - Live Activity
-- Home-screen widgets
+- 桌面小组件（Widgets）
