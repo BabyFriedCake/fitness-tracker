@@ -16,6 +16,7 @@ import type { WorkoutSessionSchemaRow } from '@/database/schema';
 import type { DatabaseConnection } from '@/database/types';
 import type { ExerciseId } from '@/domain/exercise';
 import {
+  cancelWorkoutSession,
   startWorkoutSession,
   type CompletedWorkoutSession,
   type DraftWorkoutSession,
@@ -285,6 +286,53 @@ describe('SQLite WorkoutSessionRepository', () => {
     await expect(
       repository.findById('missing-session' as WorkoutSessionId),
     ).resolves.toBeNull();
+  });
+
+  it('returns null when there is no active session', async () => {
+    const repository = createSqliteWorkoutSessionRepository(database);
+
+    await expect(repository.findActiveSession()).resolves.toBeNull();
+  });
+
+  it('returns the active session', async () => {
+    const repository = createSqliteWorkoutSessionRepository(database);
+    const active = buildInProgressSession();
+    await repository.save(active);
+
+    await expect(repository.findActiveSession()).resolves.toEqual(active);
+  });
+
+  it('hydrates the active session exercises and sets', async () => {
+    const repository = createSqliteWorkoutSessionRepository(database);
+    const active = buildInProgressSession({
+      sessionExercises: [
+        buildSessionExercise({
+          sets: [buildWorkoutSet(BENCH_SESSION_EXERCISE_ID)],
+        }),
+      ],
+    });
+    await repository.save(active);
+
+    const restored = await repository.findActiveSession();
+
+    expect(restored).toEqual(active);
+    expect(restored?.sessionExercises[0]?.sets).toEqual(
+      active.sessionExercises[0]?.sets,
+    );
+  });
+
+  it('does not return a completed session as active', async () => {
+    const repository = createSqliteWorkoutSessionRepository(database);
+    await repository.save(buildCompletedSession());
+
+    await expect(repository.findActiveSession()).resolves.toBeNull();
+  });
+
+  it('does not return a cancelled session as active', async () => {
+    const repository = createSqliteWorkoutSessionRepository(database);
+    await repository.save(cancelWorkoutSession(buildDraftSession(), ENDED_AT));
+
+    await expect(repository.findActiveSession()).resolves.toBeNull();
   });
 
   it('rejects malformed database rows during mapping', () => {

@@ -47,6 +47,7 @@ export function createSqliteWorkoutSessionRepository(
   return {
     save: (session) => saveWorkoutSession(database, session),
     findById: (id) => findWorkoutSessionById(database, id),
+    findActiveSession: () => findActiveWorkoutSession(database),
     update: (session) => updateWorkoutSession(database, session),
   };
 }
@@ -95,6 +96,33 @@ async function findWorkoutSessionById(
     return null;
   }
 
+  return hydrateWorkoutSession(database, sessionRow);
+}
+
+async function findActiveWorkoutSession(
+  database: DatabaseConnection,
+): Promise<WorkoutSession | null> {
+  const sessionRow = await database.getFirstAsync<WorkoutSessionSchemaRow>(
+    `
+    SELECT *
+    FROM workout_sessions
+    WHERE status = 'in_progress' AND is_deleted = 0
+    ORDER BY started_at ASC, id ASC
+    LIMIT 1;
+    `,
+  );
+
+  if (!sessionRow) {
+    return null;
+  }
+
+  return hydrateWorkoutSession(database, sessionRow);
+}
+
+async function hydrateWorkoutSession(
+  database: DatabaseConnection,
+  sessionRow: WorkoutSessionSchemaRow,
+): Promise<WorkoutSession> {
   const exerciseRows = await database.getAllAsync<SessionExerciseSchemaRow>(
     `
       SELECT *
@@ -102,7 +130,7 @@ async function findWorkoutSessionById(
       WHERE session_id = ?
       ORDER BY position ASC, id ASC;
       `,
-    id,
+    sessionRow.id,
   );
   const setRows = await getWorkoutSetRows(database, exerciseRows);
 
