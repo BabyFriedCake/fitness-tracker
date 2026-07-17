@@ -2,7 +2,7 @@
 
 Version: v1.0  
 Status: Approved  
-Last Updated: 2026-07-16
+Last Updated: 2026-07-17
 
 ---
 
@@ -166,19 +166,42 @@ V1 规则：
 CREATE TABLE workout_sessions (
   id TEXT PRIMARY KEY,
   source_template_id TEXT,
-  name_snapshot TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'draft',
-  daily_status TEXT,
+  workout_name_snapshot TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft', 'in_progress', 'completed', 'cancelled')),
+  daily_status TEXT
+    CHECK (
+      daily_status IS NULL
+      OR daily_status IN ('normal', 'fatigued', 'menstrual', 'unwell')
+    ),
+  notes TEXT,
   started_at TEXT,
   ended_at TEXT,
-  note TEXT,
   current_session_exercise_id TEXT,
-  current_set_number INTEGER,
-  was_edited INTEGER NOT NULL DEFAULT 0,
+  current_set_number INTEGER
+    CHECK (current_set_number IS NULL OR current_set_number > 0),
+  was_edited INTEGER NOT NULL DEFAULT 0
+    CHECK (was_edited IN (0, 1)),
   edited_at TEXT,
-  is_deleted INTEGER NOT NULL DEFAULT 0,
+  is_deleted INTEGER NOT NULL DEFAULT 0
+    CHECK (is_deleted IN (0, 1)),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
+
+  CHECK (
+    (status = 'draft' AND started_at IS NULL AND ended_at IS NULL)
+    OR (
+      status = 'in_progress'
+      AND started_at IS NOT NULL
+      AND ended_at IS NULL
+    )
+    OR (
+      status = 'completed'
+      AND started_at IS NOT NULL
+      AND ended_at IS NOT NULL
+    )
+    OR (status = 'cancelled' AND ended_at IS NOT NULL)
+  ),
 
   FOREIGN KEY (source_template_id)
     REFERENCES workout_templates(id)
@@ -192,6 +215,13 @@ CREATE TABLE workout_sessions (
 - in_progress
 - completed
 - cancelled
+
+生命周期时间约束：
+
+- draft：started_at 和 ended_at 均为空
+- in_progress：started_at 有值，ended_at 为空
+- completed：started_at 和 ended_at 均有值
+- cancelled：started_at 可为空，ended_at 必须有值
 
 daily_status：
 
@@ -230,18 +260,24 @@ ON workout_sessions(is_deleted);
 CREATE TABLE workout_session_exercises (
   id TEXT PRIMARY KEY,
   session_id TEXT NOT NULL,
-  exercise_id TEXT NOT NULL,
+  source_exercise_id TEXT NOT NULL,
   exercise_name_snapshot TEXT NOT NULL,
   primary_muscle_group_snapshot TEXT,
   equipment_snapshot TEXT,
-  position INTEGER NOT NULL,
-  target_sets INTEGER NOT NULL,
-  target_reps_min INTEGER NOT NULL,
-  target_reps_max INTEGER NOT NULL,
-  rest_seconds INTEGER NOT NULL,
+  position INTEGER NOT NULL CHECK (position > 0),
+  is_enabled INTEGER NOT NULL DEFAULT 1
+    CHECK (is_enabled IN (0, 1)),
+  is_skipped INTEGER NOT NULL DEFAULT 0
+    CHECK (is_skipped IN (0, 1)),
+  is_completed INTEGER NOT NULL DEFAULT 0
+    CHECK (is_completed IN (0, 1)),
+  target_sets INTEGER NOT NULL CHECK (target_sets > 0),
+  target_reps_min INTEGER NOT NULL CHECK (target_reps_min > 0),
+  target_reps_max INTEGER NOT NULL
+    CHECK (target_reps_max >= target_reps_min),
+  current_rest_seconds INTEGER NOT NULL
+    CHECK (current_rest_seconds >= 0),
   group_key TEXT,
-  is_enabled INTEGER NOT NULL DEFAULT 1,
-  is_skipped INTEGER NOT NULL DEFAULT 0,
   completed_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -250,7 +286,7 @@ CREATE TABLE workout_session_exercises (
     REFERENCES workout_sessions(id)
     ON DELETE CASCADE,
 
-  FOREIGN KEY (exercise_id)
+  FOREIGN KEY (source_exercise_id)
     REFERENCES exercises(id)
     ON DELETE RESTRICT
 );
@@ -266,7 +302,7 @@ CREATE INDEX idx_session_exercises_session
 ON workout_session_exercises(session_id);
 
 CREATE INDEX idx_session_exercises_exercise
-ON workout_session_exercises(exercise_id);
+ON workout_session_exercises(source_exercise_id);
 ```
 
 ---
@@ -279,17 +315,22 @@ ON workout_session_exercises(exercise_id);
 CREATE TABLE workout_sets (
   id TEXT PRIMARY KEY,
   session_exercise_id TEXT NOT NULL,
-  set_number INTEGER NOT NULL,
-  set_type TEXT NOT NULL DEFAULT 'normal',
-  weight_value REAL,
-  weight_unit TEXT NOT NULL DEFAULT 'kg',
-  reps INTEGER,
-  is_completed INTEGER NOT NULL DEFAULT 1,
-  is_extra INTEGER NOT NULL DEFAULT 0,
-  is_deleted INTEGER NOT NULL DEFAULT 0,
-  was_edited INTEGER NOT NULL DEFAULT 0,
-  edited_at TEXT,
+  set_number INTEGER NOT NULL CHECK (set_number > 0),
+  set_type TEXT NOT NULL DEFAULT 'normal'
+    CHECK (set_type = 'normal'),
+  actual_reps INTEGER NOT NULL CHECK (actual_reps >= 0),
+  weight REAL NOT NULL CHECK (weight >= 0),
+  is_completed INTEGER NOT NULL DEFAULT 1
+    CHECK (is_completed IN (0, 1)),
+  is_extra_set INTEGER NOT NULL DEFAULT 0
+    CHECK (is_extra_set IN (0, 1)),
   completed_at TEXT NOT NULL,
+  weight_unit TEXT NOT NULL DEFAULT 'kg',
+  is_deleted INTEGER NOT NULL DEFAULT 0
+    CHECK (is_deleted IN (0, 1)),
+  was_edited INTEGER NOT NULL DEFAULT 0
+    CHECK (was_edited IN (0, 1)),
+  edited_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
 
@@ -329,10 +370,15 @@ ON workout_sets(is_deleted);
 
 规则：
 
-- 力量训练 weight_value >= 0
-- reps >= 0
+- actual_reps >= 0
+- weight >= 0
 - 哑铃记录单只重量
 - 未点击完成的输入不写入本表
+- 不保存 target_reps；目标次数属于 SessionExercise 快照
+
+`current_session_exercise_id`、`current_set_number`、历史纠错、软删除、
+动作补充快照、`group_key`、`completed_at` 和 `weight_unit` 等列由 `0003`
+原样迁移保留，避免破坏已有数据；S4-02 不实现这些列对应的 Recovery 或纠错流程。
 
 ---
 
@@ -469,15 +515,15 @@ LIMIT 1;
 
 ```sql
 SELECT
-  ws.weight_value,
-  ws.reps,
+  ws.weight,
+  ws.actual_reps,
   ws.completed_at
 FROM workout_sets ws
 JOIN workout_session_exercises wse
   ON wse.id = ws.session_exercise_id
 JOIN workout_sessions session
   ON session.id = wse.session_id
-WHERE wse.exercise_id = ?
+WHERE wse.source_exercise_id = ?
   AND session.status = 'completed'
   AND session.is_deleted = 0
   AND ws.is_completed = 1

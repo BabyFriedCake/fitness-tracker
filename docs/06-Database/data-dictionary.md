@@ -2,7 +2,7 @@
 
 Version: v1.0  
 Status: Approved  
-Last Updated: 2026-07-16
+Last Updated: 2026-07-17
 
 ---
 
@@ -142,11 +142,20 @@ target_reps_max = 10
 
 默认休息秒数，必须大于等于 0。
 
-### workout_sessions.name_snapshot
+### workout_sessions.workout_name_snapshot
 
 Session 创建时复制的模板名称。
 
 模板以后改名，历史仍显示原名称。
+
+### workout_sessions.started_at / ended_at
+
+生命周期时间约束：
+
+- draft：两者均为空
+- in_progress：started_at 有值，ended_at 为空
+- completed：两者均有值
+- cancelled：started_at 可为空，ended_at 必须有值
 
 ### workout_sessions.current_session_exercise_id
 
@@ -160,13 +169,25 @@ Session 创建时复制的模板名称。
 
 创建 Session 时保存的动作名称快照。
 
-### workout_sets.weight_value
+### workout_session_exercises.source_exercise_id
+
+创建 Session 时的来源动作 ID。展示名称以动作快照为准。
+
+### workout_session_exercises.current_rest_seconds
+
+本次 Session 动作当前使用的休息秒数，必须大于等于 0。
+
+### workout_sets.weight
 
 实际重量。
 
 哑铃动作记录单只重量。
 
-### workout_sets.is_extra
+### workout_sets.actual_reps
+
+本组实际完成次数，必须大于等于 0。WorkoutSet 不保存 `target_reps`。
+
+### workout_sets.is_extra_set
 
 是否属于目标组数之外的额外组。
 
@@ -230,7 +251,7 @@ true
 ### 单组训练容量
 
 ```text
-weight_value × reps
+weight × actual_reps
 ```
 
 ### Session 总容量
@@ -247,7 +268,7 @@ weight_value × reps
 
 ### 最大重量 PR
 
-某动作所有有效组中最大的 weight_value。
+某动作所有有效组中最大的 weight。
 
 ### 某重量最高次数
 
