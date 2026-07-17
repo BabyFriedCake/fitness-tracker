@@ -27,4 +27,7 @@ export {
   isTerminalWorkoutSession,
   startWorkoutSession,
 } from './state-transitions';
-export type { WorkoutSessionRepository } from './repository';
+export type {
+  StartWorkoutSessionPersistenceResult,
+  WorkoutSessionRepository,
+} from './repository';

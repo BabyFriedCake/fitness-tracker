@@ -28,6 +28,10 @@ import {
   type WorkoutSet,
   type WorkoutSetId,
 } from '@/domain/workout-session';
+import {
+  ActiveWorkoutSessionExistsError,
+  startSession,
+} from '@/features/workout-session/application/workout-session-flow';
 
 const CREATED_AT = '2026-07-17T00:00:00.000Z';
 const STARTED_AT = '2026-07-17T01:00:00.000Z';
@@ -36,6 +40,7 @@ const SET_TWO_COMPLETED_AT = '2026-07-17T01:20:00.000Z';
 const ENDED_AT = '2026-07-17T02:00:00.000Z';
 
 const SESSION_ID = 'session-push' as WorkoutSessionId;
+const SECOND_SESSION_ID = 'session-pull' as WorkoutSessionId;
 const BENCH_SESSION_EXERCISE_ID = 'session-exercise-bench' as SessionExerciseId;
 const ROW_SESSION_EXERCISE_ID = 'session-exercise-row' as SessionExerciseId;
 
@@ -333,6 +338,61 @@ describe('SQLite WorkoutSessionRepository', () => {
     await repository.save(cancelWorkoutSession(buildDraftSession(), ENDED_AT));
 
     await expect(repository.findActiveSession()).resolves.toBeNull();
+  });
+
+  it('allows only one of two concurrent draft sessions to start', async () => {
+    const repository = createSqliteWorkoutSessionRepository(database);
+    const firstDraft = buildDraftSession();
+    const secondDraft = buildDraftSession({
+      id: SECOND_SESSION_ID,
+      workoutNameSnapshot: 'Pull',
+      sessionExercises: [
+        buildSessionExercise({
+          id: ROW_SESSION_EXERCISE_ID,
+          sessionId: SECOND_SESSION_ID,
+          sourceExerciseId: 'exercise-row' as ExerciseId,
+          exerciseNameSnapshot: '坐姿划船快照',
+        }),
+      ],
+    });
+    await repository.save(firstDraft);
+    await repository.save(secondDraft);
+
+    const results = await Promise.allSettled([
+      startSession(repository, SESSION_ID, STARTED_AT),
+      startSession(repository, SECOND_SESSION_ID, STARTED_AT),
+    ]);
+    const fulfilledResult = results.find(
+      (result) => result.status === 'fulfilled',
+    );
+    const rejectedResult = results.find(
+      (result) => result.status === 'rejected',
+    );
+
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1);
+    expect(rejectedResult).toMatchObject({
+      status: 'rejected',
+      reason: expect.any(ActiveWorkoutSessionExistsError),
+    });
+
+    const activeRows = await database.getAllAsync<{ readonly id: string }>(
+      `
+      SELECT id
+      FROM workout_sessions
+      WHERE status = 'in_progress' AND is_deleted = 0;
+      `,
+    );
+
+    expect(activeRows).toHaveLength(1);
+    expect(fulfilledResult).toMatchObject({
+      status: 'fulfilled',
+      value: expect.objectContaining({ id: activeRows[0]?.id }),
+    });
   });
 
   it('rejects malformed database rows during mapping', () => {

@@ -1,7 +1,9 @@
 import {
   WORKOUT_SESSION_STATUSES,
   assertWorkoutSessionStatusTransition,
+  type InProgressWorkoutSession,
   type SessionExercise,
+  type StartWorkoutSessionPersistenceResult,
   type WorkoutSession,
   type WorkoutSessionId,
   type WorkoutSessionRepository,
@@ -48,6 +50,8 @@ export function createSqliteWorkoutSessionRepository(
     save: (session) => saveWorkoutSession(database, session),
     findById: (id) => findWorkoutSessionById(database, id),
     findActiveSession: () => findActiveWorkoutSession(database),
+    startIfNoActiveSession: (session, expectedUpdatedAt) =>
+      startWorkoutSessionIfNoActive(database, session, expectedUpdatedAt),
     update: (session) => updateWorkoutSession(database, session),
   };
 }
@@ -117,6 +121,75 @@ async function findActiveWorkoutSession(
   }
 
   return hydrateWorkoutSession(database, sessionRow);
+}
+
+async function startWorkoutSessionIfNoActive(
+  database: DatabaseConnection,
+  session: InProgressWorkoutSession,
+  expectedUpdatedAt: string,
+): Promise<StartWorkoutSessionPersistenceResult> {
+  assertAggregateRelationships(session);
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    // The predicate and update execute as one SQLite statement transaction.
+    const startedRow = await database.getFirstAsync<{ readonly id: string }>(
+      `
+      UPDATE workout_sessions
+      SET
+        status = 'in_progress',
+        started_at = ?,
+        ended_at = NULL,
+        updated_at = ?
+      WHERE id = ?
+        AND status = 'draft'
+        AND is_deleted = 0
+        AND updated_at = ?
+        AND NOT EXISTS (
+          SELECT 1
+          FROM workout_sessions AS active_session
+          WHERE active_session.status = 'in_progress'
+            AND active_session.is_deleted = 0
+        )
+      RETURNING id;
+      `,
+      session.startedAt,
+      session.updatedAt,
+      session.id,
+      expectedUpdatedAt,
+    );
+
+    if (startedRow) {
+      return { status: 'started' };
+    }
+
+    const activeSession = await findActiveWorkoutSession(database);
+
+    if (activeSession) {
+      return {
+        status: 'active_session_exists',
+        activeSessionId: activeSession.id,
+      };
+    }
+
+    const existing = await findWorkoutSessionById(database, session.id);
+
+    if (!existing) {
+      throw new WorkoutSessionNotFoundError(session.id);
+    }
+
+    assertUpdateAllowed(existing, session);
+
+    if (existing.updatedAt !== expectedUpdatedAt) {
+      throw new WorkoutSessionHistoricalRecordError(
+        session.id,
+        `WorkoutSession changed while start was pending: ${session.id}.`,
+      );
+    }
+  }
+
+  throw new WorkoutSessionAggregateError(
+    `WorkoutSession could not be started atomically: ${session.id}.`,
+  );
 }
 
 async function hydrateWorkoutSession(
