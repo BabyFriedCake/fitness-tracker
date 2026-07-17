@@ -10,52 +10,46 @@ Read and follow:
 
 Also verify consistency with:
 
-- docs/04-Architecture/architecture.md
-- docs/04-Architecture/domain-model.md
+- `docs/04-Architecture/architecture.md`
+- `docs/04-Architecture/domain-model.md`
 
-If there is a real blocking conflict, stop and report.
+If a real blocking conflict exists, stop and report.
 
 ---
 
 # Goal
 
-定义 WorkoutSession 领域模型基础。
+建立 WorkoutSession 训练领域模型，为 Sprint 4 训练执行流程提供基础。
 
-本任务只处理 Domain Contract。
+本任务只定义 Domain Contract。
 
 不实现：
 
 - Database
 - Migration
 - Repository
-- Application
+- Application Use Case
 - UI
-- Training Flow
+- Timer
+- Recovery Flow
 
 ---
 
-# Domain Source Rules
+# Domain Principles
 
-领域模型以 `domain-model.md` 为核心参考。
+WorkoutSession 表示一次真实发生的训练。
 
-当前 architecture.md 与 domain-model.md 存在历史命名差异：
+它不是 WorkoutTemplate 的复制品，而是训练事实快照。
 
-- architecture.md: WorkoutSessionExercise
-- domain-model.md: SessionExercise
+必须保持：
 
-该差异属于文档同步问题，不阻塞本 Task。
-
-本 Task 使用：
-
-`SessionExercise`
-
-后续单独同步 architecture.md。
+- Template 后续修改不影响历史 Session。
+- Session 支持未来不同来源。
+- WorkoutSet 只记录实际执行结果。
 
 ---
 
 # WorkoutSession
-
-字段：
 
 ```ts
 WorkoutSession
@@ -85,12 +79,13 @@ updatedAt
 
 说明：
 
-- sourceTemplateId 为可选。
-- Session 可以来自模板，也支持未来空白训练或 AI 推荐训练。
-- workoutNameSnapshot 保存训练名称快照。
-- sessionExercises 保存本次训练动作集合。
-- dailyStatus 保存训练日状态。
-- notes 保存训练备注。
+- `sourceTemplateId` 可为空。
+- Session 可以来自：
+  - WorkoutTemplate
+  - 空白训练
+  - 未来 AI 推荐计划
+- `workoutNameSnapshot` 保存训练名称快照。
+- `sessionExercises` 保存本次训练动作集合。
 
 ---
 
@@ -121,7 +116,9 @@ in_progress -> cancelled
 
 ```text
 completed -> in_progress
+
 completed -> cancelled
+
 cancelled -> in_progress
 ```
 
@@ -129,7 +126,7 @@ cancelled -> in_progress
 
 # SessionExercise
 
-字段：
+表示训练开始时保存的动作快照。
 
 ```ts
 SessionExercise
@@ -157,19 +154,27 @@ targetRepsMin
 targetRepsMax
 
 currentRestSeconds
+
+sets
 ```
 
-规则：
+其中：
 
-- 保存训练执行需要的动作快照。
-- 不依赖 Template 后续变化。
-- 不保存实际完成数据。
+```ts
+sets: WorkoutSet[]
+```
+
+说明：
+
+- SessionExercise 保存动作计划快照。
+- sets 保存该动作实际完成的训练组。
+- Template 或 Exercise Library 后续变化不能影响历史 Session。
 
 ---
 
 # WorkoutSet
 
-字段：
+表示一次实际完成的训练组。
 
 ```ts
 WorkoutSet
@@ -195,35 +200,75 @@ completedAt
 
 规则：
 
-- 只保存实际训练事实。
-- 不保存 targetReps。
-- 目标数据来自 SessionExercise。
+- WorkoutSet 只保存实际训练结果。
+- 不保存目标数据。
+
+禁止：
+
+```text
+targetReps
+targetWeight
+plannedSets
+```
 
 ---
 
-# Deferred
+# Session Lifecycle Invariants
 
-后续任务处理：
+## draft
 
-- Repository
-- Database Schema
-- Migration
-- Session 创建流程
-- UI
-- Timer
-- Recovery
+```text
+startedAt = null
+
+endedAt = null
+```
+
+## in_progress
+
+```text
+startedAt != null
+
+endedAt = null
+```
+
+## completed
+
+```text
+startedAt != null
+
+endedAt != null
+```
+
+## cancelled
+
+```text
+startedAt 可以为空
+
+endedAt != null
+```
 
 ---
 
 # Acceptance Criteria
 
-- [ ] sourceTemplateId 支持为空。
-- [ ] Session 可以表示非模板来源训练。
-- [ ] Session 保存名称快照。
-- [ ] Session 包含动作集合、当日状态和训练备注。
-- [ ] SessionExercise 命名与 Domain Model 一致。
+- [ ] WorkoutSession 支持非模板来源。
+- [ ] Session 保存训练名称快照。
+- [ ] Session 包含动作集合。
+- [ ] SessionExercise 包含 WorkoutSet 集合。
 - [ ] WorkoutSet 只保存实际数据。
-- [ ] 不实现其他层。
+- [ ] 状态流转符合 Domain 规则。
+- [ ] 不引入 Database、Repository 或 UI。
+
+---
+
+# Testing Requirements
+
+需要覆盖：
+
+- Session 状态转换。
+- 非法状态转换。
+- SessionExercise 与 WorkoutSet 聚合关系。
+- Snapshot 数据不可变规则。
 
 ---
 
@@ -231,7 +276,7 @@ completedAt
 
 检查：
 
-- Session 是否支持未来扩展来源。
-- Snapshot 是否完整。
-- Domain 边界是否清晰。
-- 是否避免提前实现后续流程。
+- Repository 可以通过 WorkoutSession 恢复完整训练数据。
+- Domain 与 Schema 保持一致。
+- 没有引入 target 数据到 WorkoutSet。
+- 没有提前实现其他层。

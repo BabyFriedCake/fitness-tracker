@@ -26,6 +26,18 @@ const ENDED_AT = '2026-07-17T02:00:00.000Z';
 const SESSION_ID = 'session-push' as WorkoutSessionId;
 const SESSION_EXERCISE_ID = 'session-exercise-bench-press' as SessionExerciseId;
 
+const WORKOUT_SET: WorkoutSet = {
+  id: 'set-bench-press-1' as WorkoutSetId,
+  sessionExerciseId: SESSION_EXERCISE_ID,
+  setNumber: 1,
+  setType: 'normal',
+  actualReps: 9,
+  weight: 80,
+  isCompleted: true,
+  isExtraSet: false,
+  completedAt: ENDED_AT,
+};
+
 const SESSION_EXERCISE: SessionExercise = {
   id: SESSION_EXERCISE_ID,
   sessionId: SESSION_ID,
@@ -39,6 +51,7 @@ const SESSION_EXERCISE: SessionExercise = {
   targetRepsMin: 8,
   targetRepsMax: 10,
   currentRestSeconds: 90,
+  sets: [WORKOUT_SET],
 };
 
 const DRAFT_SESSION: DraftWorkoutSession = {
@@ -71,31 +84,24 @@ describe('WorkoutSession domain', () => {
         targetRepsMin: 8,
         targetRepsMax: 10,
         currentRestSeconds: 90,
+        sets: [WORKOUT_SET],
       }),
     );
     expect(nonTemplateSession.sourceTemplateId).toBeUndefined();
     expect(nonTemplateSession.workoutNameSnapshot).toBe('临时训练');
   });
 
-  it('keeps target repetition data out of completed WorkoutSet facts', () => {
-    const workoutSet: WorkoutSet = {
-      id: 'set-bench-press-1' as WorkoutSetId,
-      sessionExerciseId: SESSION_EXERCISE_ID,
-      setNumber: 1,
-      setType: 'normal',
-      actualReps: 9,
-      weight: 80,
-      isCompleted: true,
-      isExtraSet: false,
-      completedAt: ENDED_AT,
-    };
-
+  it('aggregates completed WorkoutSet facts under their SessionExercise', () => {
     const excludesTargetReps: Not<HasKey<WorkoutSet, 'targetReps'>> = true;
 
+    expect(SESSION_EXERCISE.sets).toEqual([WORKOUT_SET]);
+    expect(SESSION_EXERCISE.sets[0]?.sessionExerciseId).toBe(
+      SESSION_EXERCISE.id,
+    );
     expect(excludesTargetReps).toBe(true);
-    expect(workoutSet).not.toHaveProperty('targetReps');
-    expect(workoutSet.actualReps).toBe(9);
-    expect(workoutSet.weight).toBe(80);
+    expect(WORKOUT_SET).not.toHaveProperty('targetReps');
+    expect(WORKOUT_SET.actualReps).toBe(9);
+    expect(WORKOUT_SET.weight).toBe(80);
   });
 
   it('allows every approved WorkoutSession status transition', () => {

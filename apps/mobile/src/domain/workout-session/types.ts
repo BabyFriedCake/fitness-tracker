@@ -49,6 +49,7 @@ export type SessionExercise = {
   readonly targetRepsMin: number;
   readonly targetRepsMax: number;
   readonly currentRestSeconds: number;
+  readonly sets: readonly WorkoutSet[];
 };
 
 type WorkoutSessionBase = {
