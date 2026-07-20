@@ -1,4 +1,5 @@
 import {
+  assertWorkoutSessionCurrentPosition,
   type InProgressWorkoutSession,
   type SessionExercise,
   type SessionExerciseId,
@@ -102,12 +103,13 @@ export async function recordWorkoutSet(
     ...exercise,
     sets: [...exercise.sets, workoutSet],
   };
-  const nextSession = replaceSessionExercise(
-    session,
-    nextExercise,
-    input.completedAt,
-  );
+  const nextSession: InProgressWorkoutSession = {
+    ...replaceSessionExercise(session, nextExercise, input.completedAt),
+    currentSessionExerciseId: nextExercise.id,
+    currentSetNumber: setNumber + 1,
+  };
 
+  assertWorkoutSessionCurrentPosition(nextSession);
   await repository.update(nextSession);
 
   return nextSession;

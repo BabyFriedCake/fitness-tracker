@@ -69,6 +69,8 @@ describe('WorkoutSession execution flow', () => {
     expect(workoutSet).not.toHaveProperty('targetReps');
     expect(active.sessionExercises[0]?.sets).toEqual([]);
     expect(next.updatedAt).toBe(FIRST_SET_COMPLETED_AT);
+    expect(next.currentSessionExerciseId).toBe(SESSION_EXERCISE_ID);
+    expect(next.currentSetNumber).toBe(2);
     expect(update).toHaveBeenCalledWith(next);
   });
 
@@ -95,6 +97,8 @@ describe('WorkoutSession execution flow', () => {
     expect(nextSets?.slice(0, 2)).toEqual(existingSets);
     expect(nextSets?.[0]).toBe(existingSets[0]);
     expect(nextSets?.[1]).toBe(existingSets[1]);
+    expect(next.currentSessionExerciseId).toBe(SESSION_EXERCISE_ID);
+    expect(next.currentSetNumber).toBe(5);
   });
 
   it('marks a set beyond targetSets as an extra set', async () => {
