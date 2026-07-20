@@ -91,17 +91,35 @@ Exit Review：PASS WITH WARNINGS
 
 ---
 
-## Sprint 4（🚧 计划中）
+## Sprint 4（✅ 已完成）
 
 ### 训练流程（Workout Flow）
 
-- [ ] 今日训练（Today Dashboard）
-- [ ] 开始训练
-- [ ] 训练执行
-- [ ] 休息计时器
-- [ ] 训练总结
-- [ ] 恢复训练
-- [ ] 取消训练处理
+- [x] 今日训练（Today Dashboard）
+- [x] 开始训练
+- [x] 训练执行
+- [x] 休息计时器
+- [x] 训练总结
+- [x] 恢复训练
+- [x] 取消训练处理
+
+### Sprint 4 Exit Review
+
+状态：
+
+- PASS WITH WARNINGS
+
+完成内容：
+
+- 完成 Workout Session 生命周期闭环
+- 支持训练执行、恢复、完成、取消
+- 支持训练总结 Summary
+- 支持 History 历史记录入口
+- 保持 UI → Application → Domain → Repository 架构边界
+
+验证：
+
+- 28 suites / 340 tests PASS
 
 ---
 
