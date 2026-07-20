@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -9,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -38,12 +39,29 @@ export function WorkoutSessionScreen({
   readonly routeParams: WorkoutSessionRouteParams;
 }) {
   const router = useRouter();
+  const model = useWorkoutSessionScreen(routeParams);
+  const navigationIntent =
+    model.state.status === 'ready' ? model.state.navigationIntent : undefined;
+  const sessionId =
+    model.state.status === 'ready' ? model.state.data.session.id : undefined;
+
+  useEffect(() => {
+    if (!navigationIntent || !sessionId) {
+      return;
+    }
+
+    model.controls.clearNavigationIntent();
+
+    if (navigationIntent === 'summary') {
+      router.replace(`/workout-sessions/${sessionId}/summary` as Href);
+      return;
+    }
+
+    router.dismissTo('/');
+  }, [model.controls, navigationIntent, router, sessionId]);
 
   return (
-    <WorkoutSessionScreenContent
-      {...useWorkoutSessionScreen(routeParams)}
-      onBack={() => router.back()}
-    />
+    <WorkoutSessionScreenContent {...model} onBack={() => router.back()} />
   );
 }
 
@@ -153,8 +171,21 @@ function ReadyState({
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <SessionHeader data={data} onBack={onBack} />
+        <SessionHeader
+          data={data}
+          canEnd={
+            isActive &&
+            !state.isMutating &&
+            !state.isConfirmingSkip &&
+            state.endFlow === 'closed'
+          }
+          onBack={onBack}
+          onEnd={controls.requestEndSession}
+        />
         <ProgressSummary data={data} />
+        {state.actionError && (
+          <ThemedText accessibilityRole="alert">{state.actionError}</ThemedText>
+        )}
         <ExerciseList
           data={data}
           controls={controls}
@@ -203,33 +234,57 @@ function ReadyState({
           void controls.confirmSkipExercise();
         }}
       />
+      <EndSessionModal state={state} controls={controls} />
     </KeyboardAvoidingView>
   );
 }
 
 function SessionHeader({
   data,
+  canEnd,
   onBack,
+  onEnd,
 }: {
   readonly data: WorkoutSessionScreenData;
+  readonly canEnd: boolean;
   readonly onBack: () => void;
+  readonly onEnd: () => void;
 }) {
   const theme = useTheme();
 
   return (
     <View style={styles.header}>
-      <Pressable
-        onPress={onBack}
-        accessibilityRole="button"
-        accessibilityLabel="返回上一页"
-        style={({ pressed }) => [
-          styles.backButton,
-          { borderColor: theme.backgroundSelected },
-          pressed && styles.pressed,
-        ]}
-      >
-        <ThemedText type="smallBold">返回</ThemedText>
-      </Pressable>
+      <View style={styles.headerActions}>
+        <Pressable
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="保存并退出训练"
+          style={({ pressed }) => [
+            styles.headerButton,
+            { borderColor: theme.backgroundSelected },
+            pressed && styles.pressed,
+          ]}
+        >
+          <ThemedText type="smallBold">保存退出</ThemedText>
+        </Pressable>
+        {data.session.status === 'in_progress' && (
+          <Pressable
+            onPress={onEnd}
+            disabled={!canEnd}
+            accessibilityRole="button"
+            accessibilityLabel="结束本次训练"
+            accessibilityState={{ disabled: !canEnd }}
+            style={({ pressed }) => [
+              styles.headerButton,
+              { borderColor: theme.backgroundSelected },
+              !canEnd && styles.disabled,
+              pressed && styles.pressed,
+            ]}
+          >
+            <ThemedText type="smallBold">结束训练</ThemedText>
+          </Pressable>
+        )}
+      </View>
       <View style={styles.headerTitle}>
         <ThemedText type="subtitle" numberOfLines={2}>
           {data.session.workoutNameSnapshot}
@@ -418,9 +473,6 @@ function SetEditor({
         disabled={disabled}
         onChange={controls.updateActualReps}
       />
-      {state.actionError && (
-        <ThemedText accessibilityRole="alert">{state.actionError}</ThemedText>
-      )}
     </View>
   );
 }
@@ -655,6 +707,86 @@ function SkipExerciseConfirmModal({
   );
 }
 
+function EndSessionModal({
+  state,
+  controls,
+}: {
+  readonly state: Extract<WorkoutSessionScreenState, { status: 'ready' }>;
+  readonly controls: WorkoutSessionScreenControls;
+}) {
+  const theme = useTheme();
+  const isConfirmingCancel = state.endFlow === 'confirm_cancel';
+
+  return (
+    <Modal
+      visible={state.endFlow !== 'closed'}
+      transparent
+      animationType="fade"
+      onRequestClose={controls.continueSession}
+    >
+      <ThemedView style={styles.modalScrim}>
+        <ThemedView
+          type="backgroundElement"
+          style={[
+            styles.modalContent,
+            { borderColor: theme.backgroundSelected },
+          ]}
+          accessibilityRole="alert"
+        >
+          <ThemedText type="default">
+            {isConfirmingCancel ? '放弃本次训练？' : '结束本次训练？'}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {isConfirmingCancel
+              ? '已完成的组会保留为已取消记录，但不会进入正式统计。'
+              : '保存并结束后可以查看这次训练的客观总结。'}
+          </ThemedText>
+          {state.actionError && (
+            <ThemedText accessibilityRole="alert">
+              {state.actionError}
+            </ThemedText>
+          )}
+          <View style={styles.modalActions}>
+            <SecondaryButton
+              label="继续训练"
+              accessibilityLabel="继续本次训练"
+              disabled={state.isMutating}
+              onPress={controls.continueSession}
+            />
+            {isConfirmingCancel ? (
+              <PrimaryButton
+                label={state.isMutating ? '正在取消' : '确认放弃'}
+                accessibilityLabel="确认放弃本次训练"
+                disabled={state.isMutating}
+                onPress={() => {
+                  void controls.confirmCancelSession();
+                }}
+              />
+            ) : (
+              <>
+                <PrimaryButton
+                  label={state.isMutating ? '正在保存' : '保存并结束'}
+                  accessibilityLabel="保存并完成本次训练"
+                  disabled={state.isMutating}
+                  onPress={() => {
+                    void controls.confirmCompleteSession();
+                  }}
+                />
+                <SecondaryButton
+                  label="放弃本次训练"
+                  accessibilityLabel="请求放弃本次训练"
+                  disabled={state.isMutating}
+                  onPress={controls.requestCancelSession}
+                />
+              </>
+            )}
+          </View>
+        </ThemedView>
+      </ThemedView>
+    </Modal>
+  );
+}
+
 function RestTimerStatus({
   status,
 }: {
@@ -835,9 +967,14 @@ const styles = StyleSheet.create({
   },
   header: { gap: Spacing.three },
   headerTitle: { gap: Spacing.two, alignItems: 'flex-start' },
-  backButton: {
+  headerActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  headerButton: {
     minHeight: 44,
-    alignSelf: 'flex-start',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: Spacing.two,

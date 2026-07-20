@@ -16,6 +16,7 @@ import type {
   WorkoutSessionRepository,
 } from '@/domain/workout-session';
 
+import { cancelSession, completeSession } from './workout-session-flow';
 import {
   completeSessionExercise,
   recordWorkoutSet,
@@ -30,6 +31,7 @@ import {
   type WorkoutSessionScreenRepositories,
 } from './load-workout-session-screen';
 import { setCurrentSessionPosition } from './workout-session-rest-timer';
+import { closeActiveRestTimer } from './workout-session-completion-recovery';
 
 export type WorkoutSessionRouteParams = {
   readonly id?: string | readonly string[];
@@ -52,6 +54,8 @@ export type WorkoutSessionScreenState =
       readonly setDraft: WorkoutSetDraft;
       readonly isMutating: boolean;
       readonly isConfirmingSkip: boolean;
+      readonly endFlow: 'closed' | 'options' | 'confirm_cancel';
+      readonly navigationIntent?: 'summary' | 'today';
       readonly actionError?: string;
     };
 
@@ -66,6 +70,12 @@ export type WorkoutSessionScreenControls = {
   readonly confirmSkipExercise: () => Promise<void>;
   readonly resumeExercise: () => Promise<void>;
   readonly completeExercise: () => Promise<void>;
+  readonly requestEndSession: () => void;
+  readonly continueSession: () => void;
+  readonly requestCancelSession: () => void;
+  readonly confirmCancelSession: () => Promise<void>;
+  readonly confirmCompleteSession: () => Promise<void>;
+  readonly clearNavigationIntent: () => void;
 };
 
 export type WorkoutSessionScreenModel = {
@@ -96,6 +106,8 @@ const SESSION_LOAD_ERROR_MESSAGE =
 const SESSION_NOT_FOUND_MESSAGE = '未找到这次训练。';
 const SESSION_ACTION_ERROR_MESSAGE =
   '操作保存失败。已完成的训练数据不会丢失，请重试。';
+const SESSION_END_ERROR_MESSAGE =
+  '训练结束状态保存失败。已完成的组不会丢失，请重试。';
 const INVALID_SET_INPUT_MESSAGE = '请输入有效的非负重量和非负整数次数。';
 
 export function useWorkoutSessionScreen(
@@ -245,6 +257,10 @@ export function useWorkoutSessionScreen(
           isConfirmingSkip: shouldPreserveDraft
             ? current.isConfirmingSkip
             : false,
+          endFlow: shouldPreserveDraft ? current.endFlow : 'closed',
+          navigationIntent: shouldPreserveDraft
+            ? current.navigationIntent
+            : undefined,
           actionError: shouldPreserveDraft ? current.actionError : undefined,
         });
       } catch {
@@ -342,7 +358,8 @@ export function useWorkoutSessionScreen(
       if (
         isMutatingRef.current ||
         (stateRef.current.status === 'ready' &&
-          stateRef.current.isConfirmingSkip)
+          (stateRef.current.isConfirmingSkip ||
+            stateRef.current.endFlow !== 'closed'))
       ) {
         return;
       }
@@ -383,6 +400,7 @@ export function useWorkoutSessionScreen(
         !repositories ||
         !isAllowed(current.data.currentExercise) ||
         current.isConfirmingSkip ||
+        current.endFlow !== 'closed' ||
         isMutatingRef.current
       ) {
         return;
@@ -440,6 +458,7 @@ export function useWorkoutSessionScreen(
       current.data.currentExercise.isSkipped ||
       current.data.currentExercise.isCompleted ||
       current.isConfirmingSkip ||
+      current.endFlow !== 'closed' ||
       !repositories ||
       isMutatingRef.current
     ) {
@@ -508,6 +527,7 @@ export function useWorkoutSessionScreen(
         current.data.session.status !== 'in_progress' ||
         current.data.currentExercise?.id === exerciseId ||
         current.isConfirmingSkip ||
+        current.endFlow !== 'closed' ||
         !repositories ||
         isMutatingRef.current
       ) {
@@ -577,6 +597,7 @@ export function useWorkoutSessionScreen(
       current.data.currentExercise.isSkipped ||
       current.data.currentExercise.isCompleted ||
       current.isConfirmingSkip ||
+      current.endFlow !== 'closed' ||
       isMutatingRef.current
     ) {
       return;
@@ -650,6 +671,139 @@ export function useWorkoutSessionScreen(
     [runExerciseMutation],
   );
 
+  const requestEndSession = useCallback((): void => {
+    const current = stateRef.current;
+
+    if (
+      current.status !== 'ready' ||
+      current.data.session.status !== 'in_progress' ||
+      current.isConfirmingSkip ||
+      current.endFlow !== 'closed' ||
+      isMutatingRef.current
+    ) {
+      return;
+    }
+
+    commitState({ ...current, endFlow: 'options', actionError: undefined });
+  }, [commitState]);
+
+  const continueSession = useCallback((): void => {
+    const current = stateRef.current;
+
+    if (
+      current.status !== 'ready' ||
+      current.endFlow === 'closed' ||
+      isMutatingRef.current
+    ) {
+      return;
+    }
+
+    commitState({ ...current, endFlow: 'closed' });
+  }, [commitState]);
+
+  const requestCancelSession = useCallback((): void => {
+    const current = stateRef.current;
+
+    if (
+      current.status !== 'ready' ||
+      current.data.session.status !== 'in_progress' ||
+      current.endFlow !== 'options' ||
+      isMutatingRef.current
+    ) {
+      return;
+    }
+
+    commitState({ ...current, endFlow: 'confirm_cancel' });
+  }, [commitState]);
+
+  const runSessionEndMutation = useCallback(
+    async (
+      operation: (
+        repository: WorkoutSessionRepository,
+        sessionId: WorkoutSessionId,
+        endedAt: string,
+      ) =>
+        ReturnType<typeof completeSession> | ReturnType<typeof cancelSession>,
+      navigationIntent: 'summary' | 'today',
+      requiredEndFlow: 'options' | 'confirm_cancel',
+    ): Promise<void> => {
+      const current = stateRef.current;
+      const repositories = repositoriesRef.current;
+
+      if (
+        current.status !== 'ready' ||
+        current.data.session.status !== 'in_progress' ||
+        current.endFlow !== requiredEndFlow ||
+        !repositories ||
+        isMutatingRef.current
+      ) {
+        return;
+      }
+
+      beginMutation(current);
+
+      try {
+        const endedAt = dependenciesRef.current.now();
+        await closeActiveRestTimer(
+          repositories.restTimerRepository,
+          current.data.session.id,
+          endedAt,
+        );
+        const nextSession = await operation(
+          repositories.workoutSessionRepository,
+          current.data.session.id,
+          endedAt,
+        );
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        commitState({
+          ...current,
+          data: createWorkoutSessionScreenData(
+            nextSession,
+            current.data.restTimerStatus,
+          ),
+          isMutating: false,
+          isConfirmingSkip: false,
+          endFlow: 'closed',
+          navigationIntent,
+          actionError: undefined,
+        });
+      } catch {
+        if (isMountedRef.current) {
+          commitState({
+            ...current,
+            isMutating: false,
+            actionError: SESSION_END_ERROR_MESSAGE,
+          });
+        }
+      } finally {
+        finishMutation();
+      }
+    },
+    [beginMutation, commitState, finishMutation],
+  );
+
+  const confirmCompleteSession = useCallback(
+    () => runSessionEndMutation(completeSession, 'summary', 'options'),
+    [runSessionEndMutation],
+  );
+
+  const confirmCancelSession = useCallback(
+    () => runSessionEndMutation(cancelSession, 'today', 'confirm_cancel'),
+    [runSessionEndMutation],
+  );
+
+  const clearNavigationIntent = useCallback((): void => {
+    const current = stateRef.current;
+
+    if (current.status === 'ready' && current.navigationIntent) {
+      commitState({ ...current, navigationIntent: undefined });
+    }
+  }, [commitState]);
+
   return {
     state,
     controls: {
@@ -665,6 +819,12 @@ export function useWorkoutSessionScreen(
       confirmSkipExercise,
       resumeExercise,
       completeExercise,
+      requestEndSession,
+      continueSession,
+      requestCancelSession,
+      confirmCancelSession,
+      confirmCompleteSession,
+      clearNavigationIntent,
     },
   };
 }

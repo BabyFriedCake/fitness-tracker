@@ -227,6 +227,44 @@ describe('WorkoutSessionScreenContent', () => {
     expect(confirmSkipExercise).toHaveBeenCalledTimes(1);
   });
 
+  it('requires a second confirmation before cancelling a workout', async () => {
+    const requestCancelSession = jest.fn();
+    const confirmCancelSession = jest.fn(async () => undefined);
+    const { getByLabelText, getByText, rerender } = await render(
+      <WorkoutSessionScreenContent
+        state={{ ...buildReadyState(buildSession()), endFlow: 'options' }}
+        controls={buildControls({
+          requestCancelSession,
+          confirmCancelSession,
+        })}
+        onBack={jest.fn()}
+      />,
+    );
+
+    expect(getByText('结束本次训练？')).toBeTruthy();
+    await fireEvent.press(getByLabelText('请求放弃本次训练'));
+    expect(requestCancelSession).toHaveBeenCalledTimes(1);
+
+    await rerender(
+      <WorkoutSessionScreenContent
+        state={{
+          ...buildReadyState(buildSession()),
+          endFlow: 'confirm_cancel',
+        }}
+        controls={buildControls({ confirmCancelSession })}
+        onBack={jest.fn()}
+      />,
+    );
+
+    expect(getByText('放弃本次训练？')).toBeTruthy();
+    expect(
+      getByText('已完成的组会保留为已取消记录，但不会进入正式统计。'),
+    ).toBeTruthy();
+    await fireEvent.press(getByLabelText('确认放弃本次训练'));
+
+    expect(confirmCancelSession).toHaveBeenCalledTimes(1);
+  });
+
   it('explains why the fixed complete-set action is disabled', async () => {
     const { getByText, getByLabelText } = await render(
       <WorkoutSessionScreenContent
@@ -611,6 +649,107 @@ describe('useWorkoutSessionScreen', () => {
       getReadyState(result.current.state).data.session.currentSetNumber,
     ).toBe(2);
   });
+
+  it('completes once, preserves workout facts and exposes summary navigation', async () => {
+    const session = buildSession({
+      notes: '保留这次训练备注',
+      sessionExercises: [
+        buildExercise({ sets: [buildWorkoutSet()], isCompleted: true }),
+      ],
+    });
+    const repository = createStatefulRepository(session);
+    const restTimerRepository = createStatefulRestTimerRepository(buildTimer());
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, { restTimerRepository }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => {
+      result.current.controls.requestEndSession();
+      const firstCompletion = result.current.controls.confirmCompleteSession();
+      const repeatedCompletion =
+        result.current.controls.confirmCompleteSession();
+      await Promise.all([firstCompletion, repeatedCompletion]);
+    });
+
+    expect(repository.update).toHaveBeenCalledTimes(1);
+    const submitted = repository.update.mock.calls[0]?.[0];
+    expect(submitted).toMatchObject({
+      status: 'completed',
+      endedAt: ACTION_AT,
+      notes: '保留这次训练备注',
+      currentSessionExerciseId: EXERCISE_ID,
+      currentSetNumber: 1,
+    });
+    expect(submitted?.sessionExercises[0]?.sets).toEqual([buildWorkoutSet()]);
+
+    const ready = getReadyState(result.current.state);
+    expect(ready.data.session.status).toBe('completed');
+    expect(ready.navigationIntent).toBe('summary');
+    expect(restTimerRepository.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'rest-timer-1',
+        status: 'cancelled',
+      }),
+      'running',
+      ACTION_AT,
+    );
+  });
+
+  it('cancels only after confirmation and preserves completed sets', async () => {
+    const session = buildSession({
+      sessionExercises: [buildExercise({ sets: [buildWorkoutSet()] })],
+    });
+    const repository = createStatefulRepository(session);
+    const restTimerRepository = createStatefulRestTimerRepository(
+      buildTimer({
+        status: 'paused',
+        targetEndAt: undefined,
+        pausedRemainingSeconds: 45,
+      }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, { restTimerRepository }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => {
+      await result.current.controls.confirmCancelSession();
+    });
+    expect(repository.update).not.toHaveBeenCalled();
+
+    await act(async () => {
+      result.current.controls.requestEndSession();
+      result.current.controls.requestCancelSession();
+      await result.current.controls.confirmCancelSession();
+    });
+
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).data.session.status).toBe(
+        'cancelled',
+      ),
+    );
+    const ready = getReadyState(result.current.state);
+    expect(ready.data.session.status).toBe('cancelled');
+    expect(ready.data.currentExercise?.sets).toEqual([buildWorkoutSet()]);
+    expect(ready.navigationIntent).toBe('today');
+    expect(repository.update).toHaveBeenCalledTimes(1);
+    expect(restTimerRepository.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'rest-timer-1',
+        status: 'cancelled',
+        pausedRemainingSeconds: 45,
+      }),
+      'paused',
+      ACTION_AT,
+    );
+  });
 });
 
 function buildReadyState(
@@ -623,6 +762,7 @@ function buildReadyState(
     setDraft: { weight: '80', actualReps: '10' },
     isMutating: false,
     isConfirmingSkip: false,
+    endFlow: 'closed',
   };
 }
 
@@ -640,6 +780,12 @@ function buildControls(
     confirmSkipExercise: jest.fn(async () => undefined),
     resumeExercise: jest.fn(async () => undefined),
     completeExercise: jest.fn(async () => undefined),
+    requestEndSession: jest.fn(),
+    continueSession: jest.fn(),
+    requestCancelSession: jest.fn(),
+    confirmCancelSession: jest.fn(async () => undefined),
+    confirmCompleteSession: jest.fn(async () => undefined),
+    clearNavigationIntent: jest.fn(),
     ...overrides,
   };
 }
@@ -736,6 +882,7 @@ function createStatefulRepository(
     save: async (session) => session,
     findById: async () => storedSession,
     findActiveSession: async () => storedSession,
+    findRecoverableSession: async () => storedSession,
     startIfNoActiveSession: async () => ({ status: 'started' }),
     ...overrides,
     update,
@@ -789,6 +936,30 @@ function buildRestTimerRepository(timer?: RestTimer): RestTimerRepository {
       timer: input.timer,
     }),
     update: async (next) => next,
+    completeIfExpired: async () => null,
+  };
+}
+
+function createStatefulRestTimerRepository(
+  initialTimer: RestTimer,
+): RestTimerRepository & {
+  readonly update: jest.MockedFunction<RestTimerRepository['update']>;
+} {
+  let storedTimer = initialTimer;
+  const update: jest.MockedFunction<RestTimerRepository['update']> = jest.fn(
+    async (next: RestTimer, _expectedStatus, _expectedUpdatedAt) => {
+      storedTimer = next;
+      return next;
+    },
+  );
+
+  return {
+    findBySessionId: async () => storedTimer,
+    startIfNoActiveTimer: async (input) => ({
+      status: 'started',
+      timer: input.timer,
+    }),
+    update,
     completeIfExpired: async () => null,
   };
 }

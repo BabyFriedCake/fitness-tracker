@@ -342,6 +342,36 @@ describe('SQLite WorkoutSessionRepository', () => {
     await expect(repository.findActiveSession()).resolves.toEqual(active);
   });
 
+  it('returns a draft session as recoverable', async () => {
+    const repository = createSqliteWorkoutSessionRepository(database);
+    const draft = buildDraftSession();
+    await repository.save(draft);
+
+    await expect(repository.findRecoverableSession()).resolves.toEqual(draft);
+  });
+
+  it('prioritizes an in-progress session over a draft for recovery', async () => {
+    const repository = createSqliteWorkoutSessionRepository(database);
+    const active = buildInProgressSession();
+    const draft = buildDraftSession({
+      id: SECOND_SESSION_ID,
+      workoutNameSnapshot: 'Pull',
+      updatedAt: '2026-07-17T03:00:00.000Z',
+      sessionExercises: [
+        buildSessionExercise({
+          id: ROW_SESSION_EXERCISE_ID,
+          sessionId: SECOND_SESSION_ID,
+          sourceExerciseId: 'exercise-row' as ExerciseId,
+          exerciseNameSnapshot: '坐姿划船快照',
+        }),
+      ],
+    });
+    await repository.save(active);
+    await repository.save(draft);
+
+    await expect(repository.findRecoverableSession()).resolves.toEqual(active);
+  });
+
   it('hydrates the active session exercises and sets', async () => {
     const repository = createSqliteWorkoutSessionRepository(database);
     const active = buildInProgressSession({

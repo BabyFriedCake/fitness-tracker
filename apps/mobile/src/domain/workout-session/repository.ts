@@ -17,6 +17,7 @@ export type WorkoutSessionRepository = {
   readonly save: (session: WorkoutSession) => Promise<WorkoutSession>;
   readonly findById: (id: WorkoutSessionId) => Promise<WorkoutSession | null>;
   readonly findActiveSession: () => Promise<WorkoutSession | null>;
+  readonly findRecoverableSession: () => Promise<WorkoutSession | null>;
   readonly startIfNoActiveSession: (
     session: InProgressWorkoutSession,
     expectedUpdatedAt: string,

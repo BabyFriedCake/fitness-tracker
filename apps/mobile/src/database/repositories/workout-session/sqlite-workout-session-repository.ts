@@ -51,6 +51,7 @@ export function createSqliteWorkoutSessionRepository(
     save: (session) => saveWorkoutSession(database, session),
     findById: (id) => findWorkoutSessionById(database, id),
     findActiveSession: () => findActiveWorkoutSession(database),
+    findRecoverableSession: () => findRecoverableWorkoutSession(database),
     startIfNoActiveSession: (session, expectedUpdatedAt) =>
       startWorkoutSessionIfNoActive(database, session, expectedUpdatedAt),
     update: (session) => updateWorkoutSession(database, session),
@@ -113,6 +114,29 @@ async function findActiveWorkoutSession(
     FROM workout_sessions
     WHERE status = 'in_progress' AND is_deleted = 0
     ORDER BY started_at ASC, id ASC
+    LIMIT 1;
+    `,
+  );
+
+  if (!sessionRow) {
+    return null;
+  }
+
+  return hydrateWorkoutSession(database, sessionRow);
+}
+
+async function findRecoverableWorkoutSession(
+  database: DatabaseConnection,
+): Promise<WorkoutSession | null> {
+  const sessionRow = await database.getFirstAsync<WorkoutSessionSchemaRow>(
+    `
+    SELECT *
+    FROM workout_sessions
+    WHERE status IN ('draft', 'in_progress') AND is_deleted = 0
+    ORDER BY
+      CASE status WHEN 'in_progress' THEN 0 ELSE 1 END,
+      updated_at DESC,
+      id ASC
     LIMIT 1;
     `,
   );
