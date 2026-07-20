@@ -3,3 +3,4 @@ export type {
   WorkoutSessionSchemaRow,
   WorkoutSetSchemaRow,
 } from './workout-session';
+export type { RestTimerSchemaRow } from './rest-timer';

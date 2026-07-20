@@ -3,12 +3,20 @@
 import type { ExerciseId } from '@/domain/exercise';
 import type { WorkoutTemplateId } from '@/domain/workout-template';
 import {
+  REST_TIMER_STATUSES,
+  RestTimerTransitionError,
+  RestTimerTimeError,
+  WorkoutSessionCurrentPositionError,
   WorkoutSessionTransitionError,
+  assertRestTimerStatusTransition,
+  assertWorkoutSessionCurrentPosition,
   assertWorkoutSessionStatusTransition,
   cancelWorkoutSession,
   canTransitionWorkoutSessionStatus,
   completeWorkoutSession,
   isTerminalWorkoutSession,
+  canTransitionRestTimerStatus,
+  getRestTimerRemainingSeconds,
   startWorkoutSession,
   type DraftWorkoutSession,
   type SessionExercise,
@@ -17,6 +25,8 @@ import {
   type WorkoutSessionId,
   type WorkoutSet,
   type WorkoutSetId,
+  type RestTimer,
+  type RestTimerId,
 } from '@/domain/workout-session';
 
 const CREATED_AT = '2026-07-17T00:00:00.000Z';
@@ -52,6 +62,20 @@ const SESSION_EXERCISE: SessionExercise = {
   targetRepsMax: 10,
   currentRestSeconds: 90,
   sets: [WORKOUT_SET],
+};
+
+const RUNNING_TIMER: RestTimer = {
+  id: 'rest-timer-1' as RestTimerId,
+  sessionId: SESSION_ID,
+  sessionExerciseId: SESSION_EXERCISE_ID,
+  previousSetNumber: 1,
+  nextSetNumber: 2,
+  originalDurationSeconds: 90,
+  startedAt: '2026-07-17T01:10:00.000Z',
+  targetEndAt: '2026-07-17T01:11:30.000Z',
+  status: 'running',
+  createdAt: '2026-07-17T01:10:00.000Z',
+  updatedAt: '2026-07-17T01:10:00.000Z',
 };
 
 const DRAFT_SESSION: DraftWorkoutSession = {
@@ -188,6 +212,98 @@ describe('WorkoutSession domain', () => {
         assertWorkoutSessionStatusTransition(currentStatus, nextStatus),
       ).toThrow(WorkoutSessionTransitionError);
     }
+  });
+
+  it('validates current position as a complete relationship', () => {
+    const positionedSession: DraftWorkoutSession = {
+      ...DRAFT_SESSION,
+      currentSessionExerciseId: SESSION_EXERCISE_ID,
+      currentSetNumber: 2,
+    };
+
+    expect(() =>
+      assertWorkoutSessionCurrentPosition(positionedSession),
+    ).not.toThrow();
+    expect(() =>
+      assertWorkoutSessionCurrentPosition({
+        ...DRAFT_SESSION,
+        currentSessionExerciseId: SESSION_EXERCISE_ID,
+      }),
+    ).toThrow(WorkoutSessionCurrentPositionError);
+    expect(() =>
+      assertWorkoutSessionCurrentPosition({
+        ...positionedSession,
+        currentSessionExerciseId: 'session-exercise-other' as SessionExerciseId,
+      }),
+    ).toThrow(WorkoutSessionCurrentPositionError);
+    expect(() =>
+      assertWorkoutSessionCurrentPosition({
+        ...positionedSession,
+        currentSetNumber: 0,
+      }),
+    ).toThrow(WorkoutSessionCurrentPositionError);
+  });
+});
+
+describe('RestTimer domain', () => {
+  it('uses only the approved persisted statuses', () => {
+    expect(REST_TIMER_STATUSES).toEqual([
+      'running',
+      'paused',
+      'completed',
+      'skipped',
+      'cancelled',
+    ]);
+    expect(REST_TIMER_STATUSES).not.toContain('idle');
+  });
+
+  it('accepts the approved transition matrix and rejects terminal operations', () => {
+    expect(canTransitionRestTimerStatus('running', 'paused')).toBe(true);
+    expect(canTransitionRestTimerStatus('paused', 'running')).toBe(true);
+    expect(canTransitionRestTimerStatus('running', 'completed')).toBe(true);
+    expect(canTransitionRestTimerStatus('paused', 'skipped')).toBe(true);
+    expect(canTransitionRestTimerStatus('running', 'cancelled')).toBe(true);
+    expect(canTransitionRestTimerStatus('completed', 'running')).toBe(true);
+    expect(canTransitionRestTimerStatus('skipped', 'running')).toBe(true);
+    expect(canTransitionRestTimerStatus('cancelled', 'running')).toBe(true);
+
+    expect(() =>
+      assertRestTimerStatusTransition('completed', 'paused'),
+    ).toThrow(RestTimerTransitionError);
+    expect(() =>
+      assertRestTimerStatusTransition('skipped', 'completed'),
+    ).toThrow(RestTimerTransitionError);
+  });
+
+  it('derives running and paused remaining time without negative values', () => {
+    expect(
+      getRestTimerRemainingSeconds(RUNNING_TIMER, '2026-07-17T01:10:30.500Z'),
+    ).toBe(60);
+    expect(
+      getRestTimerRemainingSeconds(RUNNING_TIMER, '2026-07-17T01:12:00.000Z'),
+    ).toBe(0);
+    expect(
+      getRestTimerRemainingSeconds(
+        {
+          ...RUNNING_TIMER,
+          status: 'paused',
+          pausedRemainingSeconds: 42,
+        },
+        '2026-07-17T02:00:00.000Z',
+      ),
+    ).toBe(42);
+  });
+
+  it('rejects malformed timestamps and incomplete paused state', () => {
+    expect(() =>
+      getRestTimerRemainingSeconds(RUNNING_TIMER, '07/17/2026'),
+    ).toThrow(RestTimerTimeError);
+    expect(() =>
+      getRestTimerRemainingSeconds(
+        { ...RUNNING_TIMER, status: 'paused' },
+        '2026-07-17T01:10:30.000Z',
+      ),
+    ).toThrow(RestTimerTimeError);
   });
 });
 

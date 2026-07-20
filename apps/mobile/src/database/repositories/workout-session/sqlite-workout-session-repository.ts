@@ -1,5 +1,6 @@
 import {
   WORKOUT_SESSION_STATUSES,
+  assertWorkoutSessionCurrentPosition,
   assertWorkoutSessionStatusTransition,
   type InProgressWorkoutSession,
   type SessionExercise,
@@ -409,10 +410,12 @@ async function insertSessionRow(
       notes,
       started_at,
       ended_at,
+      current_session_exercise_id,
+      current_set_number,
       created_at,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `,
     session.id,
     session.sourceTemplateId ?? null,
@@ -422,6 +425,8 @@ async function insertSessionRow(
     session.notes ?? null,
     session.startedAt ?? null,
     session.endedAt ?? null,
+    session.currentSessionExerciseId ?? null,
+    session.currentSetNumber ?? null,
     session.createdAt,
     session.updatedAt,
   );
@@ -442,6 +447,8 @@ async function updateSessionRow(
       notes = ?,
       started_at = ?,
       ended_at = ?,
+      current_session_exercise_id = ?,
+      current_set_number = ?,
       updated_at = ?
     WHERE id = ? AND is_deleted = 0;
     `,
@@ -452,6 +459,8 @@ async function updateSessionRow(
     session.notes ?? null,
     session.startedAt ?? null,
     session.endedAt ?? null,
+    session.currentSessionExerciseId ?? null,
+    session.currentSetNumber ?? null,
     session.updatedAt,
     session.id,
   );
@@ -574,6 +583,8 @@ async function insertWorkoutSetRow(
 }
 
 function assertAggregateRelationships(session: WorkoutSession): void {
+  assertWorkoutSessionCurrentPosition(session);
+
   const exerciseIds = new Set<string>();
   const exercisePositions = new Set<number>();
   const setIds = new Set<string>();

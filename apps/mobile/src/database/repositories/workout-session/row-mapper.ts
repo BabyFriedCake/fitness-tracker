@@ -4,6 +4,7 @@ import {
   WORKOUT_SESSION_DAILY_STATUSES,
   WORKOUT_SESSION_STATUSES,
   WORKOUT_SET_TYPES,
+  assertWorkoutSessionCurrentPosition,
   type SessionExercise,
   type SessionExerciseId,
   type WorkoutSession,
@@ -71,6 +72,10 @@ function mapRows(
       (sessionRow.source_template_id as WorkoutTemplateId | null) ?? undefined,
     workoutNameSnapshot: sessionRow.workout_name_snapshot,
     sessionExercises: exercises,
+    currentSessionExerciseId:
+      (sessionRow.current_session_exercise_id as SessionExerciseId | null) ??
+      undefined,
+    currentSetNumber: sessionRow.current_set_number ?? undefined,
     dailyStatus:
       (sessionRow.daily_status as WorkoutSessionDailyStatus | null) ??
       undefined,
@@ -79,30 +84,39 @@ function mapRows(
     updatedAt: sessionRow.updated_at,
   };
 
+  let session: WorkoutSession;
+
   switch (sessionRow.status) {
     case 'draft':
-      return { ...base, status: 'draft' };
+      session = { ...base, status: 'draft' };
+      break;
     case 'in_progress':
-      return {
+      session = {
         ...base,
         status: 'in_progress',
         startedAt: sessionRow.started_at as string,
       };
+      break;
     case 'completed':
-      return {
+      session = {
         ...base,
         status: 'completed',
         startedAt: sessionRow.started_at as string,
         endedAt: sessionRow.ended_at as string,
       };
+      break;
     case 'cancelled':
-      return {
+      session = {
         ...base,
         status: 'cancelled',
         startedAt: sessionRow.started_at ?? undefined,
         endedAt: sessionRow.ended_at as string,
       };
+      break;
   }
+
+  assertWorkoutSessionCurrentPosition(session);
+  return session;
 }
 
 function mapSessionExercises(

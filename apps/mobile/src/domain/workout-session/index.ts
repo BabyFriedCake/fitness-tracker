@@ -19,6 +19,25 @@ export type {
   WorkoutSetType,
 } from './types';
 export {
+  WorkoutSessionCurrentPositionError,
+  assertWorkoutSessionCurrentPosition,
+} from './current-position';
+export {
+  REST_TIMER_STATUSES,
+  RestTimerTimeError,
+  RestTimerTransitionError,
+  assertRestTimerStatusTransition,
+  canTransitionRestTimerStatus,
+  getRestTimerRemainingSeconds,
+  isTerminalRestTimerStatus,
+} from './rest-timer';
+export type { RestTimer, RestTimerId, RestTimerStatus } from './rest-timer';
+export type {
+  RestTimerRepository,
+  StartRestTimerPersistenceInput,
+  StartRestTimerPersistenceResult,
+} from './rest-timer-repository';
+export {
   WorkoutSessionTransitionError,
   assertWorkoutSessionStatusTransition,
   cancelWorkoutSession,

@@ -57,6 +57,8 @@ type WorkoutSessionBase = {
   readonly sourceTemplateId?: WorkoutTemplateId;
   readonly workoutNameSnapshot: string;
   readonly sessionExercises: readonly SessionExercise[];
+  readonly currentSessionExerciseId?: SessionExerciseId;
+  readonly currentSetNumber?: number;
   readonly dailyStatus?: WorkoutSessionDailyStatus;
   readonly notes?: string;
   readonly createdAt: string;

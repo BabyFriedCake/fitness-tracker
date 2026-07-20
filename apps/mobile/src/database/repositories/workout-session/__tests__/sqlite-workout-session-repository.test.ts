@@ -16,6 +16,7 @@ import type { WorkoutSessionSchemaRow } from '@/database/schema';
 import type { DatabaseConnection } from '@/database/types';
 import type { ExerciseId } from '@/domain/exercise';
 import {
+  WorkoutSessionCurrentPositionError,
   cancelWorkoutSession,
   startWorkoutSession,
   type CompletedWorkoutSession,
@@ -149,6 +150,40 @@ describe('SQLite WorkoutSessionRepository', () => {
 
     expect(updated).toBe(next);
     expect(restored).toEqual(next);
+  });
+
+  it('saves and restores the current exercise and set position', async () => {
+    const repository = createSqliteWorkoutSessionRepository(database);
+    const active = buildInProgressSession({
+      currentSessionExerciseId: BENCH_SESSION_EXERCISE_ID,
+      currentSetNumber: 2,
+    });
+
+    await repository.save(active);
+
+    await expect(repository.findById(SESSION_ID)).resolves.toEqual(active);
+  });
+
+  it('rejects an incomplete or unrelated current position before writing', async () => {
+    const repository = createSqliteWorkoutSessionRepository(database);
+
+    await expect(
+      repository.save(
+        buildInProgressSession({
+          currentSessionExerciseId: BENCH_SESSION_EXERCISE_ID,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(WorkoutSessionCurrentPositionError);
+    await expect(
+      repository.save(
+        buildInProgressSession({
+          currentSessionExerciseId:
+            'session-exercise-missing' as SessionExerciseId,
+          currentSetNumber: 1,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(WorkoutSessionCurrentPositionError);
+    expect(await getTableCount('workout_sessions')).toBe(0);
   });
 
   it('updates existing exercise order without violating unique positions', async () => {
