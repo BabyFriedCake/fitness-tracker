@@ -30,6 +30,7 @@ export function WorkoutSessionSummaryScreen({
     <WorkoutSessionSummaryScreenContent
       state={model.state}
       onDone={() => router.dismissTo('/')}
+      onOpenHistory={() => router.push('/history')}
       onReload={model.reload}
     />
   );
@@ -38,10 +39,12 @@ export function WorkoutSessionSummaryScreen({
 export function WorkoutSessionSummaryScreenContent({
   state,
   onDone,
+  onOpenHistory,
   onReload,
 }: {
   readonly state: WorkoutSessionSummaryScreenState;
   readonly onDone: () => void;
+  readonly onOpenHistory: () => void;
   readonly onReload: () => void;
 }) {
   return (
@@ -117,6 +120,11 @@ export function WorkoutSessionSummaryScreenContent({
               accessibilityLabel="完成查看训练总结"
               primary
               onPress={onDone}
+            />
+            <SummaryButton
+              label="查看历史"
+              accessibilityLabel="从训练总结查看历史训练"
+              onPress={onOpenHistory}
             />
           </ScrollView>
         )}

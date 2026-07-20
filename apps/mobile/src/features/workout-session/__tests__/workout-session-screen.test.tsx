@@ -883,6 +883,7 @@ function createStatefulRepository(
     findById: async () => storedSession,
     findActiveSession: async () => storedSession,
     findLatestSession: async () => storedSession,
+    listByStatuses: async () => [storedSession],
     findRecoverableSession: async () => storedSession,
     startIfNoActiveSession: async () => ({ status: 'started' }),
     ...overrides,

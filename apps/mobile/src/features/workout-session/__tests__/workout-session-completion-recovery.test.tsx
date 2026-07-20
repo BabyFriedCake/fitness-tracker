@@ -209,6 +209,7 @@ describe('WorkoutSession completion and recovery', () => {
       <WorkoutSessionSummaryScreenContent
         state={{ status: 'ready', summary }}
         onDone={onDone}
+        onOpenHistory={jest.fn()}
         onReload={jest.fn()}
       />,
     );
@@ -221,6 +222,22 @@ describe('WorkoutSession completion and recovery', () => {
 
     await fireEvent.press(getByLabelText('完成查看训练总结'));
     expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens history from the completed summary', async () => {
+    const onOpenHistory = jest.fn();
+    const summary = createWorkoutSessionSummary(buildCompletedSession());
+    const { getByLabelText } = await render(
+      <WorkoutSessionSummaryScreenContent
+        state={{ status: 'ready', summary }}
+        onDone={jest.fn()}
+        onOpenHistory={onOpenHistory}
+        onReload={jest.fn()}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('从训练总结查看历史训练'));
+    expect(onOpenHistory).toHaveBeenCalledTimes(1);
   });
 
   it('opens the persisted session from the Today recovery entry', async () => {
@@ -443,6 +460,7 @@ function buildRepository(
     findById: jest.fn(async () => storedSession),
     findActiveSession: jest.fn(async () => storedSession),
     findLatestSession: jest.fn(async () => storedSession),
+    listByStatuses: jest.fn(async () => (storedSession ? [storedSession] : [])),
     findRecoverableSession: jest.fn(async () => storedSession),
     startIfNoActiveSession,
     update,

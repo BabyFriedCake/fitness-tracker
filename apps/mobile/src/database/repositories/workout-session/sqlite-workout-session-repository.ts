@@ -52,6 +52,8 @@ export function createSqliteWorkoutSessionRepository(
     findById: (id) => findWorkoutSessionById(database, id),
     findActiveSession: () => findActiveWorkoutSession(database),
     findLatestSession: () => findLatestWorkoutSession(database),
+    listByStatuses: (statuses) =>
+      listWorkoutSessionsByStatuses(database, statuses),
     findRecoverableSession: () => findRecoverableWorkoutSession(database),
     startIfNoActiveSession: (session, expectedUpdatedAt) =>
       startWorkoutSessionIfNoActive(database, session, expectedUpdatedAt),
@@ -144,6 +146,34 @@ async function findLatestWorkoutSession(
   }
 
   return hydrateWorkoutSession(database, sessionRow);
+}
+
+async function listWorkoutSessionsByStatuses(
+  database: DatabaseConnection,
+  statuses: readonly WorkoutSessionStatus[],
+): Promise<readonly WorkoutSession[]> {
+  const filteredStatuses = statuses.filter(isWorkoutSessionStatus);
+
+  if (filteredStatuses.length === 0) {
+    return [];
+  }
+
+  const placeholders = filteredStatuses.map(() => '?').join(', ');
+  const sessionRows = await database.getAllAsync<WorkoutSessionSchemaRow>(
+    `
+    SELECT *
+    FROM workout_sessions
+    WHERE status IN (${placeholders}) AND is_deleted = 0
+    ORDER BY ended_at DESC, updated_at DESC, created_at DESC, id ASC;
+    `,
+    ...filteredStatuses,
+  );
+
+  return Promise.all(
+    sessionRows.map((sessionRow) =>
+      hydrateWorkoutSession(database, sessionRow),
+    ),
+  );
 }
 
 async function findRecoverableWorkoutSession(

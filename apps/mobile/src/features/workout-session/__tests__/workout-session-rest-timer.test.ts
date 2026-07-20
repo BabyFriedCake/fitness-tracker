@@ -446,6 +446,7 @@ function buildWorkoutSessionRepository(
     findById: async () => null,
     findActiveSession: async () => null,
     findLatestSession: async () => null,
+    listByStatuses: async () => [],
     findRecoverableSession: async () => null,
     startIfNoActiveSession: async () => ({ status: 'started' }),
     update: async (session) => session,

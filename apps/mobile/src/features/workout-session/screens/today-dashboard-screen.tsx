@@ -40,6 +40,9 @@ export function TodayDashboardScreen() {
           params: { id: sessionId },
         });
       }}
+      onOpenHistory={() => {
+        router.push('/history');
+      }}
     />
   );
 }
@@ -49,6 +52,7 @@ export type TodayDashboardScreenContentProps = {
   readonly controls: TodayDashboardScreenControls;
   readonly onCreateTemplate: () => void;
   readonly onOpenWorkoutSession: (sessionId: WorkoutSessionId) => void;
+  readonly onOpenHistory: () => void;
 };
 
 export function TodayDashboardScreenContent({
@@ -56,6 +60,7 @@ export function TodayDashboardScreenContent({
   controls,
   onCreateTemplate,
   onOpenWorkoutSession,
+  onOpenHistory,
 }: TodayDashboardScreenContentProps) {
   return (
     <ThemedView style={styles.container}>
@@ -82,6 +87,7 @@ export function TodayDashboardScreenContent({
                 controls={controls}
                 onCreateTemplate={onCreateTemplate}
                 onOpenWorkoutSession={onOpenWorkoutSession}
+                onOpenHistory={onOpenHistory}
               />
             </ScrollView>
           )}
@@ -133,11 +139,13 @@ function ReadyState({
   controls,
   onCreateTemplate,
   onOpenWorkoutSession,
+  onOpenHistory,
 }: {
   readonly state: Extract<TodayDashboardScreenState, { status: 'ready' }>;
   readonly controls: TodayDashboardScreenControls;
   readonly onCreateTemplate: () => void;
   readonly onOpenWorkoutSession: (sessionId: WorkoutSessionId) => void;
+  readonly onOpenHistory: () => void;
 }) {
   const hasBlockingSession =
     state.data.sessionEntry.status === 'draft' ||
@@ -160,6 +168,12 @@ function ReadyState({
       {state.actionError && (
         <ThemedText accessibilityRole="alert">{state.actionError}</ThemedText>
       )}
+
+      <SecondaryButton
+        label="查看历史"
+        accessibilityLabel="查看历史训练"
+        onPress={onOpenHistory}
+      />
 
       {state.data.templates.length === 0 ? (
         <EmptyTemplateEntry onCreateTemplate={onCreateTemplate} />

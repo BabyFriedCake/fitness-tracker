@@ -199,6 +199,7 @@ describe('Today Dashboard', () => {
         controls={buildControls({ createSessionFromTemplate })}
         onCreateTemplate={jest.fn()}
         onOpenWorkoutSession={jest.fn()}
+        onOpenHistory={jest.fn()}
       />,
     );
 
@@ -227,6 +228,7 @@ describe('Today Dashboard', () => {
           controls={buildControls({ continueSession })}
           onCreateTemplate={jest.fn()}
           onOpenWorkoutSession={onOpenWorkoutSession}
+          onOpenHistory={jest.fn()}
         />,
       );
 
@@ -259,6 +261,7 @@ describe('Today Dashboard', () => {
           controls={buildControls({ continueSession })}
           onCreateTemplate={jest.fn()}
           onOpenWorkoutSession={jest.fn()}
+          onOpenHistory={jest.fn()}
         />,
       );
       const label = status === 'completed' ? '已完成Push' : '已取消Push';
@@ -270,6 +273,25 @@ describe('Today Dashboard', () => {
       expect(continueSession).not.toHaveBeenCalled();
     },
   );
+
+  it('opens history from Today', async () => {
+    const onOpenHistory = jest.fn();
+    const { getByLabelText } = await render(
+      <TodayDashboardScreenContent
+        state={buildReadyState({
+          sessionEntry: { status: 'none' },
+          templates: [],
+        })}
+        controls={buildControls()}
+        onCreateTemplate={jest.fn()}
+        onOpenWorkoutSession={jest.fn()}
+        onOpenHistory={onOpenHistory}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('查看历史训练'));
+    expect(onOpenHistory).toHaveBeenCalledTimes(1);
+  });
 });
 
 function buildReadyState(
@@ -302,6 +324,7 @@ function buildWorkoutSessionRepository(
     findById: async () => null,
     findActiveSession: async () => null,
     findLatestSession: async () => null,
+    listByStatuses: async () => [],
     findRecoverableSession: async () => null,
     startIfNoActiveSession: async () => ({ status: 'started' }),
     update: async (session) => session,
