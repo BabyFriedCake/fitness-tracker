@@ -1,5 +1,5 @@
-import { TodayWorkoutRecoveryScreen } from '@/features/workout-session/screens/today-workout-recovery-screen';
+import { TodayDashboardScreen } from '@/features/workout-session/screens/today-dashboard-screen';
 
 export default function TodayRoute() {
-  return <TodayWorkoutRecoveryScreen />;
+  return <TodayDashboardScreen />;
 }

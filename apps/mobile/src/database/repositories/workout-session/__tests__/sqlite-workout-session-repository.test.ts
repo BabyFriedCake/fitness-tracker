@@ -342,6 +342,33 @@ describe('SQLite WorkoutSessionRepository', () => {
     await expect(repository.findActiveSession()).resolves.toEqual(active);
   });
 
+  it('returns the latest session by updated time for Today status', async () => {
+    const repository = createSqliteWorkoutSessionRepository(database);
+    const completed = buildCompletedSession({
+      updatedAt: '2026-07-17T02:00:00.000Z',
+    });
+    const cancelled = cancelWorkoutSession(
+      buildDraftSession({
+        id: SECOND_SESSION_ID,
+        workoutNameSnapshot: 'Pull',
+        sessionExercises: [
+          buildSessionExercise({
+            id: ROW_SESSION_EXERCISE_ID,
+            sessionId: SECOND_SESSION_ID,
+            sourceExerciseId: 'exercise-row' as ExerciseId,
+            exerciseNameSnapshot: '坐姿划船快照',
+          }),
+        ],
+        updatedAt: '2026-07-17T03:00:00.000Z',
+      }),
+      ENDED_AT,
+    );
+    await repository.save(completed);
+    await repository.save(cancelled);
+
+    await expect(repository.findLatestSession()).resolves.toEqual(cancelled);
+  });
+
   it('returns a draft session as recoverable', async () => {
     const repository = createSqliteWorkoutSessionRepository(database);
     const draft = buildDraftSession();

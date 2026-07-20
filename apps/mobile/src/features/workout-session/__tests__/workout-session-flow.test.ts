@@ -379,6 +379,7 @@ function buildRepository(
     save: async (session) => session,
     findById: async () => null,
     findActiveSession: async () => null,
+    findLatestSession: async () => null,
     findRecoverableSession: async () => null,
     startIfNoActiveSession: async () => ({ status: 'started' }),
     update: async (session) => session,

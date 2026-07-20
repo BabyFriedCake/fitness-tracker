@@ -424,6 +424,7 @@ function buildRepository(
 ): WorkoutSessionRepository & {
   readonly save: jest.Mock;
   readonly findActiveSession: jest.Mock;
+  readonly findLatestSession: jest.Mock;
   readonly findRecoverableSession: jest.Mock;
   readonly update: jest.Mock;
 } {
@@ -441,6 +442,7 @@ function buildRepository(
     save: jest.fn(async (next) => next),
     findById: jest.fn(async () => storedSession),
     findActiveSession: jest.fn(async () => storedSession),
+    findLatestSession: jest.fn(async () => storedSession),
     findRecoverableSession: jest.fn(async () => storedSession),
     startIfNoActiveSession,
     update,
