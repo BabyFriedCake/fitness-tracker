@@ -1,6 +1,5 @@
-import { PlaceholderScreen } from '@/components/placeholder-screen';
-import { getTopLevelRoute } from '@/constants/routes';
+import { TodayDashboardScreen } from '@/features/workout-session/screens/today-dashboard-screen';
 
 export default function TodayRoute() {
-  return <PlaceholderScreen route={getTopLevelRoute('today')} />;
+  return <TodayDashboardScreen />;
 }

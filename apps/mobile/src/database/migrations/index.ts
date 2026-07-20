@@ -1,5 +1,6 @@
 import { INITIAL_SCHEMA_SQL } from '@/database/migrations/0001-initial-schema';
 import { WORKOUT_TEMPLATE_CONSTRAINTS_SQL } from '@/database/migrations/0002-workout-template-constraints';
+import { WORKOUT_SESSION_SCHEMA_SQL } from '@/database/migrations/0003-workout-session-schema';
 
 export type Migration = {
   readonly version: number;
@@ -18,6 +19,12 @@ export const MIGRATIONS = [
     version: 2,
     name: '0002_workout_template_constraints',
     sql: WORKOUT_TEMPLATE_CONSTRAINTS_SQL,
+    disableForeignKeysDuringMigration: true,
+  },
+  {
+    version: 3,
+    name: '0003_workout_session_schema',
+    sql: WORKOUT_SESSION_SCHEMA_SQL,
     disableForeignKeysDuringMigration: true,
   },
 ] as const satisfies readonly Migration[];

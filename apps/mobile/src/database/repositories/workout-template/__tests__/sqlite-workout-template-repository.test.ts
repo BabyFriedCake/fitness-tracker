@@ -499,21 +499,23 @@ describe('SQLite WorkoutTemplateRepository', () => {
     );
 
     const sessionRow = await database.getFirstAsync<{
-      readonly name_snapshot: string;
-    }>("SELECT name_snapshot FROM workout_sessions WHERE id = 'session-push';");
+      readonly workout_name_snapshot: string;
+    }>(
+      "SELECT workout_name_snapshot FROM workout_sessions WHERE id = 'session-push';",
+    );
     const sessionExerciseRow = await database.getFirstAsync<{
-      readonly exercise_id: string;
+      readonly source_exercise_id: string;
       readonly exercise_name_snapshot: string;
       readonly target_sets: number;
     }>(
-      "SELECT exercise_id, exercise_name_snapshot, target_sets FROM workout_session_exercises WHERE id = 'session-exercise-bench';",
+      "SELECT source_exercise_id, exercise_name_snapshot, target_sets FROM workout_session_exercises WHERE id = 'session-exercise-bench';",
     );
 
     expect(sessionRow).toEqual({
-      name_snapshot: 'Push Snapshot',
+      workout_name_snapshot: 'Push Snapshot',
     });
     expect(sessionExerciseRow).toEqual({
-      exercise_id: 'exercise-bench-press',
+      source_exercise_id: 'exercise-bench-press',
       exercise_name_snapshot: 'Bench Snapshot',
       target_sets: 3,
     });
@@ -563,21 +565,23 @@ describe('SQLite WorkoutTemplateRepository', () => {
     await repository.archive(toTemplateId('template-push'), ARCHIVED_AT);
 
     const sessionRow = await database.getFirstAsync<{
-      readonly name_snapshot: string;
-    }>("SELECT name_snapshot FROM workout_sessions WHERE id = 'session-push';");
+      readonly workout_name_snapshot: string;
+    }>(
+      "SELECT workout_name_snapshot FROM workout_sessions WHERE id = 'session-push';",
+    );
     const sessionExerciseRow = await database.getFirstAsync<{
-      readonly exercise_id: string;
+      readonly source_exercise_id: string;
       readonly exercise_name_snapshot: string;
       readonly target_sets: number;
     }>(
-      "SELECT exercise_id, exercise_name_snapshot, target_sets FROM workout_session_exercises WHERE id = 'session-exercise-bench';",
+      "SELECT source_exercise_id, exercise_name_snapshot, target_sets FROM workout_session_exercises WHERE id = 'session-exercise-bench';",
     );
 
     expect(sessionRow).toEqual({
-      name_snapshot: 'Push Snapshot',
+      workout_name_snapshot: 'Push Snapshot',
     });
     expect(sessionExerciseRow).toEqual({
-      exercise_id: 'exercise-bench-press',
+      source_exercise_id: 'exercise-bench-press',
       exercise_name_snapshot: 'Bench Snapshot',
       target_sets: 3,
     });
@@ -723,12 +727,12 @@ describe('SQLite WorkoutTemplateRepository', () => {
       INSERT INTO workout_sessions (
         id,
         source_template_id,
-        name_snapshot,
+        workout_name_snapshot,
         status,
         daily_status,
         started_at,
         ended_at,
-        note,
+        notes,
         current_session_exercise_id,
         current_set_number,
         was_edited,
@@ -760,7 +764,7 @@ describe('SQLite WorkoutTemplateRepository', () => {
       INSERT INTO workout_session_exercises (
         id,
         session_id,
-        exercise_id,
+        source_exercise_id,
         exercise_name_snapshot,
         primary_muscle_group_snapshot,
         equipment_snapshot,
@@ -768,7 +772,7 @@ describe('SQLite WorkoutTemplateRepository', () => {
         target_sets,
         target_reps_min,
         target_reps_max,
-        rest_seconds,
+        current_rest_seconds,
         group_key,
         is_enabled,
         is_skipped,

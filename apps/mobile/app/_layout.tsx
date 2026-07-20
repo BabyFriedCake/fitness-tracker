@@ -11,6 +11,8 @@ export default function RootLayout() {
         <Stack.Screen name="exercises/[id]" />
         <Stack.Screen name="templates/new" />
         <Stack.Screen name="templates/[id]" />
+        <Stack.Screen name="workout-sessions/[id]" />
+        <Stack.Screen name="workout-sessions/[id]/summary" />
       </Stack>
     </ThemeProvider>
   );

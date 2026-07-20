@@ -2,7 +2,7 @@
 
 Version: v1.0  
 Status: Approved  
-Last Updated: 2026-07-16
+Last Updated: 2026-07-17
 
 ---
 
@@ -100,6 +100,46 @@ V1 初始迁移：
 6. 提交前执行外键一致性检查
 
 如现有数据不满足新约束，迁移失败并回滚，`schema_migrations` 不记录版本 2。
+
+## 3.2 Workout Session Schema 迁移
+
+第三个迁移：
+
+```text
+0003_workout_session_schema
+```
+
+目的：
+
+- 在不修改 `0001` 和 `0002` 的前提下，将 Session 表映射到 S4-01 Domain
+- 为 Session 生命周期时间字段增加数据库 CHECK 约束
+- 将 Session、SessionExercise 和 WorkoutSet 的领域字段统一命名
+- 保留 Sprint 1-3 已有合法数据、兼容元数据、索引和外键
+- 明确 WorkoutSet 只记录实际次数、重量和完成时间，不增加 `target_reps`
+
+字段映射：
+
+- `name_snapshot` → `workout_name_snapshot`
+- `note` → `notes`
+- `exercise_id` → `source_exercise_id`
+- `rest_seconds` → `current_rest_seconds`
+- `reps` → `actual_reps`
+- `weight_value` → `weight`
+- `is_extra` → `is_extra_set`
+- 根据既有 `completed_at` 生成 SessionExercise 的 `is_completed`
+
+迁移策略：
+
+1. 在事务外暂时关闭外键检查
+2. 在事务中创建带约束的 v3 临时表
+3. 显式映射并复制既有 Session 数据
+4. 按子表到父表顺序替换旧表
+5. 重建 Session、SessionExercise 和 WorkoutSet 索引
+6. 提交前执行外键一致性检查
+7. 无论成功或失败均恢复外键检查
+
+如既有数据不满足生命周期或字段约束，迁移失败并完整回滚，
+`schema_migrations` 不记录版本 3。
 
 ---
 
