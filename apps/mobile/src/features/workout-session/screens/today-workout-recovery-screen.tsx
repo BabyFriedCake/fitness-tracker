@@ -95,7 +95,7 @@ export function TodayWorkoutRecoveryScreenContent({
                   {state.data.session.workoutNameSnapshot}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {formatRecoveryPosition(state.data)}
+                  {formatRecoveryPosition(state)}
                 </ThemedText>
                 {state.data.restTimerStatus && (
                   <ThemedText type="small" themeColor="textSecondary">
@@ -136,14 +136,14 @@ export function TodayWorkoutRecoveryScreenContent({
 }
 
 function formatRecoveryPosition(
-  data: Extract<RecoverableWorkoutSessionState, { status: 'ready' }>['data'],
+  state: Extract<RecoverableWorkoutSessionState, { status: 'ready' }>,
 ): string {
-  if (!data.currentExercise) {
+  if (!state.runtime.currentExercise) {
     return '当前没有可执行动作';
   }
 
-  return `${data.currentExercise.exerciseNameSnapshot} · 第 ${
-    data.currentSetNumber ?? 1
+  return `${state.runtime.currentExercise.exerciseNameSnapshot} · 第 ${
+    state.runtime.currentSet ?? 1
   } 组`;
 }
 

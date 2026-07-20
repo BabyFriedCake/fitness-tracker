@@ -87,9 +87,9 @@ describe('WorkoutSession completion and recovery', () => {
         throw new Error('Expected recoverable session data.');
       }
       expect(result.data.session.id).toBe(SESSION_ID);
-      expect(result.data.currentExercise?.id).toBe(EXERCISE_ID);
-      expect(result.data.currentSetNumber).toBe(2);
-      expect(result.data.currentExercise?.sets).toEqual([
+      expect(result.runtime.currentExercise?.id).toBe(EXERCISE_ID);
+      expect(result.runtime.currentSet).toBe(2);
+      expect(result.runtime.currentExercise?.sets).toEqual([
         buildWorkoutSet({ id: 'set-1' as WorkoutSetId, setNumber: 1 }),
       ]);
       expect(result.data.restTimerStatus).toBe('running');
@@ -147,7 +147,7 @@ describe('WorkoutSession completion and recovery', () => {
       currentSetNumber: 2,
       notes: '保留备注',
     });
-    expect(result.data.currentExercise?.sets).toEqual(
+    expect(result.runtime.currentExercise?.sets).toEqual(
       draft.sessionExercises[0]?.sets,
     );
     expect(result.data.restTimerStatus).toBe('running');
@@ -258,7 +258,7 @@ describe('WorkoutSession completion and recovery', () => {
 
     const { getByLabelText, getByText } = await render(
       <TodayWorkoutRecoveryScreenContent
-        state={{ status: 'ready', data: result.data }}
+        state={{ status: 'ready', data: result.data, runtime: result.runtime }}
         onReload={jest.fn()}
         onResume={onResume}
       />,
@@ -288,7 +288,7 @@ describe('WorkoutSession completion and recovery', () => {
 
     const { getByLabelText, getByText } = await render(
       <TodayWorkoutRecoveryScreenContent
-        state={{ status: 'ready', data: result.data }}
+        state={{ status: 'ready', data: result.data, runtime: result.runtime }}
         onReload={jest.fn()}
         onResume={onResume}
       />,

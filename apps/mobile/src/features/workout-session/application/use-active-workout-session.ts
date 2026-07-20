@@ -17,6 +17,7 @@ import type {
   WorkoutSessionScreenData,
   WorkoutSessionScreenRepositories,
 } from './load-workout-session-screen';
+import type { WorkoutRuntimeSnapshot } from './workout-runtime-engine';
 import {
   continueWorkoutSessionRecovery,
   loadRecoverableWorkoutSessionRecovery,
@@ -29,6 +30,7 @@ export type RecoverableWorkoutSessionState =
   | {
       readonly status: 'ready';
       readonly data: WorkoutSessionScreenData;
+      readonly runtime: WorkoutRuntimeSnapshot;
       readonly isContinuing?: boolean;
       readonly continueError?: string;
     };
@@ -110,7 +112,12 @@ export function useRecoverableWorkoutSession({
 
       setState(
         result.status === 'ready'
-          ? { status: 'ready', data: result.data, isContinuing: false }
+          ? {
+              status: 'ready',
+              data: result.data,
+              runtime: result.runtime,
+              isContinuing: false,
+            }
           : { status: 'empty' },
       );
     } catch {
@@ -168,6 +175,7 @@ export function useRecoverableWorkoutSession({
         setState({
           status: 'ready',
           data: result.data,
+          runtime: result.runtime,
           isContinuing: false,
         });
         return true;

@@ -16,7 +16,11 @@ import type {
   WorkoutSessionRepository,
 } from '@/domain/workout-session';
 
-import { cancelSession, completeSession } from './workout-session-flow';
+import {
+  cancelSession,
+  completeSession,
+  startSession,
+} from './workout-session-flow';
 import {
   completeSessionExercise,
   recordWorkoutSet,
@@ -25,13 +29,29 @@ import {
 } from './workout-session-execution';
 import {
   createWorkoutSessionScreenData,
-  getSessionExerciseNextSetNumber,
   loadWorkoutSessionScreen,
   type WorkoutSessionScreenData,
   type WorkoutSessionScreenRepositories,
 } from './load-workout-session-screen';
 import { setCurrentSessionPosition } from './workout-session-rest-timer';
 import { closeActiveRestTimer } from './workout-session-completion-recovery';
+import {
+  createWorkoutRuntimeSnapshot,
+  getSessionExerciseNextSetNumber,
+  pauseWorkoutRuntime,
+  resumeWorkoutRuntime,
+  type WorkoutRuntimeDisplayStatus,
+  type WorkoutRuntimeSnapshot,
+} from './workout-runtime-engine';
+import {
+  createRepCompletedFeedbackEvents,
+  createSetCompletedFeedbackEvent,
+} from './workout-feedback-events';
+import {
+  speakWorkoutVoiceFeedbackEvent,
+  type WorkoutVoiceFeedbackEvent,
+  type WorkoutVoiceFeedbackAdapter,
+} from './workout-voice-feedback';
 
 export type WorkoutSessionRouteParams = {
   readonly id?: string | readonly string[];
@@ -42,6 +62,8 @@ export type WorkoutSetDraft = {
   readonly actualReps: string;
 };
 
+export type WorkoutSessionScreenRuntimeStatus = WorkoutRuntimeDisplayStatus;
+
 export type WorkoutSessionScreenState =
   | { readonly status: 'loading' }
   | {
@@ -51,6 +73,7 @@ export type WorkoutSessionScreenState =
   | {
       readonly status: 'ready';
       readonly data: WorkoutSessionScreenData;
+      readonly runtime: WorkoutRuntimeSnapshot;
       readonly setDraft: WorkoutSetDraft;
       readonly isMutating: boolean;
       readonly isConfirmingSkip: boolean;
@@ -61,6 +84,9 @@ export type WorkoutSessionScreenState =
 
 export type WorkoutSessionScreenControls = {
   readonly reload: () => void;
+  readonly startWorkout: () => Promise<void>;
+  readonly pauseWorkout: () => void;
+  readonly resumeWorkout: () => void;
   readonly updateWeight: (value: string) => void;
   readonly updateActualReps: (value: string) => void;
   readonly recordSet: () => Promise<void>;
@@ -99,6 +125,8 @@ export type UseWorkoutSessionScreenDependencies = {
   ) => RestTimerRepository;
   readonly now?: () => string;
   readonly createWorkoutSetId?: () => string;
+  readonly voiceFeedbackEnabled?: boolean;
+  readonly voiceAdapter?: WorkoutVoiceFeedbackAdapter;
 };
 
 const SESSION_LOAD_ERROR_MESSAGE =
@@ -109,6 +137,9 @@ const SESSION_ACTION_ERROR_MESSAGE =
 const SESSION_END_ERROR_MESSAGE =
   '训练结束状态保存失败。已完成的组不会丢失，请重试。';
 const INVALID_SET_INPUT_MESSAGE = '请输入有效的非负重量和非负整数次数。';
+const NOOP_VOICE_ADAPTER: WorkoutVoiceFeedbackAdapter = {
+  speak: () => undefined,
+};
 
 export function useWorkoutSessionScreen(
   routeParams: WorkoutSessionRouteParams,
@@ -118,6 +149,8 @@ export function useWorkoutSessionScreen(
     createRestTimerRepository = createSqliteRestTimerRepository,
     now = () => new Date().toISOString(),
     createWorkoutSetId = createDefaultWorkoutSetId,
+    voiceFeedbackEnabled = true,
+    voiceAdapter = NOOP_VOICE_ADAPTER,
   }: UseWorkoutSessionScreenDependencies = {},
 ): WorkoutSessionScreenModel {
   const [state, setState] = useState<WorkoutSessionScreenState>({
@@ -137,6 +170,8 @@ export function useWorkoutSessionScreen(
     createRestTimerRepository,
     now,
     createWorkoutSetId,
+    voiceFeedbackEnabled,
+    voiceAdapter,
   });
 
   useEffect(() => {
@@ -150,6 +185,8 @@ export function useWorkoutSessionScreen(
       createRestTimerRepository,
       now,
       createWorkoutSetId,
+      voiceFeedbackEnabled,
+      voiceAdapter,
     };
   }, [
     createRestTimerRepository,
@@ -157,6 +194,8 @@ export function useWorkoutSessionScreen(
     createWorkoutSetId,
     initializeDatabase,
     now,
+    voiceAdapter,
+    voiceFeedbackEnabled,
   ]);
 
   const commitState = useCallback((next: WorkoutSessionScreenState): void => {
@@ -227,10 +266,11 @@ export function useWorkoutSessionScreen(
           repositoriesRef.current = repositories;
         }
 
+        const requestNow = dependenciesRef.current.now();
         const result = await loadWorkoutSessionScreen(
           repositories,
           sessionId,
-          dependenciesRef.current.now(),
+          requestNow,
         );
 
         if (!isCurrentRequest(requestIdRef, requestId, isMountedRef)) {
@@ -246,13 +286,15 @@ export function useWorkoutSessionScreen(
         const shouldPreserveDraft =
           !showLoading &&
           current.status === 'ready' &&
-          current.data.currentExercise?.id === result.data.currentExercise?.id;
+          current.runtime.currentExercise?.id ===
+            result.runtime.currentExercise?.id;
         commitState({
           status: 'ready',
           data: result.data,
+          runtime: result.runtime,
           setDraft: shouldPreserveDraft
             ? current.setDraft
-            : createDefaultSetDraft(result.data.currentExercise),
+            : createDefaultSetDraft(result.runtime.currentExercise),
           isMutating: false,
           isConfirmingSkip: shouldPreserveDraft
             ? current.isConfirmingSkip
@@ -358,7 +400,8 @@ export function useWorkoutSessionScreen(
       if (
         isMutatingRef.current ||
         (stateRef.current.status === 'ready' &&
-          (stateRef.current.isConfirmingSkip ||
+          (stateRef.current.runtime.status !== 'running' ||
+            stateRef.current.isConfirmingSkip ||
             stateRef.current.endFlow !== 'closed'))
       ) {
         return;
@@ -380,6 +423,102 @@ export function useWorkoutSessionScreen(
     [],
   );
 
+  const startWorkout = useCallback(async (): Promise<void> => {
+    const current = stateRef.current;
+    const repositories = repositoriesRef.current;
+
+    if (
+      current.status !== 'ready' ||
+      current.data.session.status !== 'draft' ||
+      current.isConfirmingSkip ||
+      current.endFlow !== 'closed' ||
+      !repositories ||
+      isMutatingRef.current
+    ) {
+      return;
+    }
+
+    beginMutation(current);
+
+    try {
+      const nextSession = await startSession(
+        repositories.workoutSessionRepository,
+        current.data.session.id,
+        dependenciesRef.current.now(),
+      );
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      commitState({
+        ...current,
+        data: createWorkoutSessionScreenData(
+          nextSession,
+          current.data.restTimerStatus,
+        ),
+        runtime: createWorkoutRuntimeSnapshot(
+          nextSession,
+          current.data.restTimerStatus,
+        ),
+        isMutating: false,
+        actionError: undefined,
+      });
+    } catch {
+      if (isMountedRef.current) {
+        commitState({
+          ...current,
+          isMutating: false,
+          actionError: SESSION_ACTION_ERROR_MESSAGE,
+        });
+      }
+    } finally {
+      finishMutation();
+    }
+  }, [beginMutation, commitState, finishMutation]);
+
+  const pauseWorkout = useCallback((): void => {
+    const current = stateRef.current;
+
+    if (
+      current.status !== 'ready' ||
+      current.data.session.status !== 'in_progress' ||
+      current.runtime.status !== 'running' ||
+      current.isConfirmingSkip ||
+      current.endFlow !== 'closed' ||
+      isMutatingRef.current
+    ) {
+      return;
+    }
+
+    commitState({
+      ...current,
+      runtime: pauseWorkoutRuntime(current.runtime),
+      actionError: undefined,
+    });
+  }, [commitState]);
+
+  const resumeWorkout = useCallback((): void => {
+    const current = stateRef.current;
+
+    if (
+      current.status !== 'ready' ||
+      current.data.session.status !== 'in_progress' ||
+      current.runtime.status !== 'paused' ||
+      current.isConfirmingSkip ||
+      current.endFlow !== 'closed' ||
+      isMutatingRef.current
+    ) {
+      return;
+    }
+
+    commitState({
+      ...current,
+      runtime: resumeWorkoutRuntime(current.runtime),
+      actionError: undefined,
+    });
+  }, [commitState]);
+
   const runExerciseMutation = useCallback(
     async (
       operation: (
@@ -396,9 +535,10 @@ export function useWorkoutSessionScreen(
       if (
         current.status !== 'ready' ||
         current.data.session.status !== 'in_progress' ||
-        !current.data.currentExercise ||
+        current.runtime.status !== 'running' ||
+        !current.runtime.currentExercise ||
         !repositories ||
-        !isAllowed(current.data.currentExercise) ||
+        !isAllowed(current.runtime.currentExercise) ||
         current.isConfirmingSkip ||
         current.endFlow !== 'closed' ||
         isMutatingRef.current
@@ -406,7 +546,7 @@ export function useWorkoutSessionScreen(
         return;
       }
 
-      const currentExercise = current.data.currentExercise;
+      const currentExercise = current.runtime.currentExercise;
       beginMutation(current);
 
       try {
@@ -424,6 +564,10 @@ export function useWorkoutSessionScreen(
         commitState({
           ...current,
           data: createWorkoutSessionScreenData(
+            nextSession,
+            current.data.restTimerStatus,
+          ),
+          runtime: createWorkoutRuntimeSnapshot(
             nextSession,
             current.data.restTimerStatus,
           ),
@@ -454,9 +598,10 @@ export function useWorkoutSessionScreen(
     if (
       current.status !== 'ready' ||
       current.data.session.status !== 'in_progress' ||
-      !current.data.currentExercise ||
-      current.data.currentExercise.isSkipped ||
-      current.data.currentExercise.isCompleted ||
+      current.runtime.status !== 'running' ||
+      !current.runtime.currentExercise ||
+      current.runtime.currentExercise.isSkipped ||
+      current.runtime.currentExercise.isCompleted ||
       current.isConfirmingSkip ||
       current.endFlow !== 'closed' ||
       !repositories ||
@@ -475,19 +620,52 @@ export function useWorkoutSessionScreen(
     beginMutation(current);
 
     try {
+      const completedAt = dependenciesRef.current.now();
       const nextSession = await recordWorkoutSet(
         repositories.workoutSessionRepository,
         {
           sessionId: current.data.session.id,
-          sessionExerciseId: current.data.currentExercise.id,
+          sessionExerciseId: current.runtime.currentExercise.id,
           actualReps: parsedDraft.actualReps,
           weight: parsedDraft.weight,
-          completedAt: dependenciesRef.current.now(),
+          completedAt,
         },
         {
           createWorkoutSetId: dependenciesRef.current.createWorkoutSetId,
         },
       );
+      const nextExercise = nextSession.sessionExercises.find(
+        (exercise) => exercise.id === current.runtime.currentExercise?.id,
+      );
+
+      if (nextExercise) {
+        const voiceEvents: WorkoutVoiceFeedbackEvent[] = [
+          ...createRepCompletedFeedbackEvents({
+            sessionId: nextSession.id,
+            exercise: nextExercise,
+            actualReps: parsedDraft.actualReps,
+          }),
+        ];
+
+        const completedSet = nextExercise.sets.find(
+          (workoutSet) =>
+            workoutSet.completedAt === completedAt &&
+            workoutSet.actualReps === parsedDraft.actualReps &&
+            workoutSet.weight === parsedDraft.weight,
+        );
+
+        if (completedSet) {
+          voiceEvents.push(
+            createSetCompletedFeedbackEvent({
+              sessionId: nextSession.id,
+              exercise: nextExercise,
+              workoutSet: completedSet,
+            }),
+          );
+        }
+
+        speakWorkoutVoiceFeedbackEvents(voiceEvents, dependenciesRef.current);
+      }
 
       if (!isMountedRef.current) {
         return;
@@ -496,6 +674,10 @@ export function useWorkoutSessionScreen(
       commitState({
         ...current,
         data: createWorkoutSessionScreenData(
+          nextSession,
+          current.data.restTimerStatus,
+        ),
+        runtime: createWorkoutRuntimeSnapshot(
           nextSession,
           current.data.restTimerStatus,
         ),
@@ -525,7 +707,8 @@ export function useWorkoutSessionScreen(
       if (
         current.status !== 'ready' ||
         current.data.session.status !== 'in_progress' ||
-        current.data.currentExercise?.id === exerciseId ||
+        current.runtime.status !== 'running' ||
+        current.runtime.currentExercise?.id === exerciseId ||
         current.isConfirmingSkip ||
         current.endFlow !== 'closed' ||
         !repositories ||
@@ -534,7 +717,7 @@ export function useWorkoutSessionScreen(
         return;
       }
 
-      const targetExercise = current.data.orderedExercises.find(
+      const targetExercise = current.runtime.orderedExercises.find(
         (exercise) => exercise.id === exerciseId,
       );
 
@@ -563,10 +746,15 @@ export function useWorkoutSessionScreen(
           nextSession,
           current.data.restTimerStatus,
         );
+        const nextRuntime = createWorkoutRuntimeSnapshot(
+          nextSession,
+          current.data.restTimerStatus,
+        );
         commitState({
           ...current,
           data: nextData,
-          setDraft: createDefaultSetDraft(nextData.currentExercise),
+          runtime: nextRuntime,
+          setDraft: createDefaultSetDraft(nextRuntime.currentExercise),
           isMutating: false,
           isConfirmingSkip: false,
           actionError: undefined,
@@ -593,9 +781,10 @@ export function useWorkoutSessionScreen(
     if (
       current.status !== 'ready' ||
       current.data.session.status !== 'in_progress' ||
-      !current.data.currentExercise ||
-      current.data.currentExercise.isSkipped ||
-      current.data.currentExercise.isCompleted ||
+      current.runtime.status !== 'running' ||
+      !current.runtime.currentExercise ||
+      current.runtime.currentExercise.isSkipped ||
+      current.runtime.currentExercise.isCompleted ||
       current.isConfirmingSkip ||
       current.endFlow !== 'closed' ||
       isMutatingRef.current
@@ -765,6 +954,10 @@ export function useWorkoutSessionScreen(
             nextSession,
             current.data.restTimerStatus,
           ),
+          runtime: createWorkoutRuntimeSnapshot(
+            nextSession,
+            current.data.restTimerStatus,
+          ),
           isMutating: false,
           isConfirmingSkip: false,
           endFlow: 'closed',
@@ -810,6 +1003,9 @@ export function useWorkoutSessionScreen(
       reload: () => {
         void load();
       },
+      startWorkout,
+      pauseWorkout,
+      resumeWorkout,
       updateWeight: (value) => updateSetDraft('weight', value),
       updateActualReps: (value) => updateSetDraft('actualReps', value),
       recordSet,
@@ -875,6 +1071,21 @@ function parseWorkoutSetDraft(
   }
 
   return { weight, actualReps };
+}
+
+function speakWorkoutVoiceFeedbackEvents(
+  events: readonly WorkoutVoiceFeedbackEvent[],
+  dependencies: {
+    readonly voiceFeedbackEnabled: boolean;
+    readonly voiceAdapter: WorkoutVoiceFeedbackAdapter;
+  },
+): void {
+  events.forEach((event) => {
+    void speakWorkoutVoiceFeedbackEvent(event, {
+      isEnabled: dependencies.voiceFeedbackEnabled,
+      voiceAdapter: dependencies.voiceAdapter,
+    }).catch(() => undefined);
+  });
 }
 
 function isCurrentRequest(

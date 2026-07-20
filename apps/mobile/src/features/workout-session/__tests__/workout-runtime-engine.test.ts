@@ -17,8 +17,12 @@ import {
   WorkoutRuntimeTransitionError,
   assertWorkoutRuntimeStatusTransition,
   canTransitionWorkoutRuntimeStatus,
+  createWorkoutRuntimeSnapshot,
   createWorkoutRuntimeState,
+  getWorkoutRuntimeState,
   loadWorkoutRuntimeState,
+  pauseWorkoutRuntime,
+  resumeWorkoutRuntime,
 } from '@/features/workout-session/application/workout-runtime-engine';
 
 const CREATED_AT = '2026-07-20T01:00:00.000Z';
@@ -74,6 +78,43 @@ describe('Workout Runtime Engine', () => {
         restTimerStatus: 'running',
       }),
     );
+  });
+
+  it('creates an idle runtime snapshot for draft sessions', () => {
+    const runtime = createWorkoutRuntimeSnapshot(buildDraftSession());
+
+    expect(runtime).toMatchObject({
+      sessionId: SESSION_ID,
+      status: 'idle',
+      currentSessionExerciseId: SESSION_EXERCISE_ID,
+      currentSetNumber: 1,
+      completedSetCount: 0,
+      totalTargetSetCount: 3,
+    });
+  });
+
+  it('loads the UI runtime snapshot from repositories', async () => {
+    const result = await getWorkoutRuntimeState(
+      {
+        workoutSessionRepository: buildWorkoutSessionRepository({
+          findById: async () => buildInProgressSession(),
+        }),
+        restTimerRepository: buildRestTimerRepository({
+          findBySessionId: async () => buildRestTimer({ status: 'paused' }),
+        }),
+      },
+      SESSION_ID,
+      NOW,
+    );
+
+    expect(result).toEqual({
+      status: 'ready',
+      runtime: expect.objectContaining({
+        sessionId: SESSION_ID,
+        status: 'paused',
+        restTimerStatus: 'paused',
+      }),
+    });
   });
 
   it('loads runtime state from repositories for recovery', async () => {
@@ -167,6 +208,31 @@ describe('Workout Runtime Engine', () => {
     expect(() =>
       assertWorkoutRuntimeStatusTransition('completed', 'paused'),
     ).toThrow(WorkoutRuntimeTransitionError);
+  });
+
+  it('pauses and resumes through the runtime engine without changing position', () => {
+    const runtime = createWorkoutRuntimeSnapshot(
+      buildInProgressSession({
+        currentSessionExerciseId: SECOND_SESSION_EXERCISE_ID,
+        currentSetNumber: 2,
+        sessionExercises: [
+          buildExercise(),
+          buildExercise({
+            id: SECOND_SESSION_EXERCISE_ID,
+            position: 2,
+          }),
+        ],
+      }),
+    );
+
+    const paused = pauseWorkoutRuntime(runtime);
+    const resumed = resumeWorkoutRuntime(paused);
+
+    expect(paused).toEqual({
+      ...runtime,
+      status: 'paused',
+    });
+    expect(resumed).toEqual(runtime);
   });
 });
 

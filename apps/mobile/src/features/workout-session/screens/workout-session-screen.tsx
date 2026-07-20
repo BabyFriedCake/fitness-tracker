@@ -31,6 +31,7 @@ import type {
   WorkoutSessionScreenData,
   WorkoutSessionTimerDisplayStatus,
 } from '@/features/workout-session/application/load-workout-session-screen';
+import type { WorkoutRuntimeSnapshot } from '@/features/workout-session/application/workout-runtime-engine';
 import { useTheme } from '@/hooks/use-theme';
 
 export function WorkoutSessionScreen({
@@ -152,9 +153,11 @@ function ReadyState({
 }) {
   const { data } = state;
   const isActive = data.session.status === 'in_progress';
-  const currentExercise = data.currentExercise;
+  const isRuntimeRunning = state.runtime.status === 'running';
+  const currentExercise = state.runtime.currentExercise;
   const canEditSet =
     isActive &&
+    isRuntimeRunning &&
     !!currentExercise &&
     !currentExercise.isSkipped &&
     !currentExercise.isCompleted &&
@@ -182,19 +185,25 @@ function ReadyState({
           onBack={onBack}
           onEnd={controls.requestEndSession}
         />
-        <ProgressSummary data={data} />
+        <ProgressSummary runtime={state.runtime} />
+        <RuntimeStatusPanel state={state} controls={controls} />
         {state.actionError && (
           <ThemedText accessibilityRole="alert">{state.actionError}</ThemedText>
         )}
         <ExerciseList
-          data={data}
+          runtime={state.runtime}
           controls={controls}
-          canSelect={isActive && !state.isMutating && !state.isConfirmingSkip}
+          canSelect={
+            isActive &&
+            isRuntimeRunning &&
+            !state.isMutating &&
+            !state.isConfirmingSkip
+          }
         />
 
         {currentExercise ? (
           <>
-            <CurrentExerciseSection data={data} />
+            <CurrentExerciseSection runtime={state.runtime} />
             <CompletedSets sets={currentExercise.sets} />
             <SetEditor
               state={state}
@@ -204,6 +213,7 @@ function ReadyState({
             <ExerciseActions
               exercise={currentExercise}
               isActive={isActive}
+              isRuntimeRunning={isRuntimeRunning}
               isMutating={state.isMutating || state.isConfirmingSkip}
               controls={controls}
             />
@@ -309,38 +319,116 @@ function StatusChip({ status }: { readonly status: WorkoutSessionStatus }) {
 }
 
 function ProgressSummary({
-  data,
+  runtime,
 }: {
-  readonly data: WorkoutSessionScreenData;
+  readonly runtime: WorkoutRuntimeSnapshot;
 }) {
   const exercisePosition =
-    data.currentExerciseIndex === undefined ? 0 : data.currentExerciseIndex + 1;
+    runtime.currentExerciseIndex === undefined
+      ? 0
+      : runtime.currentExerciseIndex + 1;
 
   return (
     <View style={styles.progressRow} accessibilityLabel="训练进度">
       <ThemedText type="smallBold">
-        动作 {exercisePosition} / {data.orderedExercises.length}
+        动作 {exercisePosition} / {runtime.orderedExercises.length}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
-        已完成 {data.completedSetCount} / {data.totalTargetSetCount} 组
+        已完成 {runtime.completedSets} / {runtime.targetSets} 组
       </ThemedText>
     </View>
   );
 }
 
+function RuntimeStatusPanel({
+  state,
+  controls,
+}: {
+  readonly state: Extract<WorkoutSessionScreenState, { status: 'ready' }>;
+  readonly controls: WorkoutSessionScreenControls;
+}) {
+  const theme = useTheme();
+  const canStart =
+    state.data.session.status === 'draft' &&
+    state.runtime.status === 'idle' &&
+    !state.isMutating;
+  const canPause =
+    state.data.session.status === 'in_progress' &&
+    state.runtime.status === 'running' &&
+    state.endFlow === 'closed' &&
+    !state.isMutating &&
+    !state.isConfirmingSkip;
+  const canResume =
+    state.data.session.status === 'in_progress' &&
+    state.runtime.status === 'paused' &&
+    state.endFlow === 'closed' &&
+    !state.isMutating &&
+    !state.isConfirmingSkip;
+
+  return (
+    <View
+      style={[
+        styles.runtimePanel,
+        {
+          backgroundColor: theme.backgroundElement,
+          borderColor: theme.backgroundSelected,
+        },
+      ]}
+      accessibilityLabel={`训练运行状态：${formatRuntimeStatus(
+        state.runtime.status,
+      )}`}
+    >
+      <View style={styles.runtimeCopy}>
+        <ThemedText type="small" themeColor="textSecondary">
+          Runtime
+        </ThemedText>
+        <ThemedText type="default">
+          {formatRuntimeStatus(state.runtime.status)}
+        </ThemedText>
+      </View>
+      {canStart && (
+        <PrimaryButton
+          label={state.isMutating ? '正在开始' : '开始训练'}
+          accessibilityLabel="开始训练"
+          disabled={!canStart}
+          onPress={() => {
+            void controls.startWorkout();
+          }}
+        />
+      )}
+      {state.runtime.status === 'running' && (
+        <SecondaryButton
+          label="暂停"
+          accessibilityLabel="暂停训练"
+          disabled={!canPause}
+          onPress={controls.pauseWorkout}
+        />
+      )}
+      {state.runtime.status === 'paused' && (
+        <PrimaryButton
+          label="继续"
+          accessibilityLabel="继续训练"
+          disabled={!canResume}
+          onPress={controls.resumeWorkout}
+        />
+      )}
+    </View>
+  );
+}
+
 function ExerciseList({
-  data,
+  runtime,
   controls,
   canSelect,
 }: {
-  readonly data: WorkoutSessionScreenData;
+  readonly runtime: WorkoutRuntimeSnapshot;
   readonly controls: WorkoutSessionScreenControls;
   readonly canSelect: boolean;
 }) {
   return (
     <View style={styles.exerciseList} accessibilityLabel="当前训练动作列表">
-      {data.orderedExercises.map((exercise, index) => {
-        const isCurrent = exercise.id === data.currentExercise?.id;
+      {runtime.orderedExercises.map((exercise, index) => {
+        const isCurrent = exercise.id === runtime.currentExercise?.id;
         const isSelectable = canSelect && exercise.isEnabled && !isCurrent;
 
         return (
@@ -386,11 +474,11 @@ function ExerciseList({
 }
 
 function CurrentExerciseSection({
-  data,
+  runtime,
 }: {
-  readonly data: WorkoutSessionScreenData;
+  readonly runtime: WorkoutRuntimeSnapshot;
 }) {
-  const exercise = data.currentExercise;
+  const exercise = runtime.currentExercise;
 
   if (!exercise) {
     return null;
@@ -403,7 +491,7 @@ function CurrentExerciseSection({
       </ThemedText>
       <ThemedText type="subtitle">{exercise.exerciseNameSnapshot}</ThemedText>
       <ThemedText type="default" themeColor="textSecondary">
-        第 {data.currentSetNumber ?? 1} / {exercise.targetSets} 组 · 目标{' '}
+        第 {runtime.currentSet ?? 1} / {exercise.targetSets} 组 · 目标{' '}
         {exercise.targetRepsMin}–{exercise.targetRepsMax} 次
       </ThemedText>
       <ThemedText type="smallBold">
@@ -615,21 +703,25 @@ function StepperButton({
 function ExerciseActions({
   exercise,
   isActive,
+  isRuntimeRunning,
   isMutating,
   controls,
 }: {
   readonly exercise: SessionExercise;
   readonly isActive: boolean;
+  readonly isRuntimeRunning: boolean;
   readonly isMutating: boolean;
   readonly controls: WorkoutSessionScreenControls;
 }) {
+  const canMutateExercise = isActive && isRuntimeRunning && !isMutating;
+
   return (
     <View style={styles.actionRow}>
       {exercise.isSkipped ? (
         <SecondaryButton
           label="恢复动作"
           accessibilityLabel={`恢复动作${exercise.exerciseNameSnapshot}`}
-          disabled={!isActive || exercise.isCompleted || isMutating}
+          disabled={!canMutateExercise || exercise.isCompleted}
           onPress={() => {
             void controls.resumeExercise();
           }}
@@ -638,7 +730,7 @@ function ExerciseActions({
         <SecondaryButton
           label="跳过动作"
           accessibilityLabel={`跳过动作${exercise.exerciseNameSnapshot}`}
-          disabled={!isActive || exercise.isCompleted || isMutating}
+          disabled={!canMutateExercise || exercise.isCompleted}
           onPress={controls.requestSkipExercise}
         />
       )}
@@ -646,7 +738,7 @@ function ExerciseActions({
         label="完成动作"
         accessibilityLabel={`完成动作${exercise.exerciseNameSnapshot}`}
         disabled={
-          !isActive || exercise.isSkipped || exercise.isCompleted || isMutating
+          !canMutateExercise || exercise.isSkipped || exercise.isCompleted
         }
         onPress={() => {
           void controls.completeExercise();
@@ -928,6 +1020,24 @@ function formatTimerStatus(status: WorkoutSessionTimerDisplayStatus): string {
   }
 }
 
+function formatRuntimeStatus(
+  status: Extract<
+    WorkoutSessionScreenState,
+    { status: 'ready' }
+  >['runtime']['status'],
+): string {
+  switch (status) {
+    case 'idle':
+      return '未开始';
+    case 'running':
+      return '训练中';
+    case 'paused':
+      return '训练暂停';
+    case 'completed':
+      return '训练完成';
+  }
+}
+
 function formatWeight(weight: number): string {
   return Number.isInteger(weight)
     ? String(weight)
@@ -940,16 +1050,19 @@ function getSetDisabledReason(
   if (state.data.session.status !== 'in_progress') {
     return '当前训练状态不可记录组。';
   }
+  if (state.runtime.status !== 'running') {
+    return '训练暂停时不能记录本组。';
+  }
   if (state.isMutating) {
     return '正在保存，请稍候。';
   }
   if (state.isConfirmingSkip) {
     return '请先处理跳过动作确认。';
   }
-  if (state.data.currentExercise?.isSkipped) {
+  if (state.runtime.currentExercise?.isSkipped) {
     return '请先恢复当前动作。';
   }
-  if (state.data.currentExercise?.isCompleted) {
+  if (state.runtime.currentExercise?.isCompleted) {
     return '当前动作已完成，请选择其他动作。';
   }
   return undefined;
@@ -993,6 +1106,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
+  runtimePanel: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Spacing.two,
+    padding: Spacing.three,
+  },
+  runtimeCopy: { gap: Spacing.one },
   exerciseList: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,

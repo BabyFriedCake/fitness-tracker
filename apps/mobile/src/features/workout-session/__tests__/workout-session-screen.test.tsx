@@ -26,10 +26,15 @@ import {
 } from '@/domain/workout-session';
 import { createWorkoutSessionScreenData } from '@/features/workout-session/application/load-workout-session-screen';
 import {
+  createWorkoutRuntimeSnapshot,
+  type WorkoutRuntimeSnapshot,
+} from '@/features/workout-session/application/workout-runtime-engine';
+import {
   useWorkoutSessionScreen,
   type WorkoutSessionScreenControls,
   type WorkoutSessionScreenState,
 } from '@/features/workout-session/application/use-workout-session-screen';
+import type { WorkoutVoiceFeedbackAdapter } from '@/features/workout-session/application/workout-voice-feedback';
 import { WorkoutSessionScreenContent } from '@/features/workout-session/screens/workout-session-screen';
 
 (
@@ -117,6 +122,7 @@ describe('WorkoutSessionScreenContent', () => {
 
     expect(getByText('Push')).toBeTruthy();
     expect(getByLabelText('训练状态：进行中')).toBeTruthy();
+    expect(getByLabelText('训练运行状态：训练中')).toBeTruthy();
     expect(getByText('动作 1 / 2')).toBeTruthy();
     expect(getByText('已完成 1 / 6 组')).toBeTruthy();
     expect(getAllByText('杠铃卧推')).toHaveLength(2);
@@ -201,6 +207,45 @@ describe('WorkoutSessionScreenContent', () => {
     expect(requestSkipExercise).toHaveBeenCalledTimes(1);
     expect(completeExercise).toHaveBeenCalledTimes(1);
     expect(selectExercise).toHaveBeenCalledWith(SECOND_EXERCISE_ID);
+  });
+
+  it('connects runtime start, pause and resume controls', async () => {
+    const startWorkout = jest.fn(async () => undefined);
+    const pauseWorkout = jest.fn();
+    const resumeWorkout = jest.fn();
+    const draftState = buildReadyState(buildSessionForStatus('draft'));
+    const { getByLabelText, rerender } = await render(
+      <WorkoutSessionScreenContent
+        state={draftState}
+        controls={buildControls({ startWorkout })}
+        onBack={jest.fn()}
+      />,
+    );
+
+    expect(getByLabelText('训练运行状态：未开始')).toBeTruthy();
+    await fireEvent.press(getByLabelText('开始训练'));
+    expect(startWorkout).toHaveBeenCalledTimes(1);
+
+    await rerender(
+      <WorkoutSessionScreenContent
+        state={buildReadyState(buildSession(), undefined, 'running')}
+        controls={buildControls({ pauseWorkout })}
+        onBack={jest.fn()}
+      />,
+    );
+    await fireEvent.press(getByLabelText('暂停训练'));
+    expect(pauseWorkout).toHaveBeenCalledTimes(1);
+
+    await rerender(
+      <WorkoutSessionScreenContent
+        state={buildReadyState(buildSession(), undefined, 'paused')}
+        controls={buildControls({ resumeWorkout })}
+        onBack={jest.fn()}
+      />,
+    );
+    expect(getByLabelText('训练运行状态：训练暂停')).toBeTruthy();
+    await fireEvent.press(getByLabelText('继续训练'));
+    expect(resumeWorkout).toHaveBeenCalledTimes(1);
   });
 
   it('confirms skipping with the approved data-retention copy', async () => {
@@ -342,7 +387,7 @@ describe('useWorkoutSessionScreen', () => {
 
     expect(repository.update).toHaveBeenCalledTimes(1);
     expect(
-      getReadyState(result.current.state).data.currentExercise?.sets,
+      getReadyState(result.current.state).runtime.currentExercise?.sets,
     ).toEqual([
       expect.objectContaining({
         id: 'workout-set-new',
@@ -351,8 +396,11 @@ describe('useWorkoutSessionScreen', () => {
         isCompleted: true,
       }),
     ]);
-    expect(getReadyState(result.current.state).data.completedSetCount).toBe(1);
-    expect(getReadyState(result.current.state).data.currentSetNumber).toBe(2);
+    expect(getReadyState(result.current.state).runtime.completedSets).toBe(1);
+    expect(getReadyState(result.current.state).runtime.currentSet).toBe(2);
+    expect(getReadyState(result.current.state).runtime.currentSetNumber).toBe(
+      2,
+    );
     expect(
       getReadyState(result.current.state).data.session.currentSetNumber,
     ).toBe(2);
@@ -413,17 +461,17 @@ describe('useWorkoutSessionScreen', () => {
     await act(async () => result.current.controls.requestSkipExercise());
     await act(async () => result.current.controls.confirmSkipExercise());
     expect(
-      getReadyState(result.current.state).data.currentExercise?.isSkipped,
+      getReadyState(result.current.state).runtime.currentExercise?.isSkipped,
     ).toBe(true);
 
     await act(async () => result.current.controls.resumeExercise());
     expect(
-      getReadyState(result.current.state).data.currentExercise?.isSkipped,
+      getReadyState(result.current.state).runtime.currentExercise?.isSkipped,
     ).toBe(false);
 
     await act(async () => result.current.controls.completeExercise());
     expect(
-      getReadyState(result.current.state).data.currentExercise?.isCompleted,
+      getReadyState(result.current.state).runtime.currentExercise?.isCompleted,
     ).toBe(true);
     expect(repository.update).toHaveBeenCalledTimes(3);
   });
@@ -456,7 +504,7 @@ describe('useWorkoutSessionScreen', () => {
     );
 
     const ready = getReadyState(result.current.state);
-    expect(ready.data.currentExercise?.id).toBe(SECOND_EXERCISE_ID);
+    expect(ready.runtime.currentExercise?.id).toBe(SECOND_EXERCISE_ID);
     expect(ready.data.session.currentSessionExerciseId).toBe(
       SECOND_EXERCISE_ID,
     );
@@ -497,6 +545,101 @@ describe('useWorkoutSessionScreen', () => {
     expect(getReadyState(result.current.state).data.restTimerStatus).toBe(
       'running',
     );
+    expect(getReadyState(result.current.state).runtime.status).toBe('running');
+  });
+
+  it('uses the runtime engine state from rest timer recovery', async () => {
+    const repository = createStatefulRepository(buildSession());
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          restTimer: buildTimer({
+            status: 'paused',
+            targetEndAt: undefined,
+            pausedRemainingSeconds: 45,
+          }),
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+
+    const ready = getReadyState(result.current.state);
+    expect(ready.data.session.status).toBe('in_progress');
+    expect(ready.data.restTimerStatus).toBe('paused');
+    expect(ready.runtime.status).toBe('paused');
+    expect(ready.runtime.currentSessionExerciseId).toBe(EXERCISE_ID);
+    expect(ready.runtime.currentSetNumber).toBe(1);
+  });
+
+  it('starts a draft workout through the application boundary', async () => {
+    const repository = createStatefulRepository(buildSessionForStatus('draft'));
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    expect(getReadyState(result.current.state).runtime.status).toBe('idle');
+
+    await act(async () => {
+      await result.current.controls.startWorkout();
+    });
+
+    const ready = getReadyState(result.current.state);
+    expect(ready.runtime.status).toBe('running');
+    expect(ready.data.session.status).toBe('in_progress');
+  });
+
+  it('pauses and resumes runtime state without writing workout facts', async () => {
+    const repository = createStatefulRepository(buildSession());
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => result.current.controls.pauseWorkout());
+
+    expect(getReadyState(result.current.state).runtime.status).toBe('paused');
+    expect(repository.update).not.toHaveBeenCalled();
+
+    await act(async () => result.current.controls.updateActualReps('12'));
+    expect(getReadyState(result.current.state).setDraft.actualReps).toBe('8');
+
+    await act(async () => result.current.controls.resumeWorkout());
+
+    expect(getReadyState(result.current.state).runtime.status).toBe('running');
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it('keeps the set write when voice feedback fails', async () => {
+    const voiceAdapter: WorkoutVoiceFeedbackAdapter = {
+      speak: jest.fn(async () => {
+        throw new Error('voice unavailable');
+      }),
+    };
+    const repository = createStatefulRepository(buildSession());
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, { voiceAdapter }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => result.current.controls.recordSet());
+
+    expect(repository.update).toHaveBeenCalledTimes(1);
+    expect(voiceAdapter.speak).toHaveBeenCalled();
+    expect(
+      getReadyState(result.current.state).runtime.currentExercise?.sets,
+    ).toHaveLength(1);
   });
 
   it('silently refreshes durable session state when the page regains focus', async () => {
@@ -532,9 +675,9 @@ describe('useWorkoutSessionScreen', () => {
 
     await act(async () => mockFocusCallback?.());
     await waitFor(() =>
-      expect(getReadyState(result.current.state).data.currentExercise?.id).toBe(
-        SECOND_EXERCISE_ID,
-      ),
+      expect(
+        getReadyState(result.current.state).runtime.currentExercise?.id,
+      ).toBe(SECOND_EXERCISE_ID),
     );
 
     expect(findById).toHaveBeenCalledTimes(2);
@@ -615,7 +758,7 @@ describe('useWorkoutSessionScreen', () => {
     });
 
     const ready = getReadyState(result.current.state);
-    expect(ready.data.currentExercise?.sets).toHaveLength(1);
+    expect(ready.runtime.currentExercise?.sets).toHaveLength(1);
     expect(ready.data.session.currentSetNumber).toBe(2);
     expect(repository.update).toHaveBeenCalledTimes(1);
   });
@@ -643,7 +786,7 @@ describe('useWorkoutSessionScreen', () => {
 
     await waitFor(() => expect(findBySessionId).toHaveBeenCalledTimes(2));
     expect(
-      getReadyState(result.current.state).data.currentExercise?.sets,
+      getReadyState(result.current.state).runtime.currentExercise?.sets,
     ).toHaveLength(1);
     expect(
       getReadyState(result.current.state).data.session.currentSetNumber,
@@ -737,7 +880,7 @@ describe('useWorkoutSessionScreen', () => {
     );
     const ready = getReadyState(result.current.state);
     expect(ready.data.session.status).toBe('cancelled');
-    expect(ready.data.currentExercise?.sets).toEqual([buildWorkoutSet()]);
+    expect(ready.runtime.currentExercise?.sets).toEqual([buildWorkoutSet()]);
     expect(ready.navigationIntent).toBe('today');
     expect(repository.update).toHaveBeenCalledTimes(1);
     expect(restTimerRepository.update).toHaveBeenCalledWith(
@@ -755,10 +898,20 @@ describe('useWorkoutSessionScreen', () => {
 function buildReadyState(
   session: WorkoutSession,
   restTimerStatus?: 'running' | 'paused' | 'completed',
+  runtimeStatus: WorkoutRuntimeSnapshot['status'] = createWorkoutRuntimeSnapshot(
+    session,
+    restTimerStatus,
+  ).status,
 ): Extract<WorkoutSessionScreenState, { status: 'ready' }> {
+  const runtime = {
+    ...createWorkoutRuntimeSnapshot(session, restTimerStatus),
+    status: runtimeStatus,
+  };
+
   return {
     status: 'ready',
     data: createWorkoutSessionScreenData(session, restTimerStatus),
+    runtime,
     setDraft: { weight: '80', actualReps: '10' },
     isMutating: false,
     isConfirmingSkip: false,
@@ -771,6 +924,9 @@ function buildControls(
 ): WorkoutSessionScreenControls {
   return {
     reload: jest.fn(),
+    startWorkout: jest.fn(async () => undefined),
+    pauseWorkout: jest.fn(),
+    resumeWorkout: jest.fn(),
     updateWeight: jest.fn(),
     updateActualReps: jest.fn(),
     recordSet: jest.fn(async () => undefined),
@@ -898,6 +1054,7 @@ function buildDependencies(
     readonly createWorkoutSetId?: () => string;
     readonly restTimer?: RestTimer;
     readonly restTimerRepository?: RestTimerRepository;
+    readonly voiceAdapter?: WorkoutVoiceFeedbackAdapter;
   } = {},
 ) {
   return {
@@ -911,6 +1068,7 @@ function buildDependencies(
     now: () => ACTION_AT,
     createWorkoutSetId:
       overrides.createWorkoutSetId ?? (() => 'workout-set-new'),
+    voiceAdapter: overrides.voiceAdapter,
   };
 }
 
