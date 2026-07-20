@@ -1,8 +1,19 @@
-# Fitness Tracker 路线图（Roadmap）
+# Roadmap
 
 版本：v1.0  
 状态：开发中（Active）  
 负责人：Product Owner
+
+## Project Vision
+
+打造面向健身房力量训练用户的个人训练助手。
+
+目标：
+
+- 记录训练数据
+- 辅助完成训练流程
+- 提供实时训练反馈
+- 帮助用户长期管理训练计划
 
 ---
 
@@ -22,26 +33,25 @@
 
 ---
 
-## Sprint 1（✅ 已完成）
-
-### 工程基础
-
-- [x] Workspace
-- [x] Code Quality
-- [x] Navigation Shell
-- [x] SQLite Bootstrap
-- [x] GitHub Actions CI
-- [x] Sprint Exit Review
+# Sprint 1（✅ 已完成）
 
 完成时间：2026-07-15
 
 Tag：sprint-1
 
+## 工程基础 Project Foundation
+
+完成：
+
+- Monorepo 工作区
+- Expo 移动端基础
+- CI 配置
+- 项目规范
+- 基础架构
+
 ---
 
-## Sprint 2（✅ 已完成）
-
-### 动作库（Exercise Library）
+# Sprint 2（✅ 已完成）
 
 完成时间：2026-07-16
 
@@ -51,23 +61,23 @@ Release：Sprint 2：动作库
 
 Exit Review：PASS
 
-#### 已完成
+## Exercise Domain
 
-- [x] 动作领域模型（Exercise Domain）
-- [x] Seed 数据导入
-- [x] SQLite Repository
-- [x] 动作列表
-- [x] 搜索
-- [x] 筛选
-- [x] 动作详情
-- [x] 动作选择流程
-- [x] Sprint Exit Review
+完成：
+
+- Exercise Domain Model
+- 动作分类
+- 器械分类
+- 难度分类
+- 肌群分类
+- 动作 Seed 数据
+- 动作查询能力
 
 ---
 
-## Sprint 3（✅ 已完成）
+# Sprint 3（✅ 已完成）
 
-### 训练模板（Workout Templates）
+## 训练模板（Workout Templates）
 
 完成时间：2026-07-16
 
@@ -77,23 +87,39 @@ Release：待创建
 
 Exit Review：PASS WITH WARNINGS
 
-#### 已完成
+完成：
 
-- [x] S3-01 Template domain and contracts
-- [x] S3-02 Template schema and migration
-- [x] S3-03 Template repository
-- [x] S3-04 Template list screen
-- [x] S3-05 Create template
-- [x] S3-06 Edit template
-- [x] S3-07 Exercise configuration and reordering
-- [x] S3-08 Template archive
-- [x] S3-09 Sprint exit review
+- 训练模板创建
+- 模板编辑
+- 模板归档
+- 动作选择
+- 训练计划基础能力
 
 ---
 
-## Sprint 4（✅ 已完成）
+# Sprint 4（✅ 已完成）
 
-### 训练流程（Workout Flow）
+## Workout Flow
+
+完成训练生命周期闭环：
+
+    Template
+        ↓
+    Create Session
+        ↓
+    Today Dashboard
+        ↓
+    Workout Execution
+        ↓
+    Rest Timer
+        ↓
+    Complete / Cancel
+        ↓
+    Summary
+        ↓
+    History
+
+完成：
 
 - [x] 今日训练（Today Dashboard）
 - [x] 开始训练
@@ -123,44 +149,174 @@ Exit Review：PASS WITH WARNINGS
 
 ---
 
-## Sprint 5（🚧 计划中）
+# Sprint 5（🚧 计划中）
 
-### 历史记录与设置（History & Settings）
+## Workout Assistant
 
-- [ ] 训练历史
-- [ ] 训练详情
-- [ ] 训练统计
-- [ ] 历史修正
-- [ ] 设置
-- [ ] 数据导出
-- [ ] 清空数据
+目标：
+
+从"训练记录工具"升级为"训练陪练助手"。
+
+重点：
+
+让用户在健身房训练时，不需要频繁操作手机。
+
+## S5-01 Workout Runtime Engine
+
+实现：
+
+- 训练运行状态
+- 当前动作管理
+- 当前 Set 管理
+- Running / Paused / Completed 状态
+
+## S5-02 Rep Counter Feedback
+
+实现：
+
+- 次数反馈事件
+- Set 完成事件
+- Exercise 完成事件
+
+## S5-03 Voice Feedback Service
+
+实现：
+
+- 开始训练播报
+- 次数播报
+- 组完成播报
+- 休息提醒
+
+## S5-04 Workout Pause / Resume
+
+实现：
+
+暂停：
+
+- Timer
+- Voice
+- Runtime
+
+恢复：
+
+- 当前动作
+- 当前 Set
+- 当前训练状态
+
+## S5-05 Background Workout Runtime
+
+实现：
+
+- 切后台保持训练状态
+- Timer 状态保持
+- Runtime 恢复
+
+## S5-06 Rest Timer Upgrade
+
+升级：
+
+- 自动休息
+- 倒计时播报
+- 延长休息
+- 跳过休息
+- 下一组提醒
+
+## S5-07 Workout Assistant Settings
+
+实现：
+
+- 语音开关
+- 播报频率
+- 倒计时提醒
+- 默认休息时间
+
+## S5-08 Sprint 5 Exit Review
 
 ---
 
-## Sprint 6（🚧 计划中）
+# Sprint 6（📋 计划）
 
-### Beta 与正式发布（Beta & Release）
+## Exercise Library & History
 
-- [ ] 完整回归测试
-- [ ] iPhone 真机测试
-- [ ] 性能优化
-- [ ] 无障碍检查
-- [ ] TestFlight 发布
-- [ ] Beta 用户反馈修复
-- [ ] V1 正式发布
+目标：
+
+增强长期使用能力。
+
+内容：
+
+## Exercise Library Upgrade
+
+接入真实动作库：
+
+- 开源动作数据
+- 数据清洗
+- 字段映射
+- 图片资源
+- 动作说明
+
+## History Enhancement
+
+实现：
+
+- 完整训练历史
+- 训练详情
+- 数据查看
+
+## Statistics
+
+实现：
+
+- 总训练次数
+- 总训练量
+- 动作趋势
 
 ---
 
-## V2 Backlog（后续规划）
+# Sprint 7（📋 计划）
 
-- AI 生成训练计划
-- 高级训练进阶建议
-- 超级组（Super Sets）
-- 热身组 / 掉重组
-- RPE / RIR
-- Apple Watch
-- 华为运动健康
-- 云同步
-- 账号系统
-- Live Activity
-- 桌面小组件（Widgets）
+## Personalization
+
+目标：
+
+让 App 根据用户训练习惯提供帮助。
+
+内容：
+
+- 重量建议
+- 渐进超负荷
+- 训练调整
+- 周期计划优化
+
+---
+
+# Sprint 8（📋 计划）
+
+## Product Polish
+
+内容：
+
+- UI 优化
+- 动作图片
+- 动作动画
+- 用户体验优化
+- 发布准备
+
+---
+
+# Long Term Vision
+
+最终目标：
+
+成为力量训练用户的个人 AI 健身助手。
+
+核心能力：
+
+    训练计划
+        ↓
+    实时陪练
+        ↓
+    训练记录
+        ↓
+    数据分析
+        ↓
+    个性化建议

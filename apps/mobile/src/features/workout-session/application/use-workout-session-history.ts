@@ -10,7 +10,7 @@ import type { WorkoutSessionRepository } from '@/domain/workout-session';
 
 import {
   loadWorkoutSessionHistory,
-  type WorkoutSessionHistoryItem,
+  type WorkoutSessionHistorySection,
 } from './workout-session-history';
 
 export type WorkoutSessionHistoryScreenState =
@@ -19,7 +19,7 @@ export type WorkoutSessionHistoryScreenState =
   | { readonly status: 'error'; readonly message: string }
   | {
       readonly status: 'ready';
-      readonly items: readonly WorkoutSessionHistoryItem[];
+      readonly sections: readonly WorkoutSessionHistorySection[];
     };
 
 export type UseWorkoutSessionHistoryDependencies = {
@@ -86,8 +86,8 @@ export function useWorkoutSessionHistory({
       }
 
       setState(
-        result.items.length > 0
-          ? { status: 'ready', items: result.items }
+        result.sections.length > 0
+          ? { status: 'ready', sections: result.sections }
           : { status: 'empty' },
       );
     } catch {
