@@ -9,20 +9,21 @@ import type {
   WorkoutSetId,
 } from '@/domain/workout-session';
 import {
+  InvalidExerciseFeedbackInputError,
   InvalidRepFeedbackInputError,
   InvalidSetFeedbackInputError,
   createExerciseCompletedFeedbackEvent,
   createRepCompletedFeedbackEvent,
   createRepCompletedFeedbackEvents,
   createSetCompletedFeedbackEvent,
-} from '@/features/workout-session/application/workout-rep-feedback';
+} from '@/features/workout-session/application/workout-feedback-events';
 
 const SESSION_ID = 'session-push' as WorkoutSessionId;
 const SESSION_EXERCISE_ID = 'session-exercise-bench' as SessionExerciseId;
 const WORKOUT_SET_ID = 'set-bench-1' as WorkoutSetId;
 const COMPLETED_AT = '2026-07-20T01:20:00.000Z';
 
-describe('Workout Rep Feedback', () => {
+describe('Workout Feedback Events', () => {
   it('creates a RepCompleted event without changing exercise facts', () => {
     const exercise = buildSessionExercise();
     const originalExercise = structuredClone(exercise);
@@ -42,6 +43,7 @@ describe('Workout Rep Feedback', () => {
       targetRepsMin: 8,
       targetRepsMax: 10,
     });
+    expect(Object.isFrozen(event)).toBe(true);
     expect(exercise).toEqual(originalExercise);
   });
 
@@ -55,6 +57,8 @@ describe('Workout Rep Feedback', () => {
     expect(events).toHaveLength(4);
     expect(events.map((event) => event.repNumber)).toEqual([1, 2, 3, 4]);
     expect(events.every((event) => event.type === 'RepCompleted')).toBe(true);
+    expect(Object.isFrozen(events)).toBe(true);
+    expect(events.every((event) => Object.isFrozen(event))).toBe(true);
   });
 
   it('allows zero actual reps to produce no RepCompleted events', () => {
@@ -114,6 +118,7 @@ describe('Workout Rep Feedback', () => {
       weight: 80,
       isExtraSet: false,
     });
+    expect(Object.isFrozen(event)).toBe(true);
     expect(workoutSet).toEqual(originalWorkoutSet);
   });
 
@@ -131,13 +136,10 @@ describe('Workout Rep Feedback', () => {
     const event = createExerciseCompletedFeedbackEvent({
       sessionId: SESSION_ID,
       exercise: buildSessionExercise({
+        isCompleted: true,
         sets: [
           buildWorkoutSet({ id: 'set-bench-1' as WorkoutSetId }),
-          buildWorkoutSet({
-            id: 'set-bench-2' as WorkoutSetId,
-            setNumber: 2,
-            isCompleted: false,
-          }),
+          buildWorkoutSet({ id: 'set-bench-2' as WorkoutSetId, setNumber: 2 }),
           buildWorkoutSet({
             id: 'set-bench-3' as WorkoutSetId,
             setNumber: 3,
@@ -151,9 +153,51 @@ describe('Workout Rep Feedback', () => {
       sessionId: SESSION_ID,
       sessionExerciseId: SESSION_EXERCISE_ID,
       exerciseNameSnapshot: '杠铃卧推',
-      completedSetCount: 2,
+      completedSetCount: 3,
       targetSetCount: 3,
     });
+    expect(Object.isFrozen(event)).toBe(true);
+  });
+
+  it('rejects an ExerciseCompleted event for an incomplete SessionExercise', () => {
+    expect(() =>
+      createExerciseCompletedFeedbackEvent({
+        sessionId: SESSION_ID,
+        exercise: buildSessionExercise({
+          isCompleted: false,
+          sets: [
+            buildWorkoutSet({ id: 'set-bench-1' as WorkoutSetId }),
+            buildWorkoutSet({
+              id: 'set-bench-2' as WorkoutSetId,
+              setNumber: 2,
+            }),
+            buildWorkoutSet({
+              id: 'set-bench-3' as WorkoutSetId,
+              setNumber: 3,
+            }),
+          ],
+        }),
+      }),
+    ).toThrow(InvalidExerciseFeedbackInputError);
+  });
+
+  it('rejects an ExerciseCompleted event when required sets are incomplete', () => {
+    expect(() =>
+      createExerciseCompletedFeedbackEvent({
+        sessionId: SESSION_ID,
+        exercise: buildSessionExercise({
+          isCompleted: true,
+          sets: [
+            buildWorkoutSet({ id: 'set-bench-1' as WorkoutSetId }),
+            buildWorkoutSet({
+              id: 'set-bench-2' as WorkoutSetId,
+              setNumber: 2,
+              isCompleted: false,
+            }),
+          ],
+        }),
+      }),
+    ).toThrow(InvalidExerciseFeedbackInputError);
   });
 });
 

@@ -53,6 +53,15 @@ export class InvalidSetFeedbackInputError extends Error {
   }
 }
 
+export class InvalidExerciseFeedbackInputError extends Error {
+  constructor(readonly sessionExerciseId: SessionExercise['id']) {
+    super(
+      'Exercise feedback requires a completed SessionExercise with completed required sets.',
+    );
+    this.name = 'InvalidExerciseFeedbackInputError';
+  }
+}
+
 export function createRepCompletedFeedbackEvent({
   sessionId,
   exercise,
@@ -66,7 +75,7 @@ export function createRepCompletedFeedbackEvent({
     throw new InvalidRepFeedbackInputError(repNumber);
   }
 
-  return {
+  return freezeFeedbackEvent({
     type: 'RepCompleted',
     sessionId,
     sessionExerciseId: exercise.id,
@@ -74,7 +83,7 @@ export function createRepCompletedFeedbackEvent({
     repNumber,
     targetRepsMin: exercise.targetRepsMin,
     targetRepsMax: exercise.targetRepsMax,
-  };
+  });
 }
 
 export function createRepCompletedFeedbackEvents({
@@ -90,12 +99,14 @@ export function createRepCompletedFeedbackEvents({
     throw new InvalidRepFeedbackInputError(actualReps);
   }
 
-  return Array.from({ length: actualReps }, (_value, index) =>
-    createRepCompletedFeedbackEvent({
-      sessionId,
-      exercise,
-      repNumber: index + 1,
-    }),
+  return Object.freeze(
+    Array.from({ length: actualReps }, (_value, index) =>
+      createRepCompletedFeedbackEvent({
+        sessionId,
+        exercise,
+        repNumber: index + 1,
+      }),
+    ),
   );
 }
 
@@ -112,7 +123,7 @@ export function createSetCompletedFeedbackEvent({
     throw new InvalidSetFeedbackInputError(workoutSet.id);
   }
 
-  return {
+  return freezeFeedbackEvent({
     type: 'SetCompleted',
     sessionId,
     sessionExerciseId: exercise.id,
@@ -121,7 +132,7 @@ export function createSetCompletedFeedbackEvent({
     actualReps: workoutSet.actualReps,
     weight: workoutSet.weight,
     isExtraSet: workoutSet.isExtraSet,
-  };
+  });
 }
 
 export function createExerciseCompletedFeedbackEvent({
@@ -135,12 +146,22 @@ export function createExerciseCompletedFeedbackEvent({
     (workoutSet) => workoutSet.isCompleted,
   ).length;
 
-  return {
+  if (!exercise.isCompleted || completedSetCount < exercise.targetSets) {
+    throw new InvalidExerciseFeedbackInputError(exercise.id);
+  }
+
+  return freezeFeedbackEvent({
     type: 'ExerciseCompleted',
     sessionId,
     sessionExerciseId: exercise.id,
     exerciseNameSnapshot: exercise.exerciseNameSnapshot,
     completedSetCount,
     targetSetCount: exercise.targetSets,
-  };
+  });
+}
+
+function freezeFeedbackEvent<Event extends WorkoutFeedbackEvent>(
+  event: Event,
+): Readonly<Event> {
+  return Object.freeze(event);
 }
