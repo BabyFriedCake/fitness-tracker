@@ -1,5 +1,6 @@
 import type {
   RestTimerRepository,
+  RestTimerStatus,
   WorkoutSession,
   WorkoutSessionId,
   WorkoutSessionRepository,
@@ -53,16 +54,19 @@ export async function loadWorkoutSessionScreen(
     sessionId,
     now,
   });
+  const persistedRestTimerStatus = isPersistedTimerStatus(restTimer.status)
+    ? restTimer.status
+    : undefined;
   const restTimerStatus = isDisplayableTimerStatus(restTimer.status)
     ? restTimer.status
     : undefined;
   const runtime = await restoreRuntimeSnapshot(
     repositories.workoutRuntimeSnapshotRepository,
     session,
-    restTimerStatus,
+    persistedRestTimerStatus,
   );
   const nextRuntime =
-    runtime ?? createWorkoutRuntimeSnapshot(session, restTimerStatus);
+    runtime ?? createWorkoutRuntimeSnapshot(session, persistedRestTimerStatus);
 
   if (session.status !== 'in_progress') {
     await repositories.workoutRuntimeSnapshotRepository.clear(session.id);
@@ -89,4 +93,14 @@ function isDisplayableTimerStatus(
   status: string,
 ): status is WorkoutSessionTimerDisplayStatus {
   return status === 'running' || status === 'paused' || status === 'completed';
+}
+
+function isPersistedTimerStatus(status: string): status is RestTimerStatus {
+  return (
+    status === 'running' ||
+    status === 'paused' ||
+    status === 'completed' ||
+    status === 'skipped' ||
+    status === 'cancelled'
+  );
 }

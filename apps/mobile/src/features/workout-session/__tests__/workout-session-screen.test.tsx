@@ -599,6 +599,47 @@ describe('useWorkoutSessionScreen', () => {
     });
   });
 
+  it.each([
+    ['running', 'running', 'running'],
+    ['paused', 'paused', 'paused'],
+    ['skipped', 'running', undefined],
+    ['cancelled', 'running', undefined],
+    ['completed', 'running', 'completed'],
+  ] as const)(
+    'gives persisted %s RestTimer state priority over a paused snapshot',
+    async (timerStatus, expectedRuntimeStatus, expectedDisplayStatus) => {
+      const session = buildSession();
+      const runtimeSnapshotRepository = buildWorkoutRuntimeSnapshotRepository({
+        ...createWorkoutRuntimeSnapshot(session),
+        status: 'paused',
+        updatedAt: ACTION_AT,
+      });
+      const { result } = await renderHook(() =>
+        useWorkoutSessionScreen(
+          { id: SESSION_ID },
+          buildDependencies(createStatefulRepository(session), {
+            restTimer: buildTimer({
+              status: timerStatus,
+              targetEndAt:
+                timerStatus === 'paused'
+                  ? undefined
+                  : '2026-07-20T01:21:30.000Z',
+              pausedRemainingSeconds: timerStatus === 'paused' ? 45 : undefined,
+            }),
+            runtimeSnapshotRepository,
+          }),
+        ),
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('ready'));
+
+      const ready = getReadyState(result.current.state);
+      expect(ready.runtime.status).toBe(expectedRuntimeStatus);
+      expect(ready.runtime.restTimerStatus).toBe(timerStatus);
+      expect(ready.data.restTimerStatus).toBe(expectedDisplayStatus);
+    },
+  );
+
   it('starts a draft workout through the application boundary', async () => {
     const repository = createStatefulRepository(buildSessionForStatus('draft'));
     const { result } = await renderHook(() =>

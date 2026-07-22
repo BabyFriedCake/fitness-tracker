@@ -8,6 +8,10 @@ import type {
   WorkoutSessionRepository,
 } from '@/domain/workout-session';
 
+import {
+  createRepCompletedFeedbackEvent,
+  type RepCompletedFeedbackEvent,
+} from './workout-feedback-events';
 import { getRestTimerState } from './workout-session-rest-timer';
 import {
   isValidWorkoutRuntimeSnapshot,
@@ -17,6 +21,34 @@ import {
 
 export type WorkoutRuntimeStatus = 'running' | 'paused' | 'completed';
 export type WorkoutRuntimeDisplayStatus = 'idle' | WorkoutRuntimeStatus;
+
+export type WorkoutCompanionRuntimePhase =
+  'running' | 'paused' | 'resting' | 'completed';
+
+export type WorkoutRuntimeProgress = {
+  readonly sessionId: WorkoutSessionId;
+  readonly currentExerciseIndex: number;
+  readonly currentSetIndex: number;
+  readonly completedReps: number;
+};
+
+export type WorkoutCompanionRuntimeState = {
+  readonly phase: WorkoutCompanionRuntimePhase;
+  readonly progress: WorkoutRuntimeProgress;
+  readonly orderedExercises: readonly SessionExercise[];
+};
+
+export type WorkoutCompanionSetCompletionRequest = {
+  readonly sessionId: WorkoutSessionId;
+  readonly sessionExerciseId: SessionExerciseId;
+  readonly actualReps: number;
+};
+
+export type WorkoutCompanionRepResult = {
+  readonly runtime: WorkoutCompanionRuntimeState;
+  readonly event?: RepCompletedFeedbackEvent;
+  readonly setCompletionRequest?: WorkoutCompanionSetCompletionRequest;
+};
 
 export type WorkoutRuntimeState = {
   readonly sessionId: WorkoutSessionId;
@@ -74,6 +106,102 @@ export class WorkoutRuntimeTransitionError extends Error {
     );
     this.name = 'WorkoutRuntimeTransitionError';
   }
+}
+
+export class WorkoutCompanionRuntimeUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WorkoutCompanionRuntimeUnavailableError';
+  }
+}
+
+export function createWorkoutCompanionRuntimeState(
+  session: Extract<WorkoutSession, { readonly status: 'in_progress' }>,
+): WorkoutCompanionRuntimeState {
+  const orderedExercises = [...session.sessionExercises].sort(
+    (left, right) => left.position - right.position,
+  );
+  const currentExerciseIndex = findCompanionExerciseIndex(
+    orderedExercises,
+    session,
+  );
+
+  if (currentExerciseIndex === undefined) {
+    throw new WorkoutCompanionRuntimeUnavailableError(
+      'Workout Companion requires a current SessionExercise.',
+    );
+  }
+
+  const currentExercise = orderedExercises[currentExerciseIndex];
+
+  return {
+    phase: 'running',
+    progress: {
+      sessionId: session.id,
+      currentExerciseIndex,
+      currentSetIndex: getSessionExerciseNextSetNumber(currentExercise) - 1,
+      completedReps: 0,
+    },
+    orderedExercises,
+  };
+}
+
+export function onWorkoutCompanionRepCompleted(
+  runtime: WorkoutCompanionRuntimeState,
+): WorkoutCompanionRepResult {
+  if (runtime.phase !== 'running') {
+    return { runtime };
+  }
+
+  const exercise = getCompanionCurrentExercise(runtime);
+  const completedReps = runtime.progress.completedReps + 1;
+  const nextRuntime = {
+    ...runtime,
+    progress: { ...runtime.progress, completedReps },
+  };
+  const event = createRepCompletedFeedbackEvent({
+    sessionId: runtime.progress.sessionId,
+    exercise,
+    repNumber: completedReps,
+  });
+
+  if (completedReps < getCompanionTargetReps(exercise)) {
+    return { runtime: nextRuntime, event };
+  }
+
+  return {
+    runtime: nextRuntime,
+    event,
+    setCompletionRequest: {
+      sessionId: runtime.progress.sessionId,
+      sessionExerciseId: exercise.id,
+      actualReps: completedReps,
+    },
+  };
+}
+
+export function pauseWorkoutCompanionRuntime(
+  runtime: WorkoutCompanionRuntimeState,
+): WorkoutCompanionRuntimeState {
+  return runtime.phase === 'running'
+    ? { ...runtime, phase: 'paused' }
+    : runtime;
+}
+
+export function resumeWorkoutCompanionRuntime(
+  runtime: WorkoutCompanionRuntimeState,
+): WorkoutCompanionRuntimeState {
+  return runtime.phase === 'paused'
+    ? { ...runtime, phase: 'running' }
+    : runtime;
+}
+
+export function resumeWorkoutCompanionAfterRest(
+  runtime: WorkoutCompanionRuntimeState,
+): WorkoutCompanionRuntimeState {
+  return runtime.phase === 'resting'
+    ? { ...runtime, phase: 'running' }
+    : runtime;
 }
 
 export async function loadWorkoutRuntimeState(
@@ -270,9 +398,15 @@ export async function restoreRuntimeSnapshot(
     return null;
   }
 
+  const restoredRuntime = createWorkoutRuntimeSnapshot(
+    session,
+    restTimerStatus,
+  );
+
   return {
-    ...createWorkoutRuntimeSnapshot(session, restTimerStatus),
-    status: snapshot.status,
+    ...restoredRuntime,
+    status:
+      restTimerStatus === undefined ? snapshot.status : restoredRuntime.status,
     updatedAt: snapshot.updatedAt,
   };
 }
@@ -375,6 +509,54 @@ function findCurrentExerciseIndex(
   }
 
   return 0;
+}
+
+function findCompanionExerciseIndex(
+  exercises: readonly SessionExercise[],
+  session: WorkoutSession,
+): number | undefined {
+  if (session.currentSessionExerciseId) {
+    const currentIndex = exercises.findIndex(
+      (exercise) =>
+        exercise.id === session.currentSessionExerciseId &&
+        isExecutableCompanionExercise(exercise),
+    );
+
+    if (currentIndex >= 0) {
+      return currentIndex;
+    }
+  }
+
+  const firstExecutableIndex = exercises.findIndex(
+    isExecutableCompanionExercise,
+  );
+
+  return firstExecutableIndex >= 0 ? firstExecutableIndex : undefined;
+}
+
+function getCompanionCurrentExercise(
+  runtime: WorkoutCompanionRuntimeState,
+): SessionExercise {
+  const exercise =
+    runtime.orderedExercises[runtime.progress.currentExerciseIndex];
+
+  if (!exercise || exercise.sessionId !== runtime.progress.sessionId) {
+    throw new WorkoutCompanionRuntimeUnavailableError(
+      'Workout Companion current SessionExercise is unavailable.',
+    );
+  }
+
+  return exercise;
+}
+
+function getCompanionTargetReps(exercise: SessionExercise): number {
+  return exercise.targetRepsMin === exercise.targetRepsMax
+    ? exercise.targetRepsMax
+    : exercise.targetRepsMin;
+}
+
+function isExecutableCompanionExercise(exercise: SessionExercise): boolean {
+  return exercise.isEnabled && !exercise.isSkipped && !exercise.isCompleted;
 }
 
 export function getSessionExerciseNextSetNumber(

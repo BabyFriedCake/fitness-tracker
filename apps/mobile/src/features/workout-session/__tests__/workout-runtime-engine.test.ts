@@ -257,7 +257,7 @@ describe('Workout Runtime Engine', () => {
     },
   );
 
-  it('restores status while regenerating exercise, set and timer state', async () => {
+  it('gives the current RestTimer state priority over a conflicting snapshot', async () => {
     const session = buildInProgressSession({
       currentSessionExerciseId: SECOND_SESSION_EXERCISE_ID,
       currentSetNumber: 3,
@@ -272,7 +272,7 @@ describe('Workout Runtime Engine', () => {
     });
     const storedSnapshot: WorkoutRuntimeSnapshot = {
       ...createWorkoutRuntimeSnapshot(session, 'running'),
-      status: 'paused',
+      status: 'running',
       updatedAt: NOW,
     };
     const repository = buildWorkoutRuntimeSnapshotRepository(storedSnapshot);
@@ -292,6 +292,31 @@ describe('Workout Runtime Engine', () => {
       updatedAt: NOW,
     });
   });
+
+  it.each(['running', 'paused'] as const)(
+    'restores a valid %s snapshot when no RestTimer state exists',
+    async (status) => {
+      const session = buildInProgressSession();
+      const snapshot: WorkoutRuntimeSnapshot = {
+        ...createWorkoutRuntimeSnapshot(session),
+        status,
+        updatedAt: NOW,
+      };
+
+      await expect(
+        restoreRuntimeSnapshot(
+          buildWorkoutRuntimeSnapshotRepository(snapshot),
+          session,
+        ),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          status,
+          restTimerStatus: undefined,
+          updatedAt: NOW,
+        }),
+      );
+    },
+  );
 
   it.each([
     buildDraftSession(),
@@ -369,7 +394,164 @@ describe('Workout Runtime Engine', () => {
       }),
     ).toBe(false);
   });
+
+  it.each([
+    [
+      'empty session id',
+      (snapshot: WorkoutRuntimeSnapshot) => ({ ...snapshot, sessionId: '' }),
+    ],
+    [
+      'empty exercise id',
+      (snapshot: WorkoutRuntimeSnapshot) =>
+        replaceCurrentExercise(snapshot, { id: '' as SessionExerciseId }),
+    ],
+    [
+      'zero position',
+      (snapshot: WorkoutRuntimeSnapshot) =>
+        replaceCurrentExercise(snapshot, { position: 0 }),
+    ],
+    [
+      'position beyond exercise count',
+      (snapshot: WorkoutRuntimeSnapshot) =>
+        replaceCurrentExercise(snapshot, { position: 2 }),
+    ],
+    [
+      'zero target sets',
+      (snapshot: WorkoutRuntimeSnapshot) =>
+        replaceCurrentExercise(snapshot, { targetSets: 0 }),
+    ],
+    [
+      'zero minimum reps',
+      (snapshot: WorkoutRuntimeSnapshot) =>
+        replaceCurrentExercise(snapshot, { targetRepsMin: 0 }),
+    ],
+    [
+      'maximum reps below minimum reps',
+      (snapshot: WorkoutRuntimeSnapshot) =>
+        replaceCurrentExercise(snapshot, {
+          targetRepsMin: 8,
+          targetRepsMax: 7,
+        }),
+    ],
+    [
+      'exercise session mismatch',
+      (snapshot: WorkoutRuntimeSnapshot) =>
+        replaceCurrentExercise(snapshot, {
+          sessionId: 'session-other' as WorkoutSessionId,
+        }),
+    ],
+  ] as const)('rejects a snapshot with %s', async (_label, createInvalid) => {
+    const session = buildInProgressSession();
+    const validSnapshot = {
+      ...createWorkoutRuntimeSnapshot(session),
+      updatedAt: NOW,
+    };
+    const invalidSnapshot = createInvalid(validSnapshot);
+    const repository = buildWorkoutRuntimeSnapshotRepository(
+      invalidSnapshot as WorkoutRuntimeSnapshot,
+    );
+
+    expect(isValidWorkoutRuntimeSnapshot(invalidSnapshot)).toBe(false);
+    await expect(
+      restoreRuntimeSnapshot(repository, session),
+    ).resolves.toBeNull();
+  });
+
+  it('rejects mismatched WorkoutSet ownership and derived set counts', () => {
+    const exercise = buildExercise({
+      sets: [buildWorkoutSet(SESSION_EXERCISE_ID)],
+    });
+    const snapshot = createWorkoutRuntimeSnapshot(
+      buildInProgressSession({ sessionExercises: [exercise] }),
+    );
+    const mismatchedSetOwner = replaceCurrentExercise(snapshot, {
+      sets: [
+        {
+          ...exercise.sets[0],
+          sessionExerciseId: SECOND_SESSION_EXERCISE_ID,
+        },
+      ],
+    });
+    const mismatchedCompletedCount = {
+      ...snapshot,
+      completedSetCount: 0,
+      completedSets: 0,
+    };
+    const mismatchedTargetCount = {
+      ...snapshot,
+      totalTargetSetCount: snapshot.totalTargetSetCount + 1,
+      targetSets: snapshot.targetSets + 1,
+    };
+
+    expect(isValidWorkoutRuntimeSnapshot(mismatchedSetOwner)).toBe(false);
+    expect(isValidWorkoutRuntimeSnapshot(mismatchedCompletedCount)).toBe(false);
+    expect(isValidWorkoutRuntimeSnapshot(mismatchedTargetCount)).toBe(false);
+  });
+
+  it('rejects a missing current exercise independently', async () => {
+    const session = buildInProgressSession();
+    const snapshot = createWorkoutRuntimeSnapshot(session);
+    const missingCurrentExercise = {
+      ...snapshot,
+      currentExercise: undefined,
+      currentExerciseIndex: undefined,
+      currentSessionExerciseId: undefined,
+      currentSet: undefined,
+      currentSetNumber: undefined,
+    };
+
+    expect(isValidWorkoutRuntimeSnapshot(missingCurrentExercise)).toBe(false);
+    await expect(
+      restoreRuntimeSnapshot(
+        buildWorkoutRuntimeSnapshotRepository(
+          missingCurrentExercise as WorkoutRuntimeSnapshot,
+        ),
+        session,
+      ),
+    ).resolves.toBeNull();
+  });
+
+  it('rejects duplicate WorkoutSet identities independently', async () => {
+    const firstExercise = buildExercise({
+      sets: [buildWorkoutSet(SESSION_EXERCISE_ID)],
+    });
+    const secondExercise = buildExercise({
+      id: SECOND_SESSION_EXERCISE_ID,
+      position: 2,
+      sets: [buildWorkoutSet(SECOND_SESSION_EXERCISE_ID)],
+    });
+    const session = buildInProgressSession({
+      sessionExercises: [firstExercise, secondExercise],
+    });
+    const snapshot = createWorkoutRuntimeSnapshot(session);
+
+    expect(isValidWorkoutRuntimeSnapshot(snapshot)).toBe(false);
+    await expect(
+      restoreRuntimeSnapshot(
+        buildWorkoutRuntimeSnapshotRepository(snapshot),
+        session,
+      ),
+    ).resolves.toBeNull();
+  });
 });
+
+function replaceCurrentExercise(
+  snapshot: WorkoutRuntimeSnapshot,
+  overrides: Partial<SessionExercise>,
+): WorkoutRuntimeSnapshot {
+  if (!snapshot.currentExercise) {
+    throw new Error('Expected a current SessionExercise.');
+  }
+
+  const currentExercise = { ...snapshot.currentExercise, ...overrides };
+
+  return {
+    ...snapshot,
+    currentExercise,
+    currentSessionExerciseId: currentExercise.id,
+    orderedExercises: [currentExercise],
+  };
+}
 
 function buildWorkoutRuntimeSnapshotRepository(
   initialSnapshot: WorkoutRuntimeSnapshot | null = null,

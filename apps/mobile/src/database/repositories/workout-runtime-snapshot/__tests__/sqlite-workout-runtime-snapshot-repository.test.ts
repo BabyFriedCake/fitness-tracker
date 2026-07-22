@@ -53,6 +53,30 @@ describe('SQLite WorkoutRuntimeSnapshotRepository', () => {
     await expect(repository.load(SESSION_ID)).resolves.toBeNull();
   });
 
+  it('rejects a domain-invalid snapshot before writing storage', async () => {
+    const storage = createMemoryStorage();
+    const repository = createSqliteWorkoutRuntimeSnapshotRepository(storage);
+    const snapshot = buildSnapshot('running');
+    const invalidExercise = {
+      ...snapshot.currentExercise!,
+      targetSets: 0,
+    };
+    const invalidSnapshot = {
+      ...snapshot,
+      currentExercise: invalidExercise,
+      orderedExercises: [invalidExercise],
+      totalTargetSetCount: 0,
+      targetSets: 0,
+    };
+
+    await expect(repository.save(invalidSnapshot)).resolves.toEqual({
+      success: false,
+      reason: 'snapshot_persist_failed',
+      error: expect.any(Error),
+    });
+    await expect(repository.load(SESSION_ID)).resolves.toBeNull();
+  });
+
   it.each(['running', 'paused'] as const)(
     'persists a %s snapshot after closing and reopening SQLite storage',
     async (status) => {
