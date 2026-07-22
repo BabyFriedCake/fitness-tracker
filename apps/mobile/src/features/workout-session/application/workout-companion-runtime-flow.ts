@@ -17,6 +17,8 @@ import {
   type SetCompletedFeedbackEvent,
 } from './workout-feedback-events';
 import {
+  beginWorkoutCompanionSetCompletion,
+  finishWorkoutCompanionSetCompletion,
   getSessionExerciseNextSetNumber,
   onWorkoutCompanionRepCompleted,
   type WorkoutCompanionRuntimeState,
@@ -92,43 +94,55 @@ export async function onWorkoutCompanionRep(
     };
   }
 
-  const workoutSetId = options.createWorkoutSetId();
-  const session = await recordWorkoutSet(
-    repository,
-    {
-      ...repResult.setCompletionRequest,
-      weight: options.weight,
-      completedAt: options.completedAt,
-    },
-    { createWorkoutSetId: () => workoutSetId },
-  );
-  const exercise = findSessionExercise(
-    session,
-    repResult.setCompletionRequest.sessionExerciseId,
-  );
-  const workoutSet = exercise.sets.find(
-    (candidate) => candidate.id === workoutSetId,
-  );
+  const completionRequest = repResult.setCompletionRequest;
 
-  if (!workoutSet) {
-    throw new PersistedWorkoutSetNotFoundError(workoutSetId);
+  if (
+    !beginWorkoutCompanionSetCompletion(repResult.runtime, completionRequest)
+  ) {
+    return { status: 'ignored', runtime: repResult.runtime, events: [] };
   }
 
-  return {
-    status: 'set_completed',
-    runtime: advanceAfterPersistedSet(repResult.runtime, exercise),
-    session,
-    workoutSet,
-    events: [
-      repResult.event,
-      createSetCompletedFeedbackEvent({
-        sessionId: session.id,
-        exercise,
-        workoutSet,
-      }),
-    ],
-    exerciseCompletionRequired: hasCompletedTargetSets(exercise),
-  };
+  try {
+    const workoutSetId = options.createWorkoutSetId();
+    const session = await recordWorkoutSet(
+      repository,
+      {
+        ...completionRequest,
+        weight: options.weight,
+        completedAt: options.completedAt,
+      },
+      { createWorkoutSetId: () => workoutSetId },
+    );
+    const exercise = findSessionExercise(
+      session,
+      completionRequest.sessionExerciseId,
+    );
+    const workoutSet = exercise.sets.find(
+      (candidate) => candidate.id === workoutSetId,
+    );
+
+    if (!workoutSet) {
+      throw new PersistedWorkoutSetNotFoundError(workoutSetId);
+    }
+
+    return {
+      status: 'set_completed',
+      runtime: advanceAfterPersistedSet(repResult.runtime, exercise),
+      session,
+      workoutSet,
+      events: [
+        repResult.event,
+        createSetCompletedFeedbackEvent({
+          sessionId: session.id,
+          exercise,
+          workoutSet,
+        }),
+      ],
+      exerciseCompletionRequired: hasCompletedTargetSets(exercise),
+    };
+  } finally {
+    finishWorkoutCompanionSetCompletion(repResult.runtime, completionRequest);
+  }
 }
 
 export async function completeWorkoutCompanionExercise(
@@ -138,7 +152,10 @@ export async function completeWorkoutCompanionExercise(
 ): Promise<WorkoutCompanionExerciseFlowResult> {
   const exercise = getCurrentExercise(runtime);
 
-  if (runtime.phase !== 'resting' || !hasCompletedTargetSets(exercise)) {
+  if (
+    runtime.phase !== 'exercise_completion_pending' ||
+    !hasCompletedTargetSets(exercise)
+  ) {
     throw new WorkoutCompanionExerciseNotReadyError(exercise.id);
   }
 
@@ -170,7 +187,9 @@ function advanceAfterPersistedSet(
 
   return {
     ...runtime,
-    phase: 'resting',
+    phase: exerciseCompletionRequired
+      ? 'exercise_completion_pending'
+      : 'resting',
     orderedExercises: runtime.orderedExercises.map((candidate) =>
       candidate.id === exercise.id ? exercise : candidate,
     ),
@@ -213,6 +232,7 @@ function advanceAfterCompletedExercise(
   return {
     phase: 'running',
     orderedExercises,
+    instance: runtime.instance,
     progress: {
       sessionId: session.id,
       currentExerciseIndex: nextExerciseIndex,

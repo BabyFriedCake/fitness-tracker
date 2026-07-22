@@ -19,11 +19,24 @@ import {
   type WorkoutRuntimeSnapshotSaveResult,
 } from './workout-runtime-snapshot-repository';
 
+const workoutCompanionSetCompletionKeys: unique symbol = Symbol(
+  'workoutCompanionSetCompletionKeys',
+);
+
+type WorkoutCompanionRuntimeInstance = {
+  readonly [workoutCompanionSetCompletionKeys]: Set<string>;
+};
+
 export type WorkoutRuntimeStatus = 'running' | 'paused' | 'completed';
 export type WorkoutRuntimeDisplayStatus = 'idle' | WorkoutRuntimeStatus;
 
 export type WorkoutCompanionRuntimePhase =
-  'running' | 'paused' | 'resting' | 'completed';
+  | 'running'
+  | 'paused'
+  | 'set_completion_pending'
+  | 'resting'
+  | 'exercise_completion_pending'
+  | 'completed';
 
 export type WorkoutRuntimeProgress = {
   readonly sessionId: WorkoutSessionId;
@@ -36,6 +49,7 @@ export type WorkoutCompanionRuntimeState = {
   readonly phase: WorkoutCompanionRuntimePhase;
   readonly progress: WorkoutRuntimeProgress;
   readonly orderedExercises: readonly SessionExercise[];
+  readonly instance: WorkoutCompanionRuntimeInstance;
 };
 
 export type WorkoutCompanionSetCompletionRequest = {
@@ -143,6 +157,7 @@ export function createWorkoutCompanionRuntimeState(
       completedReps: 0,
     },
     orderedExercises,
+    instance: { [workoutCompanionSetCompletionKeys]: new Set<string>() },
   };
 }
 
@@ -155,7 +170,7 @@ export function onWorkoutCompanionRepCompleted(
 
   const exercise = getCompanionCurrentExercise(runtime);
   const completedReps = runtime.progress.completedReps + 1;
-  const nextRuntime = {
+  const nextRuntime: WorkoutCompanionRuntimeState = {
     ...runtime,
     progress: { ...runtime.progress, completedReps },
   };
@@ -170,7 +185,7 @@ export function onWorkoutCompanionRepCompleted(
   }
 
   return {
-    runtime: nextRuntime,
+    runtime: { ...nextRuntime, phase: 'set_completion_pending' },
     event,
     setCompletionRequest: {
       sessionId: runtime.progress.sessionId,
@@ -178,6 +193,30 @@ export function onWorkoutCompanionRepCompleted(
       actualReps: completedReps,
     },
   };
+}
+
+export function beginWorkoutCompanionSetCompletion(
+  runtime: WorkoutCompanionRuntimeState,
+  request: WorkoutCompanionSetCompletionRequest,
+): boolean {
+  const pendingKeys = runtime.instance[workoutCompanionSetCompletionKeys];
+  const key = createWorkoutCompanionSetCompletionKey(runtime, request);
+
+  if (pendingKeys.has(key)) {
+    return false;
+  }
+
+  pendingKeys.add(key);
+  return true;
+}
+
+export function finishWorkoutCompanionSetCompletion(
+  runtime: WorkoutCompanionRuntimeState,
+  request: WorkoutCompanionSetCompletionRequest,
+): void {
+  runtime.instance[workoutCompanionSetCompletionKeys].delete(
+    createWorkoutCompanionSetCompletionKey(runtime, request),
+  );
 }
 
 export function pauseWorkoutCompanionRuntime(
@@ -553,6 +592,17 @@ function getCompanionTargetReps(exercise: SessionExercise): number {
   return exercise.targetRepsMin === exercise.targetRepsMax
     ? exercise.targetRepsMax
     : exercise.targetRepsMin;
+}
+
+function createWorkoutCompanionSetCompletionKey(
+  runtime: WorkoutCompanionRuntimeState,
+  request: WorkoutCompanionSetCompletionRequest,
+): string {
+  return [
+    request.sessionId,
+    request.sessionExerciseId,
+    runtime.progress.currentSetIndex,
+  ].join(':');
 }
 
 function isExecutableCompanionExercise(exercise: SessionExercise): boolean {

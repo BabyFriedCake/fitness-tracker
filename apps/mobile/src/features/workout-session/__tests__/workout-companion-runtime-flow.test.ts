@@ -44,6 +44,7 @@ describe('Workout Companion Runtime Flow', () => {
     expect(targetRep).not.toHaveProperty('workoutSet');
     expect(targetRep).not.toHaveProperty('setCompletedEvent');
     expect(targetRep).not.toHaveProperty('exerciseCompletedEvent');
+    expect(targetRep.runtime.phase).toBe('set_completion_pending');
   });
 
   it('tracks rep progress and does not persist before the target', async () => {
@@ -143,6 +144,98 @@ describe('Workout Companion Runtime Flow', () => {
     expect(firstRep.runtime.progress).toEqual(
       expect.objectContaining({ currentSetIndex: 0, completedReps: 1 }),
     );
+
+    const retryRepository = createStatefulRepository(repository.current());
+    const retry = await onWorkoutCompanionRep(
+      retryRepository,
+      firstRep.runtime,
+      {
+        weight: 70,
+        completedAt: FIRST_SET_AT,
+        createWorkoutSetId: () => 'set-retry',
+      },
+    );
+
+    expect(retry.status).toBe('set_completed');
+  });
+
+  it('persists and emits SetCompleted only once for concurrent target reps', async () => {
+    const repository = createStatefulRepository(buildSession());
+    const initial = createWorkoutCompanionRuntimeState(repository.current());
+    const firstRep = await onWorkoutCompanionRep(repository, initial, {
+      weight: 80,
+      completedAt: FIRST_SET_AT,
+      createWorkoutSetId: () => 'unused',
+    });
+
+    const results = await Promise.all([
+      onWorkoutCompanionRep(repository, firstRep.runtime, {
+        weight: 80,
+        completedAt: FIRST_SET_AT,
+        createWorkoutSetId: () => 'set-concurrent-1',
+      }),
+      onWorkoutCompanionRep(repository, firstRep.runtime, {
+        weight: 80,
+        completedAt: FIRST_SET_AT,
+        createWorkoutSetId: () => 'set-concurrent-2',
+      }),
+    ]);
+
+    expect(repository.update).toHaveBeenCalledTimes(1);
+    expect(results.map((result) => result.status).sort()).toEqual([
+      'ignored',
+      'set_completed',
+    ]);
+    expect(
+      results
+        .flatMap((result) => result.events)
+        .filter((event) => event.type === 'SetCompleted'),
+    ).toHaveLength(1);
+    expect(repository.current().sessionExercises[0].sets).toHaveLength(1);
+  });
+
+  it('ignores different per-call guards and uses the Runtime instance guard', async () => {
+    const repository = createStatefulRepository(buildSession());
+    const initial = createWorkoutCompanionRuntimeState(repository.current());
+    const firstRep = await onWorkoutCompanionRep(repository, initial, {
+      weight: 80,
+      completedAt: FIRST_SET_AT,
+      createWorkoutSetId: () => 'unused',
+    });
+    const injectedGuardA = {
+      tryBegin: jest.fn(() => true),
+      finish: jest.fn(),
+    };
+    const injectedGuardB = {
+      tryBegin: jest.fn(() => true),
+      finish: jest.fn(),
+    };
+    const optionsA = {
+      weight: 80,
+      completedAt: FIRST_SET_AT,
+      createWorkoutSetId: () => 'set-injected-1',
+      setCompletionGuard: injectedGuardA,
+    };
+    const optionsB = {
+      weight: 80,
+      completedAt: FIRST_SET_AT,
+      createWorkoutSetId: () => 'set-injected-2',
+      setCompletionGuard: injectedGuardB,
+    };
+
+    const results = await Promise.all([
+      onWorkoutCompanionRep(repository, firstRep.runtime, optionsA),
+      onWorkoutCompanionRep(repository, firstRep.runtime, optionsB),
+    ]);
+
+    expect(injectedGuardA.tryBegin).not.toHaveBeenCalled();
+    expect(injectedGuardB.tryBegin).not.toHaveBeenCalled();
+    expect(repository.update).toHaveBeenCalledTimes(1);
+    expect(
+      results
+        .flatMap((result) => result.events)
+        .filter((event) => event.type === 'SetCompleted'),
+    ).toHaveLength(1);
   });
 
   it('pauses and resumes without changing companion progress', async () => {
@@ -178,7 +271,18 @@ describe('Workout Companion Runtime Flow', () => {
     runtime = await completeSet(repository, runtime, 'set-2', SECOND_SET_AT);
 
     expect(runtime.progress.currentExerciseIndex).toBe(0);
+    expect(runtime.phase).toBe('exercise_completion_pending');
+    expect(resumeWorkoutCompanionAfterRest(runtime)).toBe(runtime);
     expect(repository.current().sessionExercises[0].isCompleted).toBe(false);
+
+    const ignoredRep = await onWorkoutCompanionRep(repository, runtime, {
+      weight: 80,
+      completedAt: SECOND_SET_AT,
+      createWorkoutSetId: () => 'set-extra',
+    });
+
+    expect(ignoredRep.status).toBe('ignored');
+    expect(repository.current().sessionExercises[0].sets).toHaveLength(2);
 
     const completed = await completeWorkoutCompanionExercise(
       repository,
