@@ -47,6 +47,7 @@ export type WorkoutRuntimeProgress = {
 
 export type WorkoutCompanionRuntimeState = {
   readonly phase: WorkoutCompanionRuntimePhase;
+  readonly restRemainingSeconds?: number;
   readonly progress: WorkoutRuntimeProgress;
   readonly orderedExercises: readonly SessionExercise[];
   readonly instance: WorkoutCompanionRuntimeInstance;

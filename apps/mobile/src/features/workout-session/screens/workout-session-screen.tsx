@@ -31,7 +31,10 @@ import type {
   WorkoutSessionScreenData,
   WorkoutSessionTimerDisplayStatus,
 } from '@/features/workout-session/application/load-workout-session-screen';
-import type { WorkoutRuntimeSnapshot } from '@/features/workout-session/application/workout-runtime-engine';
+import type {
+  WorkoutCompanionRuntimePhase,
+  WorkoutRuntimeSnapshot,
+} from '@/features/workout-session/application/workout-runtime-engine';
 import { useTheme } from '@/hooks/use-theme';
 
 export function WorkoutSessionScreen({
@@ -153,7 +156,7 @@ function ReadyState({
 }) {
   const { data } = state;
   const isActive = data.session.status === 'in_progress';
-  const isRuntimeRunning = state.runtime.status === 'running';
+  const isRuntimeRunning = state.companionRuntime?.phase === 'running';
   const currentExercise = state.runtime.currentExercise;
   const canEditSet =
     isActive &&
@@ -163,7 +166,6 @@ function ReadyState({
     !currentExercise.isCompleted &&
     !state.isConfirmingSkip &&
     !state.isMutating;
-  const setDisabledReason = getSetDisabledReason(state);
 
   return (
     <KeyboardAvoidingView
@@ -203,7 +205,11 @@ function ReadyState({
 
         {currentExercise ? (
           <>
-            <CurrentExerciseSection runtime={state.runtime} />
+            <CurrentExerciseSection
+              runtime={state.runtime}
+              completedReps={state.companionRuntime?.progress.completedReps}
+              coachFeedback={state.coachFeedback}
+            />
             <CompletedSets sets={currentExercise.sets} />
             <SetEditor
               state={state}
@@ -225,17 +231,26 @@ function ReadyState({
         )}
 
         {data.restTimerStatus && (
-          <RestTimerStatus status={data.restTimerStatus} />
+          <RestTimerStatus
+            status={data.restTimerStatus}
+            remainingSeconds={state.companionRuntime?.restRemainingSeconds}
+            exerciseName={currentExercise?.exerciseNameSnapshot}
+            nextSetNumber={state.runtime.currentSetNumber}
+            canFinish={state.companionRuntime?.phase === 'resting'}
+            onFinish={() => {
+              void controls.finishRest();
+            }}
+          />
+        )}
+        {state.canRetryCompanionEvent && (
+          <PrimaryButton
+            label="重试保存"
+            accessibilityLabel="重试训练状态保存"
+            disabled={state.isMutating}
+            onPress={controls.retryCompanionEvent}
+          />
         )}
       </ScrollView>
-      {currentExercise && (
-        <CompleteSetAction
-          state={state}
-          controls={controls}
-          disabled={!canEditSet}
-          disabledReason={setDisabledReason}
-        />
-      )}
       <SkipExerciseConfirmModal
         visible={state.isConfirmingSkip}
         exerciseName={currentExercise?.exerciseNameSnapshot ?? ''}
@@ -354,13 +369,13 @@ function RuntimeStatusPanel({
     !state.isMutating;
   const canPause =
     state.data.session.status === 'in_progress' &&
-    state.runtime.status === 'running' &&
+    state.companionRuntime?.phase === 'running' &&
     state.endFlow === 'closed' &&
     !state.isMutating &&
     !state.isConfirmingSkip;
   const canResume =
     state.data.session.status === 'in_progress' &&
-    state.runtime.status === 'paused' &&
+    state.companionRuntime?.phase === 'paused' &&
     state.endFlow === 'closed' &&
     !state.isMutating &&
     !state.isConfirmingSkip;
@@ -374,16 +389,20 @@ function RuntimeStatusPanel({
           borderColor: theme.backgroundSelected,
         },
       ]}
-      accessibilityLabel={`训练运行状态：${formatRuntimeStatus(
+      accessibilityLabel={`陪练运行状态：${formatCompanionRuntimeStatus(
+        state.companionRuntime?.phase,
         state.runtime.status,
       )}`}
     >
       <View style={styles.runtimeCopy}>
         <ThemedText type="small" themeColor="textSecondary">
-          Runtime
+          陪练状态
         </ThemedText>
         <ThemedText type="default">
-          {formatRuntimeStatus(state.runtime.status)}
+          {formatCompanionRuntimeStatus(
+            state.companionRuntime?.phase,
+            state.runtime.status,
+          )}
         </ThemedText>
       </View>
       {canStart && (
@@ -396,7 +415,7 @@ function RuntimeStatusPanel({
           }}
         />
       )}
-      {state.runtime.status === 'running' && (
+      {state.companionRuntime?.phase === 'running' && (
         <SecondaryButton
           label="暂停"
           accessibilityLabel="暂停训练"
@@ -404,7 +423,7 @@ function RuntimeStatusPanel({
           onPress={controls.pauseWorkout}
         />
       )}
-      {state.runtime.status === 'paused' && (
+      {state.companionRuntime?.phase === 'paused' && (
         <PrimaryButton
           label="继续"
           accessibilityLabel="继续训练"
@@ -475,8 +494,12 @@ function ExerciseList({
 
 function CurrentExerciseSection({
   runtime,
+  completedReps,
+  coachFeedback,
 }: {
   readonly runtime: WorkoutRuntimeSnapshot;
+  readonly completedReps?: number;
+  readonly coachFeedback?: string;
 }) {
   const exercise = runtime.currentExercise;
 
@@ -495,8 +518,15 @@ function CurrentExerciseSection({
         {exercise.targetRepsMin}–{exercise.targetRepsMax} 次
       </ThemedText>
       <ThemedText type="smallBold">
-        {formatCurrentSetState(exercise)}
+        {completedReps === undefined
+          ? formatCurrentSetState(exercise)
+          : `已完成 ${completedReps} / ${getExerciseTargetReps(exercise)} 次`}
       </ThemedText>
+      {coachFeedback && (
+        <ThemedText type="small" accessibilityLiveRegion="polite">
+          {coachFeedback}
+        </ThemedText>
+      )}
     </View>
   );
 }
@@ -552,50 +582,7 @@ function SetEditor({
         disabled={disabled}
         onChange={controls.updateWeight}
       />
-      <NumberEditor
-        label="次数"
-        value={state.setDraft.actualReps}
-        unit="次"
-        step={1}
-        integer
-        disabled={disabled}
-        onChange={controls.updateActualReps}
-      />
     </View>
-  );
-}
-
-function CompleteSetAction({
-  state,
-  controls,
-  disabled,
-  disabledReason,
-}: {
-  readonly state: Extract<WorkoutSessionScreenState, { status: 'ready' }>;
-  readonly controls: WorkoutSessionScreenControls;
-  readonly disabled: boolean;
-  readonly disabledReason?: string;
-}) {
-  return (
-    <ThemedView type="backgroundElement" style={styles.primaryActionBar}>
-      {disabledReason && (
-        <ThemedText
-          type="small"
-          themeColor="textSecondary"
-          style={styles.centerText}
-        >
-          {disabledReason}
-        </ThemedText>
-      )}
-      <PrimaryButton
-        label={state.isMutating ? '正在保存' : '完成本组'}
-        accessibilityLabel="完成当前组"
-        disabled={disabled}
-        onPress={() => {
-          void controls.recordSet();
-        }}
-      />
-    </ThemedView>
   );
 }
 
@@ -604,7 +591,6 @@ function NumberEditor({
   value,
   unit,
   step,
-  integer = false,
   disabled,
   onChange,
 }: {
@@ -612,7 +598,6 @@ function NumberEditor({
   readonly value: string;
   readonly unit: string;
   readonly step: number;
-  readonly integer?: boolean;
   readonly disabled: boolean;
   readonly onChange: (value: string) => void;
 }) {
@@ -623,7 +608,7 @@ function NumberEditor({
       0,
       (Number.isFinite(current) ? current : 0) + step * direction,
     );
-    onChange(String(integer ? Math.round(next) : Number(next.toFixed(2))));
+    onChange(String(Number(next.toFixed(2))));
   };
 
   return (
@@ -734,16 +719,6 @@ function ExerciseActions({
           onPress={controls.requestSkipExercise}
         />
       )}
-      <SecondaryButton
-        label="完成动作"
-        accessibilityLabel={`完成动作${exercise.exerciseNameSnapshot}`}
-        disabled={
-          !canMutateExercise || exercise.isSkipped || exercise.isCompleted
-        }
-        onPress={() => {
-          void controls.completeExercise();
-        }}
-      />
     </View>
   );
 }
@@ -881,8 +856,18 @@ function EndSessionModal({
 
 function RestTimerStatus({
   status,
+  remainingSeconds,
+  exerciseName,
+  nextSetNumber,
+  canFinish,
+  onFinish,
 }: {
   readonly status: WorkoutSessionTimerDisplayStatus;
+  readonly remainingSeconds?: number;
+  readonly exerciseName?: string;
+  readonly nextSetNumber?: number;
+  readonly canFinish: boolean;
+  readonly onFinish: () => void;
 }) {
   const theme = useTheme();
 
@@ -901,6 +886,23 @@ function RestTimerStatus({
         休息计时
       </ThemedText>
       <ThemedText type="default">{formatTimerStatus(status)}</ThemedText>
+      {remainingSeconds !== undefined && (
+        <ThemedText type="title" accessibilityLabel="休息剩余时间">
+          {formatRemainingSeconds(remainingSeconds)}
+        </ThemedText>
+      )}
+      {exerciseName && nextSetNumber !== undefined && (
+        <ThemedText type="small" themeColor="textSecondary">
+          下一组：{exerciseName} · 第 {nextSetNumber} 组
+        </ThemedText>
+      )}
+      {canFinish && (
+        <SecondaryButton
+          label="结束休息"
+          accessibilityLabel="结束当前休息"
+          onPress={onFinish}
+        />
+      )}
     </View>
   );
 }
@@ -1020,6 +1022,15 @@ function formatTimerStatus(status: WorkoutSessionTimerDisplayStatus): string {
   }
 }
 
+function formatRemainingSeconds(value: number): string {
+  const seconds = Math.max(0, Math.floor(value));
+  const minutes = Math.floor(seconds / 60);
+  return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(
+    2,
+    '0',
+  )}`;
+}
+
 function formatRuntimeStatus(
   status: Extract<
     WorkoutSessionScreenState,
@@ -1038,34 +1049,41 @@ function formatRuntimeStatus(
   }
 }
 
+function formatCompanionRuntimeStatus(
+  phase: WorkoutCompanionRuntimePhase | undefined,
+  fallback: Extract<
+    WorkoutSessionScreenState,
+    { status: 'ready' }
+  >['runtime']['status'],
+): string {
+  switch (phase) {
+    case 'running':
+      return '训练中';
+    case 'paused':
+      return '训练暂停';
+    case 'set_completion_pending':
+      return '正在确认本组完成';
+    case 'resting':
+      return '休息中';
+    case 'exercise_completion_pending':
+      return '正在保存训练结果';
+    case 'completed':
+      return '训练完成';
+    default:
+      return formatRuntimeStatus(fallback);
+  }
+}
+
+function getExerciseTargetReps(exercise: SessionExercise): number {
+  return exercise.targetRepsMin === exercise.targetRepsMax
+    ? exercise.targetRepsMax
+    : exercise.targetRepsMin;
+}
+
 function formatWeight(weight: number): string {
   return Number.isInteger(weight)
     ? String(weight)
     : String(Number(weight.toFixed(2)));
-}
-
-function getSetDisabledReason(
-  state: Extract<WorkoutSessionScreenState, { status: 'ready' }>,
-): string | undefined {
-  if (state.data.session.status !== 'in_progress') {
-    return '当前训练状态不可记录组。';
-  }
-  if (state.runtime.status !== 'running') {
-    return '训练暂停时不能记录本组。';
-  }
-  if (state.isMutating) {
-    return '正在保存，请稍候。';
-  }
-  if (state.isConfirmingSkip) {
-    return '请先处理跳过动作确认。';
-  }
-  if (state.runtime.currentExercise?.isSkipped) {
-    return '请先恢复当前动作。';
-  }
-  if (state.runtime.currentExercise?.isCompleted) {
-    return '当前动作已完成，请选择其他动作。';
-  }
-  return undefined;
 }
 
 const styles = StyleSheet.create({

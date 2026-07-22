@@ -149,7 +149,7 @@ Exit Review：PASS WITH WARNINGS
 
 ---
 
-# Sprint 5（🚧 计划中）
+# Sprint 5（🚧 进行中）
 
 ## Workout Assistant
 
@@ -161,24 +161,38 @@ Exit Review：PASS WITH WARNINGS
 
 让用户在健身房训练时，不需要频繁操作手机。
 
-## S5-01 Workout Runtime Engine
+当前进度：
+
+- [x] S5-01 Workout Runtime Engine
+- [x] S5-02 Workout Feedback Events
+- [x] S5-03 Workout Voice Feedback
+- [x] S5-04 Workout Runtime UI Integration
+- [x] S5-05 Workout Runtime Persistence
+- [x] S5-06 Workout Companion Runtime Flow
+- [x] S5-07-R0 Workout Companion Specification Alignment
+- [ ] S5-07 Workout Companion UI Runtime Binding
+- [ ] S5-08 Sprint 5 Exit Review
+
+## S5-01 Workout Runtime Engine（✅ 已完成）
 
 实现：
 
 - 训练运行状态
 - 当前动作管理
 - 当前 Set 管理
-- Running / Paused / Completed 状态
+- Runtime 状态转换
+- 当前动作、Set 和 Rep 进度
 
-## S5-02 Rep Counter Feedback
+## S5-02 Workout Feedback Events（✅ 已完成）
 
 实现：
 
 - 次数反馈事件
 - Set 完成事件
 - Exercise 完成事件
+- 事件与真实 WorkoutSet / SessionExercise 事实边界
 
-## S5-03 Voice Feedback Service
+## S5-03 Workout Voice Feedback（✅ 已完成）
 
 实现：
 
@@ -186,51 +200,65 @@ Exit Review：PASS WITH WARNINGS
 - 次数播报
 - 组完成播报
 - 休息提醒
+- 语音输出失败不影响训练持久化
 
-## S5-04 Workout Pause / Resume
-
-实现：
-
-暂停：
-
-- Timer
-- Voice
-- Runtime
-
-恢复：
-
-- 当前动作
-- 当前 Set
-- 当前训练状态
-
-## S5-05 Background Workout Runtime
+## S5-04 Workout Runtime UI Integration（✅ 已完成）
 
 实现：
 
-- 切后台保持训练状态
-- Timer 状态保持
-- Runtime 恢复
+- Workout Runtime 与现有 Workout Session UI 状态集成
+- Runtime 状态作为训练界面状态来源
+- 暂停、继续和恢复边界
 
-## S5-06 Rest Timer Upgrade
-
-升级：
-
-- 自动休息
-- 倒计时播报
-- 延长休息
-- 跳过休息
-- 下一组提醒
-
-## S5-07 Workout Assistant Settings
+## S5-05 Workout Runtime Persistence（✅ 已完成）
 
 实现：
+
+- Runtime Snapshot 持久化与验证
+- running / paused 状态恢复
+- RestTimer 状态优先级
+- 无效 Snapshot 拒绝与恢复边界
+
+## S5-06 Workout Companion Runtime Flow（✅ 已完成）
+
+实现：
+
+- Rep 进度与当前 Exercise / Set 管理
+- 目标 Rep 达成后调用真实 WorkoutSet 持久化流程
+- SetCompleted / ExerciseCompleted 事实边界
+- `set_completion_pending` 和 `exercise_completion_pending`
+- Runtime Instance 级 Set completion 并发保护
+
+## S5-07-R0 Workout Companion Specification Alignment（✅ 已完成）
+
+实现：
+
+- Companion Event Contract
+- Companion Event Source 生命周期
+- `sessionExerciseId` 事件边界
+- Runtime 六个 phase 的 UI 行为
+- P004 与 Workout UI 规范对齐
+
+## S5-07 Workout Companion UI Runtime Binding（⏳ 待实现）
+
+计划：
+
+- 绑定受控 `WorkoutCompanionEventSource`
+- 验证并串行处理 `RepCompleted`
+- 将 Runtime phase、动作、Set、Rep 和教练反馈映射到 Workout Session UI
+- 复用现有暂停、恢复、RestTimer、持久化和 Summary Flow
+- 不实现 Voice Engine、Camera、Pose Detection 或 AI
+
+## S5-08 Sprint 5 Exit Review（⏳ 待执行）
+
+## Unscheduled Follow-up
+
+Workout Assistant Settings 尚未分配正式 Task 编号：
 
 - 语音开关
 - 播报频率
 - 倒计时提醒
 - 默认休息时间
-
-## S5-08 Sprint 5 Exit Review
 
 ---
 

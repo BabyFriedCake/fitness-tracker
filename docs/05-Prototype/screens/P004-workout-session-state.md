@@ -1,38 +1,76 @@
 # P004 Workout Session State
 
-训练页面状态定义。
+## Rep 来源
 
+训练次数来源：
 
-## running
+Workout Companion Event。
 
-显示：
+不是：
 
-- 当前动作图片
-- 当前次数
-- 当前组数
-- 陪练提示
+- 用户点击
+- 计时器
+- 假数据
 
+---
 
-## paused
+## Runtime状态
 
-显示：
+### running
 
-- 暂停状态
-- 当前训练进度
-- 继续训练按钮
+正常训练中。
 
+### paused
 
-## resting
+训练暂停。
 
-显示：
+### resting
 
-- 休息倒计时
-- 下一组信息
+组间休息。
 
+### set_completion_pending
 
-## completed
+达到目标次数，等待持久化确认。
 
-显示：
+UI显示：
 
-- 完成总结
-- 训练结果
+正在确认本组完成。
+
+### exercise_completion_pending
+
+动作完成，等待保存训练结果。
+
+UI显示：
+
+正在保存训练结果。
+
+---
+
+## 用户操作限制
+
+pending 状态下：
+
+- 不产生新的 Rep
+- 不允许跳过持久化流程
+
+---
+
+## 数据流
+
+Companion Event Source
+
+↓
+
+RepCompleted
+
+↓
+
+Runtime
+
+↓
+
+WorkoutSet
+
+↓
+
+SetCompleted

@@ -6,7 +6,9 @@ Runtime 状态：
 
 - running
 - paused
+- set_completion_pending
 - resting
+- exercise_completion_pending
 - completed
 
 
@@ -31,4 +33,5 @@ Runtime 状态：
 - 下一动作切换
 
 
-用户无需手动记录每次次数。
+次数只由已验证的 Companion Event Source 推进，用户无需手动
+记录每次次数。pending 状态下不接受新 Rep。

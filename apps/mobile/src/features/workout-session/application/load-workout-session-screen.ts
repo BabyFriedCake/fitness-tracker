@@ -20,6 +20,7 @@ export type WorkoutSessionTimerDisplayStatus =
 export type WorkoutSessionScreenData = {
   readonly session: WorkoutSession;
   readonly restTimerStatus?: WorkoutSessionTimerDisplayStatus;
+  readonly restRemainingSeconds?: number;
 };
 
 export type WorkoutSessionScreenRepositories = {
@@ -74,7 +75,11 @@ export async function loadWorkoutSessionScreen(
 
   return {
     status: 'ready',
-    data: createWorkoutSessionScreenData(session, restTimerStatus),
+    data: createWorkoutSessionScreenData(
+      session,
+      restTimerStatus,
+      restTimer.status === 'not_found' ? undefined : restTimer.remainingSeconds,
+    ),
     runtime: nextRuntime,
   };
 }
@@ -82,10 +87,12 @@ export async function loadWorkoutSessionScreen(
 export function createWorkoutSessionScreenData(
   session: WorkoutSession,
   restTimerStatus?: WorkoutSessionTimerDisplayStatus,
+  restRemainingSeconds?: number,
 ): WorkoutSessionScreenData {
   return {
     session,
     restTimerStatus,
+    restRemainingSeconds,
   };
 }
 

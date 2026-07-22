@@ -26,10 +26,13 @@ import {
 } from '@/domain/workout-session';
 import { createWorkoutSessionScreenData } from '@/features/workout-session/application/load-workout-session-screen';
 import {
+  createWorkoutCompanionRuntimeState,
   createWorkoutRuntimeSnapshot,
+  pauseWorkoutCompanionRuntime,
   type WorkoutRuntimeSnapshot,
 } from '@/features/workout-session/application/workout-runtime-engine';
 import type { WorkoutRuntimeSnapshotRepository } from '@/features/workout-session/application/workout-runtime-snapshot-repository';
+import type { WorkoutCompanionEventSource } from '@/features/workout-session/application/workout-companion-event-source';
 import {
   useWorkoutSessionScreen,
   type WorkoutSessionScreenControls,
@@ -123,13 +126,13 @@ describe('WorkoutSessionScreenContent', () => {
 
     expect(getByText('Push')).toBeTruthy();
     expect(getByLabelText('训练状态：进行中')).toBeTruthy();
-    expect(getByLabelText('训练运行状态：训练中')).toBeTruthy();
+    expect(getByLabelText('陪练运行状态：训练中')).toBeTruthy();
     expect(getByText('动作 1 / 2')).toBeTruthy();
     expect(getByText('已完成 1 / 6 组')).toBeTruthy();
     expect(getAllByText('杠铃卧推')).toHaveLength(2);
     expect(getByText('哑铃肩推')).toBeTruthy();
     expect(getByText('80 kg × 10 次')).toBeTruthy();
-    expect(getByText('当前组待记录')).toBeTruthy();
+    expect(getByText('已完成 0 / 8 次')).toBeTruthy();
   });
 
   it.each([
@@ -138,7 +141,7 @@ describe('WorkoutSessionScreenContent', () => {
     ['cancelled', '已取消'],
   ] as const)('shows %s sessions as read-only', async (status, label) => {
     const session = buildSessionForStatus(status);
-    const { getByLabelText } = await render(
+    const { getByLabelText, queryByLabelText } = await render(
       <WorkoutSessionScreenContent
         state={buildReadyState(session)}
         controls={buildControls()}
@@ -147,9 +150,8 @@ describe('WorkoutSessionScreenContent', () => {
     );
 
     expect(getByLabelText(`训练状态：${label}`)).toBeTruthy();
-    expect(getByLabelText('完成当前组').props.accessibilityState).toEqual({
-      disabled: true,
-    });
+    expect(queryByLabelText('完成当前组')).toBeNull();
+    expect(getByLabelText('重量输入').props.editable).toBe(false);
   });
 
   it.each([
@@ -170,10 +172,8 @@ describe('WorkoutSessionScreenContent', () => {
     expect(getByLabelText(`休息计时状态：${label}`)).toBeTruthy();
   });
 
-  it('connects set and exercise buttons to screen controls', async () => {
-    const recordSet = jest.fn(async () => undefined);
+  it('connects exercise controls without exposing manual completion', async () => {
     const requestSkipExercise = jest.fn();
-    const completeExercise = jest.fn(async () => undefined);
     const selectExercise = jest.fn(async () => undefined);
     const session = buildSession({
       sessionExercises: [
@@ -186,27 +186,24 @@ describe('WorkoutSessionScreenContent', () => {
         }),
       ],
     });
-    const { getByLabelText } = await render(
+    const { getByLabelText, queryByLabelText } = await render(
       <WorkoutSessionScreenContent
         state={buildReadyState(session)}
         controls={buildControls({
-          recordSet,
           requestSkipExercise,
-          completeExercise,
           selectExercise,
         })}
         onBack={jest.fn()}
       />,
     );
 
-    await fireEvent.press(getByLabelText('完成当前组'));
     await fireEvent.press(getByLabelText('跳过动作杠铃卧推'));
-    await fireEvent.press(getByLabelText('完成动作杠铃卧推'));
     await fireEvent.press(getByLabelText('切换到动作哑铃肩推'));
 
-    expect(recordSet).toHaveBeenCalledTimes(1);
+    expect(queryByLabelText('完成当前组')).toBeNull();
+    expect(queryByLabelText('次数输入')).toBeNull();
+    expect(queryByLabelText('完成动作杠铃卧推')).toBeNull();
     expect(requestSkipExercise).toHaveBeenCalledTimes(1);
-    expect(completeExercise).toHaveBeenCalledTimes(1);
     expect(selectExercise).toHaveBeenCalledWith(SECOND_EXERCISE_ID);
   });
 
@@ -223,7 +220,7 @@ describe('WorkoutSessionScreenContent', () => {
       />,
     );
 
-    expect(getByLabelText('训练运行状态：未开始')).toBeTruthy();
+    expect(getByLabelText('陪练运行状态：未开始')).toBeTruthy();
     await fireEvent.press(getByLabelText('开始训练'));
     expect(startWorkout).toHaveBeenCalledTimes(1);
 
@@ -244,9 +241,60 @@ describe('WorkoutSessionScreenContent', () => {
         onBack={jest.fn()}
       />,
     );
-    expect(getByLabelText('训练运行状态：训练暂停')).toBeTruthy();
+    expect(getByLabelText('陪练运行状态：训练暂停')).toBeTruthy();
     await fireEvent.press(getByLabelText('继续训练'));
     expect(resumeWorkout).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['running', '训练中'],
+    ['paused', '训练暂停'],
+    ['set_completion_pending', '正在确认本组完成'],
+    ['resting', '休息中'],
+    ['exercise_completion_pending', '正在保存训练结果'],
+    ['completed', '训练完成'],
+  ] as const)(
+    'maps companion %s phase to stable UI copy',
+    async (phase, copy) => {
+      const base = buildReadyState(buildSession());
+      const { getByLabelText } = await render(
+        <WorkoutSessionScreenContent
+          state={{
+            ...base,
+            companionRuntime: base.companionRuntime
+              ? { ...base.companionRuntime, phase }
+              : undefined,
+          }}
+          controls={buildControls()}
+          onBack={jest.fn()}
+        />,
+      );
+
+      expect(getByLabelText(`陪练运行状态：${copy}`)).toBeTruthy();
+    },
+  );
+
+  it('shows the persisted resting countdown and next set', async () => {
+    const base = buildReadyState(buildSession(), 'running');
+    const { getByLabelText, getByText } = await render(
+      <WorkoutSessionScreenContent
+        state={{
+          ...base,
+          companionRuntime: base.companionRuntime
+            ? {
+                ...base.companionRuntime,
+                phase: 'resting',
+                restRemainingSeconds: 85,
+              }
+            : undefined,
+        }}
+        controls={buildControls()}
+        onBack={jest.fn()}
+      />,
+    );
+
+    expect(getByLabelText('休息剩余时间')).toHaveTextContent('01:25');
+    expect(getByText('下一组：杠铃卧推 · 第 1 组')).toBeTruthy();
   });
 
   it('confirms skipping with the approved data-retention copy', async () => {
@@ -311,8 +359,8 @@ describe('WorkoutSessionScreenContent', () => {
     expect(confirmCancelSession).toHaveBeenCalledTimes(1);
   });
 
-  it('explains why the fixed complete-set action is disabled', async () => {
-    const { getByText, getByLabelText } = await render(
+  it('does not expose completion actions when no exercise is executable', async () => {
+    const { queryByLabelText } = await render(
       <WorkoutSessionScreenContent
         state={buildReadyState(
           buildSession({
@@ -324,10 +372,8 @@ describe('WorkoutSessionScreenContent', () => {
       />,
     );
 
-    expect(getByText('当前动作已完成，请选择其他动作。')).toBeTruthy();
-    expect(getByLabelText('完成当前组').props.accessibilityState).toEqual({
-      disabled: true,
-    });
+    expect(queryByLabelText('完成当前组')).toBeNull();
+    expect(queryByLabelText('完成动作杠铃卧推')).toBeNull();
   });
 });
 
@@ -364,6 +410,351 @@ describe('useWorkoutSessionScreen', () => {
     await waitFor(() => expect(result.current.state.status).toBe('ready'));
 
     expect(initializeDatabase).toHaveBeenCalledTimes(2);
+  });
+
+  it('subscribes once and stops external events after unmount', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const { result, unmount } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(createStatefulRepository(buildSession()), {
+          workoutCompanionEventSource: source,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    expect(source.subscribe).toHaveBeenCalledTimes(1);
+
+    await act(async () => unmount());
+    expect(source.unsubscribe).toHaveBeenCalledTimes(1);
+    source.emit(buildCompanionEvent(1));
+  });
+
+  it('serializes rapid reps and persists the target set exactly once', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({ targetRepsMin: 2, targetRepsMax: 2 }),
+        ],
+      }),
+    );
+    const voiceAdapter: WorkoutVoiceFeedbackAdapter = {
+      speak: jest.fn(async () => undefined),
+    };
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          workoutCompanionEventSource: source,
+          voiceAdapter,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => {
+      source.emit(buildCompanionEvent(1));
+      source.emit(buildCompanionEvent(2));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(repository.update).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
+        'resting',
+      ),
+    );
+    expect(
+      getReadyState(result.current.state).data.session.sessionExercises[0]
+        ?.sets,
+    ).toEqual([
+      expect.objectContaining({ actualReps: 2, weight: 0, isCompleted: true }),
+    ]);
+    expect(voiceAdapter.speak).toHaveBeenCalledTimes(3);
+  });
+
+  it('blocks target persistence for invalid weight and retries the same event', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({ targetRepsMin: 1, targetRepsMax: 1 }),
+        ],
+      }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          workoutCompanionEventSource: source,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => result.current.controls.updateWeight('invalid'));
+    await act(async () => {
+      source.emit(buildCompanionEvent(1));
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).canRetryCompanionEvent).toBe(
+        true,
+      ),
+    );
+    expect(repository.update).not.toHaveBeenCalled();
+
+    await act(async () => result.current.controls.updateWeight('82.5'));
+    await act(async () => result.current.controls.retryCompanionEvent());
+    await waitFor(() => expect(repository.update).toHaveBeenCalledTimes(1));
+    expect(
+      getReadyState(result.current.state).data.session.sessionExercises[0]
+        ?.sets[0]?.weight,
+    ).toBe(82.5);
+  });
+
+  it('keeps set completion pending until RestTimer persistence retry succeeds', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({
+            targetSets: 2,
+            targetRepsMin: 1,
+            targetRepsMax: 1,
+          }),
+        ],
+      }),
+    );
+    const restTimerRepository = buildRestTimerRepository();
+    const startIfNoActiveTimer: jest.MockedFunction<
+      RestTimerRepository['startIfNoActiveTimer']
+    > = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('timer write failed'))
+      .mockRejectedValueOnce(new Error('timer retry failed'))
+      .mockImplementation(async (input) => ({
+        status: 'started' as const,
+        timer: input.timer,
+      }));
+    const voiceAdapter: WorkoutVoiceFeedbackAdapter = {
+      speak: jest.fn(async () => undefined),
+    };
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          restTimerRepository: {
+            ...restTimerRepository,
+            startIfNoActiveTimer,
+          },
+          workoutCompanionEventSource: source,
+          voiceAdapter,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => {
+      source.emit(buildCompanionEvent(1));
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
+        'set_completion_pending',
+      ),
+    );
+    expect(repository.update).toHaveBeenCalledTimes(1);
+
+    await act(async () => result.current.controls.retryCompanionEvent());
+    await waitFor(() => expect(startIfNoActiveTimer).toHaveBeenCalledTimes(2));
+    expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
+      'set_completion_pending',
+    );
+
+    await act(async () => result.current.controls.retryCompanionEvent());
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
+        'resting',
+      ),
+    );
+    expect(repository.update).toHaveBeenCalledTimes(1);
+    expect(voiceAdapter.speak).toHaveBeenCalledTimes(2);
+  });
+
+  it('recovers exercise completion pending without creating another set', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const repository = createRepositoryFailingUpdateCalls(
+      buildSession({
+        sessionExercises: [
+          buildExercise({
+            targetSets: 1,
+            targetRepsMin: 1,
+            targetRepsMax: 1,
+          }),
+        ],
+      }),
+      new Set([2]),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          workoutCompanionEventSource: source,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => {
+      source.emit(buildCompanionEvent(1));
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
+        'exercise_completion_pending',
+      ),
+    );
+
+    await act(async () => {
+      source.emit(buildCompanionEvent(2));
+      await Promise.resolve();
+    });
+    expect(repository.update).toHaveBeenCalledTimes(2);
+
+    await act(async () => result.current.controls.retryCompanionEvent());
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).navigationIntent).toBe(
+        'summary',
+      ),
+    );
+    const ready = getReadyState(result.current.state);
+    expect(ready.data.session.status).toBe('completed');
+    expect(ready.data.session.sessionExercises[0]?.sets).toHaveLength(1);
+  });
+
+  it('isolates companion voice failure after persisted set completion', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({ targetRepsMin: 1, targetRepsMax: 1 }),
+        ],
+      }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          workoutCompanionEventSource: source,
+          voiceAdapter: {
+            speak: jest.fn(async () => {
+              throw new Error('voice unavailable');
+            }),
+          },
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => {
+      source.emit(buildCompanionEvent(1));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(repository.update).toHaveBeenCalledTimes(1));
+    expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
+      'resting',
+    );
+  });
+
+  it('rebinds the Event Source when Runtime and Session are replaced', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const secondSessionId = 'session-pull' as WorkoutSessionId;
+    const secondExerciseId = 'session-exercise-row' as SessionExerciseId;
+    const first = buildSession({
+      sessionExercises: [
+        buildExercise(),
+        buildExercise({
+          id: SECOND_EXERCISE_ID,
+          position: 2,
+          sourceExerciseId: 'exercise-press' as ExerciseId,
+          exerciseNameSnapshot: '哑铃肩推',
+        }),
+      ],
+    });
+    const second = buildSession({
+      id: secondSessionId,
+      currentSessionExerciseId: secondExerciseId,
+      sessionExercises: [
+        buildExercise({
+          id: secondExerciseId,
+          sessionId: secondSessionId,
+          sourceExerciseId: 'exercise-row' as ExerciseId,
+          exerciseNameSnapshot: '杠铃划船',
+        }),
+      ],
+    });
+    const repository = createMappedRepository([first, second]);
+    const { result, rerender } = await renderHook(
+      ({ id }: { readonly id: WorkoutSessionId }) =>
+        useWorkoutSessionScreen(
+          { id },
+          buildDependencies(repository, {
+            workoutCompanionEventSource: source,
+          }),
+        ),
+      { initialProps: { id: SESSION_ID } },
+    );
+
+    await waitFor(() => expect(source.subscribe).toHaveBeenCalledTimes(1));
+    await act(async () =>
+      result.current.controls.selectExercise(SECOND_EXERCISE_ID),
+    );
+    await waitFor(() => expect(source.subscribe).toHaveBeenCalledTimes(2));
+    expect(source.unsubscribe).toHaveBeenCalledTimes(1);
+
+    await rerender({ id: secondSessionId });
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).data.session.id).toBe(
+        secondSessionId,
+      ),
+    );
+    expect(source.subscribe).toHaveBeenCalledTimes(3);
+    expect(source.unsubscribe).toHaveBeenCalledTimes(2);
+  });
+
+  it('counts down locally and completes the persisted RestTimer once', async () => {
+    const restTimerRepository = createStatefulRestTimerRepository(
+      buildTimer({ targetEndAt: '2026-07-20T01:20:02.000Z' }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(createStatefulRepository(buildSession()), {
+          restTimerRepository,
+        }),
+      ),
+    );
+
+    await waitFor(() =>
+      expect(
+        getReadyState(result.current.state).companionRuntime
+          ?.restRemainingSeconds,
+      ).toBe(2),
+    );
+    await waitFor(
+      () =>
+        expect(
+          getReadyState(result.current.state).companionRuntime?.phase,
+        ).toBe('running'),
+      { timeout: 4000 },
+    );
+    expect(restTimerRepository.update).toHaveBeenCalledTimes(1);
+    expect(getReadyState(result.current.state).data.restTimerStatus).toBe(
+      'completed',
+    );
   });
 
   it('records a completed set once and refreshes durable session data', async () => {
@@ -1008,11 +1399,23 @@ function buildReadyState(
     ...createWorkoutRuntimeSnapshot(session, restTimerStatus),
     status: runtimeStatus,
   };
+  const companionRuntime =
+    session.status === 'in_progress' &&
+    session.sessionExercises.some(
+      (exercise) =>
+        exercise.isEnabled && !exercise.isSkipped && !exercise.isCompleted,
+    )
+      ? createWorkoutCompanionRuntimeState(session)
+      : undefined;
 
   return {
     status: 'ready',
     data: createWorkoutSessionScreenData(session, restTimerStatus),
     runtime,
+    companionRuntime:
+      runtimeStatus === 'paused' && companionRuntime
+        ? pauseWorkoutCompanionRuntime(companionRuntime)
+        : companionRuntime,
     setDraft: { weight: '80', actualReps: '10' },
     isMutating: false,
     isConfirmingSkip: false,
@@ -1037,6 +1440,8 @@ function buildControls(
     confirmSkipExercise: jest.fn(async () => undefined),
     resumeExercise: jest.fn(async () => undefined),
     completeExercise: jest.fn(async () => undefined),
+    retryCompanionEvent: jest.fn(),
+    finishRest: jest.fn(async () => undefined),
     requestEndSession: jest.fn(),
     continueSession: jest.fn(),
     requestCancelSession: jest.fn(),
@@ -1148,6 +1553,63 @@ function createStatefulRepository(
   };
 }
 
+function createRepositoryFailingUpdateCalls(
+  initialSession: WorkoutSession,
+  failingCalls: ReadonlySet<number>,
+): WorkoutSessionRepository & {
+  readonly update: jest.MockedFunction<WorkoutSessionRepository['update']>;
+} {
+  let storedSession = initialSession;
+  let updateCount = 0;
+  const update = jest.fn(async (session: WorkoutSession) => {
+    updateCount += 1;
+
+    if (failingCalls.has(updateCount)) {
+      throw new Error(`update ${updateCount} failed`);
+    }
+
+    storedSession = session;
+    return session;
+  });
+
+  return {
+    save: async (session) => session,
+    findById: async () => storedSession,
+    findActiveSession: async () => storedSession,
+    findLatestSession: async () => storedSession,
+    listByStatuses: async () => [storedSession],
+    findRecoverableSession: async () => storedSession,
+    startIfNoActiveSession: async () => ({ status: 'started' }),
+    update,
+  };
+}
+
+function createMappedRepository(
+  sessions: readonly WorkoutSession[],
+): WorkoutSessionRepository {
+  const stored = new Map(sessions.map((session) => [session.id, session]));
+
+  return {
+    save: async (session) => {
+      stored.set(session.id, session);
+      return session;
+    },
+    findById: async (id) => stored.get(id) ?? null,
+    findActiveSession: async () =>
+      [...stored.values()].find(
+        (session) => session.status === 'in_progress',
+      ) ?? null,
+    findLatestSession: async () => [...stored.values()].at(-1) ?? null,
+    listByStatuses: async () => [...stored.values()],
+    findRecoverableSession: async () => [...stored.values()][0] ?? null,
+    startIfNoActiveSession: async () => ({ status: 'started' }),
+    update: async (session) => {
+      stored.set(session.id, session);
+      return session;
+    },
+  };
+}
+
 function buildDependencies(
   workoutSessionRepository: WorkoutSessionRepository,
   overrides: {
@@ -1157,6 +1619,7 @@ function buildDependencies(
     readonly restTimerRepository?: RestTimerRepository;
     readonly runtimeSnapshotRepository?: WorkoutRuntimeSnapshotRepository;
     readonly voiceAdapter?: WorkoutVoiceFeedbackAdapter;
+    readonly workoutCompanionEventSource?: WorkoutCompanionEventSource;
   } = {},
 ) {
   return {
@@ -1174,6 +1637,33 @@ function buildDependencies(
     createWorkoutSetId:
       overrides.createWorkoutSetId ?? (() => 'workout-set-new'),
     voiceAdapter: overrides.voiceAdapter,
+    workoutCompanionEventSource: overrides.workoutCompanionEventSource,
+  };
+}
+
+class ControlledWorkoutCompanionEventSource implements WorkoutCompanionEventSource {
+  private callback?: (event: unknown) => void;
+
+  readonly subscribe = jest.fn((callback: (event: unknown) => void) => {
+    this.callback = callback;
+  });
+
+  readonly unsubscribe = jest.fn(() => {
+    this.callback = undefined;
+  });
+
+  emit(event: unknown): void {
+    this.callback?.(event);
+  }
+}
+
+function buildCompanionEvent(repNumber: number) {
+  return {
+    sessionId: SESSION_ID,
+    sessionExerciseId: EXERCISE_ID,
+    repNumber,
+    timestamp: Date.parse(ACTION_AT) + repNumber,
+    source: 'companion_event_source' as const,
   };
 }
 
