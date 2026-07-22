@@ -29,6 +29,7 @@ import {
   createWorkoutRuntimeSnapshot,
   type WorkoutRuntimeSnapshot,
 } from '@/features/workout-session/application/workout-runtime-engine';
+import type { WorkoutRuntimeSnapshotRepository } from '@/features/workout-session/application/workout-runtime-snapshot-repository';
 import {
   useWorkoutSessionScreen,
   type WorkoutSessionScreenControls,
@@ -573,6 +574,31 @@ describe('useWorkoutSessionScreen', () => {
     expect(ready.runtime.currentSetNumber).toBe(1);
   });
 
+  it('restores a persisted paused runtime through the application hook', async () => {
+    const session = buildSession();
+    const runtimeSnapshotRepository = buildWorkoutRuntimeSnapshotRepository({
+      ...createWorkoutRuntimeSnapshot(session),
+      status: 'paused',
+      updatedAt: ACTION_AT,
+    });
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(createStatefulRepository(session), {
+          runtimeSnapshotRepository,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+
+    expect(getReadyState(result.current.state).runtime).toMatchObject({
+      status: 'paused',
+      currentSessionExerciseId: EXERCISE_ID,
+      currentSetNumber: 1,
+    });
+  });
+
   it('starts a draft workout through the application boundary', async () => {
     const repository = createStatefulRepository(buildSessionForStatus('draft'));
     const { result } = await renderHook(() =>
@@ -596,10 +622,11 @@ describe('useWorkoutSessionScreen', () => {
 
   it('pauses and resumes runtime state without writing workout facts', async () => {
     const repository = createStatefulRepository(buildSession());
+    const runtimeSnapshotRepository = buildWorkoutRuntimeSnapshotRepository();
     const { result } = await renderHook(() =>
       useWorkoutSessionScreen(
         { id: SESSION_ID },
-        buildDependencies(repository),
+        buildDependencies(repository, { runtimeSnapshotRepository }),
       ),
     );
 
@@ -608,6 +635,11 @@ describe('useWorkoutSessionScreen', () => {
 
     expect(getReadyState(result.current.state).runtime.status).toBe('paused');
     expect(repository.update).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(runtimeSnapshotRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'paused', updatedAt: ACTION_AT }),
+      ),
+    );
 
     await act(async () => result.current.controls.updateActualReps('12'));
     expect(getReadyState(result.current.state).setDraft.actualReps).toBe('8');
@@ -616,6 +648,34 @@ describe('useWorkoutSessionScreen', () => {
 
     expect(getReadyState(result.current.state).runtime.status).toBe('running');
     expect(repository.update).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(runtimeSnapshotRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'running', updatedAt: ACTION_AT }),
+      ),
+    );
+  });
+
+  it('surfaces snapshot persistence failure instead of treating it as saved', async () => {
+    const repository = createStatefulRepository(buildSession());
+    const runtimeSnapshotRepository = buildWorkoutRuntimeSnapshotRepository();
+    runtimeSnapshotRepository.save.mockResolvedValue({
+      success: false,
+      reason: 'snapshot_persist_failed',
+      error: new Error('disk unavailable'),
+    });
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, { runtimeSnapshotRepository }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).actionError).toBe(
+        '训练运行状态保存失败。当前训练数据不会丢失，请重试。',
+      ),
+    );
   });
 
   it('keeps the set write when voice feedback fails', async () => {
@@ -1054,6 +1114,7 @@ function buildDependencies(
     readonly createWorkoutSetId?: () => string;
     readonly restTimer?: RestTimer;
     readonly restTimerRepository?: RestTimerRepository;
+    readonly runtimeSnapshotRepository?: WorkoutRuntimeSnapshotRepository;
     readonly voiceAdapter?: WorkoutVoiceFeedbackAdapter;
   } = {},
 ) {
@@ -1065,6 +1126,9 @@ function buildDependencies(
     createRestTimerRepository: () =>
       overrides.restTimerRepository ??
       buildRestTimerRepository(overrides.restTimer),
+    createWorkoutRuntimeSnapshotRepository: () =>
+      overrides.runtimeSnapshotRepository ??
+      buildWorkoutRuntimeSnapshotRepository(),
     now: () => ACTION_AT,
     createWorkoutSetId:
       overrides.createWorkoutSetId ?? (() => 'workout-set-new'),
@@ -1097,6 +1161,27 @@ function buildRestTimerRepository(timer?: RestTimer): RestTimerRepository {
     }),
     update: async (next) => next,
     completeIfExpired: async () => null,
+  };
+}
+
+function buildWorkoutRuntimeSnapshotRepository(
+  initialSnapshot: WorkoutRuntimeSnapshot | null = null,
+): WorkoutRuntimeSnapshotRepository & {
+  readonly save: jest.Mock;
+  readonly load: jest.Mock;
+  readonly clear: jest.Mock;
+} {
+  let snapshot = initialSnapshot;
+
+  return {
+    save: jest.fn(async (next) => {
+      snapshot = next;
+      return { success: true as const };
+    }),
+    load: jest.fn(async () => snapshot),
+    clear: jest.fn(async () => {
+      snapshot = null;
+    }),
   };
 }
 

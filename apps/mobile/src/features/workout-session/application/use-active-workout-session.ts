@@ -6,6 +6,7 @@ import {
   type DatabaseStartupResult,
 } from '@/database/bootstrap';
 import { createSqliteRestTimerRepository } from '@/database/repositories/rest-timer';
+import { createSqliteWorkoutRuntimeSnapshotRepository } from '@/database/repositories/workout-runtime-snapshot';
 import { createSqliteWorkoutSessionRepository } from '@/database/repositories/workout-session';
 import type {
   RestTimerRepository,
@@ -18,6 +19,7 @@ import type {
   WorkoutSessionScreenRepositories,
 } from './load-workout-session-screen';
 import type { WorkoutRuntimeSnapshot } from './workout-runtime-engine';
+import type { WorkoutRuntimeSnapshotRepository } from './workout-runtime-snapshot-repository';
 import {
   continueWorkoutSessionRecovery,
   loadRecoverableWorkoutSessionRecovery,
@@ -49,6 +51,7 @@ export type UseActiveWorkoutSessionDependencies = {
       { readonly status: 'ready' }
     >['database'],
   ) => RestTimerRepository;
+  readonly createWorkoutRuntimeSnapshotRepository?: () => WorkoutRuntimeSnapshotRepository;
   readonly now?: () => string;
 };
 
@@ -62,6 +65,7 @@ export function useRecoverableWorkoutSession({
   initializeDatabase = initializeApplicationDatabase,
   createWorkoutSessionRepository = createSqliteWorkoutSessionRepository,
   createRestTimerRepository = createSqliteRestTimerRepository,
+  createWorkoutRuntimeSnapshotRepository = createSqliteWorkoutRuntimeSnapshotRepository,
   now = getCurrentTimestamp,
 }: UseActiveWorkoutSessionDependencies = {}): {
   readonly state: RecoverableWorkoutSessionState;
@@ -99,6 +103,8 @@ export function useRecoverableWorkoutSession({
           startupResult.database,
         ),
         restTimerRepository: createRestTimerRepository(startupResult.database),
+        workoutRuntimeSnapshotRepository:
+          createWorkoutRuntimeSnapshotRepository(),
       };
       repositoriesRef.current = repositories;
       const result = await loadRecoverableWorkoutSessionRecovery(
@@ -127,6 +133,7 @@ export function useRecoverableWorkoutSession({
     }
   }, [
     createRestTimerRepository,
+    createWorkoutRuntimeSnapshotRepository,
     createWorkoutSessionRepository,
     initializeDatabase,
     now,

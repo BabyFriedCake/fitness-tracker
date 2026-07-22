@@ -7,6 +7,7 @@ import {
   type DatabaseStartupResult,
 } from '@/database/bootstrap';
 import { createSqliteRestTimerRepository } from '@/database/repositories/rest-timer';
+import { createSqliteWorkoutRuntimeSnapshotRepository } from '@/database/repositories/workout-runtime-snapshot';
 import { createSqliteWorkoutSessionRepository } from '@/database/repositories/workout-session';
 import type {
   RestTimerRepository,
@@ -40,9 +41,11 @@ import {
   getSessionExerciseNextSetNumber,
   pauseWorkoutRuntime,
   resumeWorkoutRuntime,
+  saveRuntimeSnapshot,
   type WorkoutRuntimeDisplayStatus,
   type WorkoutRuntimeSnapshot,
 } from './workout-runtime-engine';
+import type { WorkoutRuntimeSnapshotRepository } from './workout-runtime-snapshot-repository';
 import {
   createRepCompletedFeedbackEvents,
   createSetCompletedFeedbackEvent,
@@ -123,6 +126,7 @@ export type UseWorkoutSessionScreenDependencies = {
       { readonly status: 'ready' }
     >['database'],
   ) => RestTimerRepository;
+  readonly createWorkoutRuntimeSnapshotRepository?: () => WorkoutRuntimeSnapshotRepository;
   readonly now?: () => string;
   readonly createWorkoutSetId?: () => string;
   readonly voiceFeedbackEnabled?: boolean;
@@ -136,6 +140,8 @@ const SESSION_ACTION_ERROR_MESSAGE =
   '操作保存失败。已完成的训练数据不会丢失，请重试。';
 const SESSION_END_ERROR_MESSAGE =
   '训练结束状态保存失败。已完成的组不会丢失，请重试。';
+const SNAPSHOT_PERSIST_ERROR_MESSAGE =
+  '训练运行状态保存失败。当前训练数据不会丢失，请重试。';
 const INVALID_SET_INPUT_MESSAGE = '请输入有效的非负重量和非负整数次数。';
 const NOOP_VOICE_ADAPTER: WorkoutVoiceFeedbackAdapter = {
   speak: () => undefined,
@@ -147,6 +153,7 @@ export function useWorkoutSessionScreen(
     initializeDatabase = initializeApplicationDatabase,
     createWorkoutSessionRepository = createSqliteWorkoutSessionRepository,
     createRestTimerRepository = createSqliteRestTimerRepository,
+    createWorkoutRuntimeSnapshotRepository = createSqliteWorkoutRuntimeSnapshotRepository,
     now = () => new Date().toISOString(),
     createWorkoutSetId = createDefaultWorkoutSetId,
     voiceFeedbackEnabled = true,
@@ -164,10 +171,12 @@ export function useWorkoutSessionScreen(
   const hasFocusedRef = useRef(false);
   const silentRefreshRequestIdRef = useRef<number | null>(null);
   const refreshAfterMutationRef = useRef(false);
+  const runtimeSnapshotWriteChainRef = useRef<Promise<void>>(Promise.resolve());
   const dependenciesRef = useRef({
     initializeDatabase,
     createWorkoutSessionRepository,
     createRestTimerRepository,
+    createWorkoutRuntimeSnapshotRepository,
     now,
     createWorkoutSetId,
     voiceFeedbackEnabled,
@@ -183,6 +192,7 @@ export function useWorkoutSessionScreen(
       initializeDatabase,
       createWorkoutSessionRepository,
       createRestTimerRepository,
+      createWorkoutRuntimeSnapshotRepository,
       now,
       createWorkoutSetId,
       voiceFeedbackEnabled,
@@ -190,6 +200,7 @@ export function useWorkoutSessionScreen(
     };
   }, [
     createRestTimerRepository,
+    createWorkoutRuntimeSnapshotRepository,
     createWorkoutSessionRepository,
     createWorkoutSetId,
     initializeDatabase,
@@ -202,6 +213,66 @@ export function useWorkoutSessionScreen(
     stateRef.current = next;
     setState(next);
   }, []);
+
+  const runtimeSnapshotSyncKey = createRuntimeSnapshotSyncKey(state);
+
+  useEffect(() => {
+    if (!runtimeSnapshotSyncKey) {
+      return;
+    }
+
+    const current = stateRef.current;
+    const repositories = repositoriesRef.current;
+
+    if (current.status !== 'ready' || !repositories) {
+      return;
+    }
+
+    const snapshot = {
+      ...current.runtime,
+      updatedAt: dependenciesRef.current.now(),
+    };
+    runtimeSnapshotWriteChainRef.current = runtimeSnapshotWriteChainRef.current
+      .then(async () => {
+        const result = await saveRuntimeSnapshot(
+          repositories.workoutRuntimeSnapshotRepository,
+          snapshot,
+        );
+
+        if (
+          !result.success &&
+          isMountedRef.current &&
+          createRuntimeSnapshotSyncKey(stateRef.current) ===
+            runtimeSnapshotSyncKey
+        ) {
+          const latest = stateRef.current;
+
+          if (latest.status === 'ready') {
+            commitState({
+              ...latest,
+              actionError: SNAPSHOT_PERSIST_ERROR_MESSAGE,
+            });
+          }
+        }
+      })
+      .catch(() => {
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        const latest = stateRef.current;
+
+        if (
+          latest.status === 'ready' &&
+          createRuntimeSnapshotSyncKey(latest) === runtimeSnapshotSyncKey
+        ) {
+          commitState({
+            ...latest,
+            actionError: SNAPSHOT_PERSIST_ERROR_MESSAGE,
+          });
+        }
+      });
+  }, [commitState, runtimeSnapshotSyncKey]);
 
   const load = useCallback(
     async (showLoading = true): Promise<void> => {
@@ -262,6 +333,8 @@ export function useWorkoutSessionScreen(
               dependenciesRef.current.createRestTimerRepository(
                 startupResult.database,
               ),
+            workoutRuntimeSnapshotRepository:
+              dependenciesRef.current.createWorkoutRuntimeSnapshotRepository(),
           };
           repositoriesRef.current = repositories;
         }
@@ -1023,6 +1096,26 @@ export function useWorkoutSessionScreen(
       clearNavigationIntent,
     },
   };
+}
+
+function createRuntimeSnapshotSyncKey(
+  state: WorkoutSessionScreenState,
+): string | null {
+  if (state.status !== 'ready') {
+    return null;
+  }
+
+  return JSON.stringify([
+    state.data.session.id,
+    state.data.session.status,
+    state.data.session.updatedAt,
+    state.runtime.status,
+    state.runtime.currentSessionExerciseId,
+    state.runtime.currentSetNumber,
+    state.runtime.completedSets,
+    state.runtime.targetSets,
+    state.runtime.restTimerStatus,
+  ]);
 }
 
 function parseWorkoutSessionId(

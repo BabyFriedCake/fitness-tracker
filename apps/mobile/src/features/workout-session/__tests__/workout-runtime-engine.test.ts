@@ -22,8 +22,13 @@ import {
   getWorkoutRuntimeState,
   loadWorkoutRuntimeState,
   pauseWorkoutRuntime,
+  restoreRuntimeSnapshot,
   resumeWorkoutRuntime,
+  saveRuntimeSnapshot,
+  type WorkoutRuntimeSnapshot,
 } from '@/features/workout-session/application/workout-runtime-engine';
+import type { WorkoutRuntimeSnapshotRepository } from '@/features/workout-session/application/workout-runtime-snapshot-repository';
+import { isValidWorkoutRuntimeSnapshot } from '@/features/workout-session/application/workout-runtime-snapshot-repository';
 
 const CREATED_AT = '2026-07-20T01:00:00.000Z';
 const STARTED_AT = '2026-07-20T01:10:00.000Z';
@@ -234,7 +239,158 @@ describe('Workout Runtime Engine', () => {
     });
     expect(resumed).toEqual(runtime);
   });
+
+  it.each(['running', 'paused'] as const)(
+    'saves a %s runtime snapshot through the repository boundary',
+    async (status) => {
+      const repository = buildWorkoutRuntimeSnapshotRepository();
+      const snapshot = {
+        ...createWorkoutRuntimeSnapshot(buildInProgressSession()),
+        status,
+        updatedAt: NOW,
+      };
+
+      await saveRuntimeSnapshot(repository, snapshot);
+
+      expect(repository.save).toHaveBeenCalledWith(snapshot);
+      expect(repository.clear).not.toHaveBeenCalled();
+    },
+  );
+
+  it('restores status while regenerating exercise, set and timer state', async () => {
+    const session = buildInProgressSession({
+      currentSessionExerciseId: SECOND_SESSION_EXERCISE_ID,
+      currentSetNumber: 3,
+      sessionExercises: [
+        buildExercise(),
+        buildExercise({
+          id: SECOND_SESSION_EXERCISE_ID,
+          position: 2,
+          sets: [buildWorkoutSet(SECOND_SESSION_EXERCISE_ID)],
+        }),
+      ],
+    });
+    const storedSnapshot: WorkoutRuntimeSnapshot = {
+      ...createWorkoutRuntimeSnapshot(session, 'running'),
+      status: 'paused',
+      updatedAt: NOW,
+    };
+    const repository = buildWorkoutRuntimeSnapshotRepository(storedSnapshot);
+
+    const restored = await restoreRuntimeSnapshot(
+      repository,
+      session,
+      'paused',
+    );
+
+    expect(restored).toMatchObject({
+      status: 'paused',
+      currentSessionExerciseId: SECOND_SESSION_EXERCISE_ID,
+      currentSetNumber: 3,
+      currentSet: 3,
+      restTimerStatus: 'paused',
+      updatedAt: NOW,
+    });
+  });
+
+  it.each([
+    buildDraftSession(),
+    buildCancelledSession(),
+    buildCompletedSession(),
+  ])('does not restore a snapshot for a $status session', async (session) => {
+    const snapshot: WorkoutRuntimeSnapshot = {
+      ...createWorkoutRuntimeSnapshot(buildInProgressSession()),
+      updatedAt: NOW,
+    };
+    const repository = buildWorkoutRuntimeSnapshotRepository(snapshot);
+
+    await expect(
+      restoreRuntimeSnapshot(repository, session),
+    ).resolves.toBeNull();
+    expect(repository.load).not.toHaveBeenCalled();
+  });
+
+  it('rejects a stale or mismatched persisted snapshot', async () => {
+    const session = buildInProgressSession();
+    const staleSnapshot: WorkoutRuntimeSnapshot = {
+      ...createWorkoutRuntimeSnapshot(session),
+      updatedAt: CREATED_AT,
+    };
+    const mismatchedSnapshot: WorkoutRuntimeSnapshot = {
+      ...staleSnapshot,
+      sessionId: 'session-other' as WorkoutSessionId,
+      updatedAt: NOW,
+    };
+
+    await expect(
+      restoreRuntimeSnapshot(
+        buildWorkoutRuntimeSnapshotRepository(staleSnapshot),
+        session,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      restoreRuntimeSnapshot(
+        buildWorkoutRuntimeSnapshotRepository(mismatchedSnapshot),
+        session,
+      ),
+    ).resolves.toBeNull();
+  });
+
+  it('rejects an invalid snapshot before restoring runtime state', async () => {
+    const validSnapshot = createWorkoutRuntimeSnapshot(
+      buildInProgressSession(),
+    );
+    const invalidSnapshot = {
+      ...validSnapshot,
+      currentExercise: { invalid: true },
+    } as unknown as WorkoutRuntimeSnapshot;
+    const repository = buildWorkoutRuntimeSnapshotRepository(invalidSnapshot);
+
+    expect(isValidWorkoutRuntimeSnapshot(validSnapshot)).toBe(true);
+    expect(isValidWorkoutRuntimeSnapshot(invalidSnapshot)).toBe(false);
+    await expect(
+      restoreRuntimeSnapshot(repository, buildInProgressSession()),
+    ).resolves.toBeNull();
+  });
+
+  it('rejects inconsistent snapshot counters and current exercise indexes', () => {
+    const snapshot = createWorkoutRuntimeSnapshot(buildInProgressSession());
+
+    expect(
+      isValidWorkoutRuntimeSnapshot({
+        ...snapshot,
+        completedSetCount: snapshot.completedSets + 1,
+      }),
+    ).toBe(false);
+    expect(
+      isValidWorkoutRuntimeSnapshot({
+        ...snapshot,
+        currentExerciseIndex: 10,
+      }),
+    ).toBe(false);
+  });
 });
+
+function buildWorkoutRuntimeSnapshotRepository(
+  initialSnapshot: WorkoutRuntimeSnapshot | null = null,
+): WorkoutRuntimeSnapshotRepository & {
+  readonly save: jest.Mock;
+  readonly load: jest.Mock;
+  readonly clear: jest.Mock;
+} {
+  let snapshot = initialSnapshot;
+
+  return {
+    save: jest.fn(async (next) => {
+      snapshot = next;
+      return { success: true as const };
+    }),
+    load: jest.fn(async () => snapshot),
+    clear: jest.fn(async () => {
+      snapshot = null;
+    }),
+  };
+}
 
 function buildWorkoutSessionRepository(
   overrides: Partial<WorkoutSessionRepository> = {},

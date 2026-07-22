@@ -7,6 +7,7 @@ import {
 } from '@/database/bootstrap';
 import { createSqliteExerciseRepository } from '@/database/repositories/exercise';
 import { createSqliteRestTimerRepository } from '@/database/repositories/rest-timer';
+import { createSqliteWorkoutRuntimeSnapshotRepository } from '@/database/repositories/workout-runtime-snapshot';
 import { createSqliteWorkoutSessionRepository } from '@/database/repositories/workout-session';
 import { createSqliteWorkoutTemplateRepository } from '@/database/repositories/workout-template';
 import type { ExerciseRepository } from '@/domain/exercise';
@@ -31,6 +32,8 @@ import {
   type TodayDashboardRepositories,
 } from './today-dashboard';
 import type { WorkoutSessionIdKind } from './workout-session-flow';
+import type { WorkoutSessionScreenRepositories } from './load-workout-session-screen';
+import type { WorkoutRuntimeSnapshotRepository } from './workout-runtime-snapshot-repository';
 
 export type TodayDashboardScreenState =
   | { readonly status: 'loading' }
@@ -82,13 +85,11 @@ export type UseTodayDashboardDependencies = {
       { readonly status: 'ready' }
     >['database'],
   ) => RestTimerRepository;
+  readonly createWorkoutRuntimeSnapshotRepository?: () => WorkoutRuntimeSnapshotRepository;
   readonly now?: () => string;
   readonly createId?: (kind: WorkoutSessionIdKind) => string;
   readonly continueRecovery?: (
-    repositories: {
-      readonly workoutSessionRepository: WorkoutSessionRepository;
-      readonly restTimerRepository: RestTimerRepository;
-    },
+    repositories: WorkoutSessionScreenRepositories,
     sessionId: WorkoutSessionId,
     now: string,
   ) => Promise<LoadWorkoutSessionRecoveryResult>;
@@ -105,6 +106,7 @@ export function useTodayDashboard({
   createWorkoutTemplateRepository = createSqliteWorkoutTemplateRepository,
   createExerciseRepository = createSqliteExerciseRepository,
   createRestTimerRepository = createSqliteRestTimerRepository,
+  createWorkoutRuntimeSnapshotRepository = createSqliteWorkoutRuntimeSnapshotRepository,
   now = () => new Date().toISOString(),
   createId = createDefaultWorkoutSessionId,
   continueRecovery = continueWorkoutSessionRecovery,
@@ -117,6 +119,7 @@ export function useTodayDashboard({
   const repositoriesRef = useRef<
     | (TodayDashboardRepositories & {
         readonly restTimerRepository: RestTimerRepository;
+        readonly workoutRuntimeSnapshotRepository: WorkoutRuntimeSnapshotRepository;
       })
     | null
   >(null);
@@ -155,6 +158,8 @@ export function useTodayDashboard({
           restTimerRepository: createRestTimerRepository(
             startupResult.database,
           ),
+          workoutRuntimeSnapshotRepository:
+            createWorkoutRuntimeSnapshotRepository(),
         };
         repositoriesRef.current = repositories;
       }
@@ -183,6 +188,7 @@ export function useTodayDashboard({
   }, [
     createExerciseRepository,
     createRestTimerRepository,
+    createWorkoutRuntimeSnapshotRepository,
     createWorkoutSessionRepository,
     createWorkoutTemplateRepository,
     initializeDatabase,
@@ -281,6 +287,8 @@ export function useTodayDashboard({
           {
             workoutSessionRepository: repositories.workoutSessionRepository,
             restTimerRepository: repositories.restTimerRepository,
+            workoutRuntimeSnapshotRepository:
+              repositories.workoutRuntimeSnapshotRepository,
           },
           sessionId,
           now(),

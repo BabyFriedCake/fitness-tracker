@@ -8,8 +8,10 @@ import type {
 import { getRestTimerState } from './workout-session-rest-timer';
 import {
   createWorkoutRuntimeSnapshot,
+  restoreRuntimeSnapshot,
   type WorkoutRuntimeSnapshot,
 } from './workout-runtime-engine';
+import type { WorkoutRuntimeSnapshotRepository } from './workout-runtime-snapshot-repository';
 
 export type WorkoutSessionTimerDisplayStatus =
   'running' | 'paused' | 'completed';
@@ -22,6 +24,7 @@ export type WorkoutSessionScreenData = {
 export type WorkoutSessionScreenRepositories = {
   readonly workoutSessionRepository: WorkoutSessionRepository;
   readonly restTimerRepository: RestTimerRepository;
+  readonly workoutRuntimeSnapshotRepository: WorkoutRuntimeSnapshotRepository;
 };
 
 export type LoadWorkoutSessionScreenResult =
@@ -53,11 +56,22 @@ export async function loadWorkoutSessionScreen(
   const restTimerStatus = isDisplayableTimerStatus(restTimer.status)
     ? restTimer.status
     : undefined;
+  const runtime = await restoreRuntimeSnapshot(
+    repositories.workoutRuntimeSnapshotRepository,
+    session,
+    restTimerStatus,
+  );
+  const nextRuntime =
+    runtime ?? createWorkoutRuntimeSnapshot(session, restTimerStatus);
+
+  if (session.status !== 'in_progress') {
+    await repositories.workoutRuntimeSnapshotRepository.clear(session.id);
+  }
 
   return {
     status: 'ready',
     data: createWorkoutSessionScreenData(session, restTimerStatus),
-    runtime: createWorkoutRuntimeSnapshot(session, restTimerStatus),
+    runtime: nextRuntime,
   };
 }
 

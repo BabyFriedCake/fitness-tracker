@@ -9,6 +9,11 @@ import type {
 } from '@/domain/workout-session';
 
 import { getRestTimerState } from './workout-session-rest-timer';
+import {
+  isValidWorkoutRuntimeSnapshot,
+  type WorkoutRuntimeSnapshotRepository,
+  type WorkoutRuntimeSnapshotSaveResult,
+} from './workout-runtime-snapshot-repository';
 
 export type WorkoutRuntimeStatus = 'running' | 'paused' | 'completed';
 export type WorkoutRuntimeDisplayStatus = 'idle' | WorkoutRuntimeStatus;
@@ -31,6 +36,7 @@ export type WorkoutRuntimeState = {
 
 export type WorkoutRuntimeSnapshot = Omit<WorkoutRuntimeState, 'status'> & {
   readonly status: WorkoutRuntimeDisplayStatus;
+  readonly updatedAt: string;
 };
 
 export type WorkoutRuntimeRepositories = {
@@ -211,6 +217,63 @@ export function createWorkoutRuntimeSnapshot(
     completedSets: completedSetCount,
     targetSets: totalTargetSetCount,
     restTimerStatus,
+    updatedAt: session.updatedAt,
+  };
+}
+
+export async function saveRuntimeSnapshot(
+  repository: WorkoutRuntimeSnapshotRepository,
+  runtime: WorkoutRuntimeSnapshot,
+): Promise<WorkoutRuntimeSnapshotSaveResult> {
+  if (runtime.status === 'running' || runtime.status === 'paused') {
+    try {
+      return await repository.save(runtime);
+    } catch (error) {
+      return createSnapshotPersistFailure(error);
+    }
+  }
+
+  try {
+    await repository.clear(runtime.sessionId);
+    return { success: true };
+  } catch (error) {
+    return createSnapshotPersistFailure(error);
+  }
+}
+
+export async function restoreRuntimeSnapshot(
+  repository: WorkoutRuntimeSnapshotRepository,
+  session: WorkoutSession,
+  restTimerStatus?: RestTimerStatus,
+): Promise<WorkoutRuntimeSnapshot | null> {
+  if (session.status !== 'in_progress') {
+    return null;
+  }
+
+  const snapshot = await repository.load(session.id);
+
+  if (
+    !isValidWorkoutRuntimeSnapshot(snapshot) ||
+    snapshot.sessionId !== session.id
+  ) {
+    return null;
+  }
+
+  const snapshotUpdatedAt = Date.parse(snapshot.updatedAt);
+  const sessionUpdatedAt = Date.parse(session.updatedAt);
+
+  if (
+    !Number.isFinite(snapshotUpdatedAt) ||
+    !Number.isFinite(sessionUpdatedAt) ||
+    snapshotUpdatedAt < sessionUpdatedAt
+  ) {
+    return null;
+  }
+
+  return {
+    ...createWorkoutRuntimeSnapshot(session, restTimerStatus),
+    status: snapshot.status,
+    updatedAt: snapshot.updatedAt,
   };
 }
 
@@ -281,6 +344,16 @@ function deriveRuntimeDisplayStatus(
     case 'cancelled':
       return 'completed';
   }
+}
+
+function createSnapshotPersistFailure(
+  error: unknown,
+): WorkoutRuntimeSnapshotSaveResult {
+  return {
+    success: false,
+    reason: 'snapshot_persist_failed',
+    error: error instanceof Error ? error : new Error(String(error)),
+  };
 }
 
 function findCurrentExerciseIndex(
