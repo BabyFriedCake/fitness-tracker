@@ -20,7 +20,12 @@ import {
   type WorkoutSetId,
 } from '@/domain/workout-session';
 import { useWorkoutSessionHistory } from '@/features/workout-session/application/use-workout-session-history';
-import { loadWorkoutSessionHistory } from '@/features/workout-session/application/workout-session-history';
+import {
+  createWorkoutSessionHistoryCalendar,
+  createWorkoutSessionHistoryOverview,
+  filterWorkoutSessionHistoryItems,
+  loadWorkoutSessionHistory,
+} from '@/features/workout-session/application/workout-session-history';
 import { WorkoutSessionHistoryScreenContent } from '@/features/workout-session/screens/workout-session-history-screen';
 
 (
@@ -117,9 +122,118 @@ describe('WorkoutSession history entry', () => {
     expect(result).toEqual({ status: 'ready', items: [], sections: [] });
   });
 
+  it('derives calendar markers and excludes cancelled sessions from formal statistics', async () => {
+    const result = await loadWorkoutSessionHistory(
+      buildRepository({
+        listByStatuses: async () => [
+          buildSession('completed'),
+          buildOlderCancelledSession(),
+        ],
+      }),
+    );
+
+    if (result.status !== 'ready') {
+      throw new Error('Expected history items.');
+    }
+
+    expect(createWorkoutSessionHistoryOverview(result.items)).toEqual({
+      completedSessionCount: 1,
+      completedSetCount: 2,
+      totalDurationSeconds: 3600,
+      totalVolume: 1200,
+      volumeTrend: { status: 'insufficient' },
+    });
+    const calendar = createWorkoutSessionHistoryCalendar(
+      result.items,
+      new Date(2026, 6, 23),
+    );
+    expect(calendar.days.find((day) => day.localDate === '2026-07-20')).toEqual(
+      {
+        localDate: '2026-07-20',
+        dayOfMonth: 20,
+        hasCompletedWorkout: true,
+      },
+    );
+    expect(calendar.days.find((day) => day.localDate === '2026-07-19')).toEqual(
+      {
+        localDate: '2026-07-19',
+        dayOfMonth: 19,
+        hasCompletedWorkout: false,
+      },
+    );
+  });
+
+  it('filters history with deterministic local period boundaries', () => {
+    const items = [
+      {
+        sessionId: SESSION_ID,
+        workoutName: '本周训练',
+        status: 'completed' as const,
+        startedAt: STARTED_AT,
+        endedAt: ENDED_AT,
+        localDate: '2026-07-20',
+        durationSeconds: 3600,
+        completedSetCount: 2,
+        totalVolume: 1200,
+      },
+      {
+        sessionId: CANCELLED_SESSION_ID,
+        workoutName: '较早训练',
+        status: 'cancelled' as const,
+        endedAt: '2026-06-01T02:00:00.000Z',
+        localDate: '2026-06-01',
+        completedSetCount: 0,
+        totalVolume: 0,
+      },
+    ];
+
+    expect(
+      filterWorkoutSessionHistoryItems(
+        items,
+        'week',
+        new Date(2026, 6, 23, 12),
+      ),
+    ).toEqual([items[0]]);
+    expect(
+      filterWorkoutSessionHistoryItems(
+        items,
+        'three_months',
+        new Date(2026, 6, 23, 12),
+      ),
+    ).toEqual(items);
+  });
+
+  it('derives a simple volume trend from completed sessions only', () => {
+    const latest = {
+      sessionId: SESSION_ID,
+      workoutName: '本次训练',
+      status: 'completed' as const,
+      endedAt: '2026-07-20T02:00:00.000Z',
+      localDate: '2026-07-20',
+      completedSetCount: 2,
+      totalVolume: 1400,
+    };
+    const previous = {
+      ...latest,
+      sessionId: CANCELLED_SESSION_ID,
+      workoutName: '上次训练',
+      endedAt: '2026-07-18T02:00:00.000Z',
+      localDate: '2026-07-18',
+      totalVolume: 1000,
+    };
+
+    expect(
+      createWorkoutSessionHistoryOverview([latest, previous]).volumeTrend,
+    ).toEqual({
+      status: 'available',
+      direction: 'up',
+      difference: 400,
+    });
+  });
+
   it('renders grouped history rows with duration and volume', async () => {
     const onOpenSummary = jest.fn();
-    const { getByLabelText, getByText } = await render(
+    const { getAllByText, getByLabelText, getByText } = await render(
       <WorkoutSessionHistoryScreenContent
         state={{
           status: 'ready',
@@ -170,10 +284,15 @@ describe('WorkoutSession history entry', () => {
     expect(getByText('7月19日')).toBeTruthy();
     expect(getByText('Push')).toBeTruthy();
     expect(getByText('Pull')).toBeTruthy();
-    expect(getByText('1 小时')).toBeTruthy();
+    expect(getAllByText('1 小时')).toHaveLength(2);
     expect(getByText('30 分钟')).toBeTruthy();
     expect(getByText('2 组 · 1,200 kg')).toBeTruthy();
     expect(getByText('1 组 · 400 kg')).toBeTruthy();
+    expect(getByText('完成训练')).toBeTruthy();
+    expect(getByText('1 次')).toBeTruthy();
+    expect(
+      getByText('正式统计仅包含已完成训练，已取消记录不计入汇总。'),
+    ).toBeTruthy();
     await fireEvent.press(getByLabelText('已完成Push，1 小时，1,200 kg'));
     await fireEvent.press(getByLabelText('已取消Pull，30 分钟，400 kg'));
 

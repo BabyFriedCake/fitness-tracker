@@ -1,7 +1,7 @@
 # Sprint 3：训练模板（Workout Templates）
 
 版本：v1.0  
-状态：Ready
+状态：Completed
 
 ## Sprint 目标
 

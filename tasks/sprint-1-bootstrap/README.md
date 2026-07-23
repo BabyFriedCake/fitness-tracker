@@ -1,7 +1,7 @@
 # Sprint 1 — Project Bootstrap
 
 Version: v1.0  
-Status: Ready
+Status: Completed
 
 ## Goal
 

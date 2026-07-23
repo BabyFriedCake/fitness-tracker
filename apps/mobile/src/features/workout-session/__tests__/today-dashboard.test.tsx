@@ -7,6 +7,7 @@ import type {
   ExerciseId,
   ExerciseRepository,
 } from '@/domain/exercise';
+import type { DailyStatusRepository } from '@/domain/daily-status';
 import {
   createWorkoutTemplate,
   type WorkoutTemplate,
@@ -22,6 +23,8 @@ import {
 } from '@/domain/workout-session';
 import {
   createWorkoutSessionFromTemplate,
+  createTodayDashboardRecommendation,
+  createTodayDashboardWeeklySummary,
   loadTodayDashboard,
   type TodayDashboardData,
 } from '@/features/workout-session/application/today-dashboard';
@@ -45,6 +48,7 @@ describe('Today Dashboard', () => {
         list: jest.fn(async () => [buildTemplate()]),
       }),
       exerciseRepository: buildExerciseRepository(),
+      dailyStatusRepository: buildDailyStatusRepository(),
     });
 
     expect(result).toEqual({
@@ -59,6 +63,14 @@ describe('Today Dashboard', () => {
             totalTargetSets: 4,
           },
         ],
+        dailyStatus: undefined,
+        recentWorkout: undefined,
+        weeklySummary: {
+          completedWorkoutCount: 0,
+          completedSetCount: 0,
+          totalVolume: 0,
+        },
+        recommendation: undefined,
       },
     });
   });
@@ -76,6 +88,7 @@ describe('Today Dashboard', () => {
           list: jest.fn(async () => [buildTemplate()]),
         }),
         exerciseRepository: buildExerciseRepository(),
+        dailyStatusRepository: buildDailyStatusRepository(),
       });
 
       expect(result.status).toBe('ready');
@@ -99,6 +112,7 @@ describe('Today Dashboard', () => {
         }),
         workoutTemplateRepository: buildWorkoutTemplateRepository(),
         exerciseRepository: buildExerciseRepository(),
+        dailyStatusRepository: buildDailyStatusRepository(),
       });
 
       expect(result.status).toBe('ready');
@@ -153,6 +167,53 @@ describe('Today Dashboard', () => {
       sets: [],
     });
     expect(save).toHaveBeenCalledWith(result.session);
+  });
+
+  it('derives weekly facts and deterministic non-blocking recommendations', () => {
+    const completed = buildSession('completed');
+    if (completed.status !== 'completed') {
+      throw new Error('Expected completed session.');
+    }
+
+    expect(
+      createTodayDashboardWeeklySummary([completed], new Date(2026, 6, 23, 12)),
+    ).toEqual({
+      completedWorkoutCount: 1,
+      completedSetCount: 0,
+      totalVolume: 0,
+    });
+    expect(createTodayDashboardRecommendation('fatigued', undefined)).toEqual({
+      title: '保留余量',
+      message: '你记录了疲劳。可以减少组数或重量，不会自动修改训练计划。',
+    });
+  });
+
+  it('keeps workout entry available when supplemental Today queries fail', async () => {
+    const result = await loadTodayDashboard({
+      workoutSessionRepository: buildWorkoutSessionRepository({
+        listByStatuses: async () => {
+          throw new Error('statistics unavailable');
+        },
+      }),
+      workoutTemplateRepository: buildWorkoutTemplateRepository({
+        list: async () => [buildTemplate()],
+      }),
+      exerciseRepository: buildExerciseRepository(),
+      dailyStatusRepository: buildDailyStatusRepository(),
+    });
+
+    expect(result).toMatchObject({
+      status: 'ready',
+      data: {
+        sessionEntry: { status: 'none' },
+        templates: [{ id: TEMPLATE_ID }],
+        weeklySummary: {
+          completedWorkoutCount: 0,
+          completedSetCount: 0,
+          totalVolume: 0,
+        },
+      },
+    });
   });
 
   it('does not create another session when a draft already exists', async () => {
@@ -292,6 +353,52 @@ describe('Today Dashboard', () => {
     await fireEvent.press(getByLabelText('查看历史训练'));
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
   });
+
+  it('renders and updates DailyStatus with weekly and recent facts', async () => {
+    const updateDailyStatus = jest.fn(async () => {});
+    const onOpenHistory = jest.fn();
+    const { getByLabelText, getByText } = await render(
+      <TodayDashboardScreenContent
+        state={buildReadyState({
+          sessionEntry: { status: 'none' },
+          templates: [],
+          dailyStatus: 'fatigued',
+          recentWorkout: {
+            sessionId: SESSION_ID,
+            workoutName: 'Push',
+            endedAt: '2026-07-20T02:00:00.000Z',
+            completedSetCount: 4,
+            totalVolume: 3200,
+          },
+          weeklySummary: {
+            completedWorkoutCount: 1,
+            completedSetCount: 4,
+            totalVolume: 3200,
+          },
+          recommendation: {
+            title: '保留余量',
+            message: '你记录了疲劳。可以减少组数或重量，不会自动修改训练计划。',
+          },
+        })}
+        controls={buildControls({ updateDailyStatus })}
+        onCreateTemplate={jest.fn()}
+        onOpenWorkoutSession={jest.fn()}
+        onOpenHistory={onOpenHistory}
+      />,
+    );
+
+    expect(getByLabelText('今日状态：疲劳').props.accessibilityState).toEqual({
+      selected: true,
+    });
+    expect(getByText('本周概览')).toBeTruthy();
+    expect(getByText('3,200 kg')).toBeTruthy();
+    expect(getByText('保留余量')).toBeTruthy();
+
+    await fireEvent.press(getByLabelText('今日状态：正常'));
+    expect(updateDailyStatus).toHaveBeenCalledWith('normal');
+    await fireEvent.press(getByLabelText('查看最近训练Push'));
+    expect(onOpenHistory).toHaveBeenCalledTimes(1);
+  });
 });
 
 function buildReadyState(
@@ -312,7 +419,21 @@ function buildControls(
     reload: jest.fn(),
     createSessionFromTemplate: jest.fn(async () => {}),
     continueSession: jest.fn(async () => false),
+    updateDailyStatus: jest.fn(async () => {}),
     ...overrides,
+  };
+}
+
+function buildDailyStatusRepository(): DailyStatusRepository {
+  return {
+    findByLocalDate: async () => null,
+    save: async (input) => ({
+      id: `daily-status-${input.localDate}`,
+      localDate: input.localDate,
+      status: input.status,
+      createdAt: input.updatedAt,
+      updatedAt: input.updatedAt,
+    }),
   };
 }
 

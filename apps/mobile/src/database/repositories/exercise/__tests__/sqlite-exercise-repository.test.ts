@@ -97,6 +97,28 @@ describe('SQLite ExerciseRepository', () => {
     );
   });
 
+  it('maps instruction steps and source metadata for detail use', async () => {
+    const repository = createSqliteExerciseRepository(database);
+
+    const exercise = await repository.getById(
+      toExerciseId('exercise-barbell-bench-press'),
+    );
+
+    expect(exercise).toEqual(
+      expect.objectContaining({
+        instructionSteps: {
+          zh: ['准备姿势', '完成动作'],
+        },
+        source: {
+          name: 'Repository Test Seed',
+          reference: 'repository-test-v1',
+          license: 'CC0-1.0',
+          attribution: 'Repository test attribution',
+        },
+      }),
+    );
+  });
+
   it('searches by Chinese name substring', async () => {
     const repository = createSqliteExerciseRepository(database);
 
@@ -203,14 +225,17 @@ describe('SQLite ExerciseRepository', () => {
         secondary_muscle_groups_json,
         equipment,
         description,
+        instruction_steps_json,
         image_uri,
         source_name,
         source_reference,
+        source_license,
+        source_attribution,
         is_active,
         created_at,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
       `,
       'exercise-broken-row',
       'broken-row',
@@ -222,8 +247,11 @@ describe('SQLite ExerciseRepository', () => {
       'barbell',
       null,
       null,
+      null,
       'test',
       'test',
+      'MIT',
+      null,
       1,
       '2026-07-15T00:00:00.000Z',
       '2026-07-15T00:00:00.000Z',
@@ -250,10 +278,14 @@ function buildSeedExercise(
     secondaryMuscleGroups: [],
     equipment: 'barbell',
     description: null,
+    instructionSteps: {
+      zh: ['准备姿势', '完成动作'],
+    },
     imageUri: null,
     sourceName: 'Repository Test Seed',
     sourceReference: 'repository-test-v1',
     license: 'CC0-1.0',
+    attribution: 'Repository test attribution',
     status: 'active',
     createdAt: '2026-07-15T00:00:00.000Z',
     updatedAt: '2026-07-15T00:00:00.000Z',

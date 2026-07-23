@@ -146,14 +146,17 @@ async function upsertExercise(
       secondary_muscle_groups_json,
       equipment,
       description,
+      instruction_steps_json,
       image_uri,
       source_name,
       source_reference,
+      source_license,
+      source_attribution,
       is_active,
       created_at,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       slug = excluded.slug,
       name_zh = excluded.name_zh,
@@ -163,9 +166,12 @@ async function upsertExercise(
       secondary_muscle_groups_json = excluded.secondary_muscle_groups_json,
       equipment = excluded.equipment,
       description = excluded.description,
+      instruction_steps_json = excluded.instruction_steps_json,
       image_uri = excluded.image_uri,
       source_name = excluded.source_name,
       source_reference = excluded.source_reference,
+      source_license = excluded.source_license,
+      source_attribution = excluded.source_attribution,
       is_active = excluded.is_active,
       updated_at = excluded.updated_at;
     `,
@@ -178,9 +184,14 @@ async function upsertExercise(
     JSON.stringify(exercise.secondaryMuscleGroups),
     exercise.equipment,
     exercise.description ?? null,
+    exercise.instructionSteps
+      ? JSON.stringify(exercise.instructionSteps)
+      : null,
     exercise.imageUri ?? null,
     exercise.source?.name ?? null,
     exercise.source?.reference ?? null,
+    exercise.source?.license ?? null,
+    exercise.source?.attribution ?? null,
     exercise.status === 'active' ? 1 : 0,
     exercise.createdAt,
     exercise.updatedAt,
@@ -198,10 +209,7 @@ async function rollback(database: DatabaseConnection): Promise<void> {
 function toExerciseInput(row: ExerciseSeedRow): ExerciseInput {
   return {
     ...row,
-    sourceReference: formatSourceReference(row),
+    sourceLicense: row.license,
+    sourceAttribution: row.attribution,
   };
-}
-
-function formatSourceReference(row: ExerciseSeedRow): string {
-  return `${row.sourceReference}; license=${row.license}`;
 }

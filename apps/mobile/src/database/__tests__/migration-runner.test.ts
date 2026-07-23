@@ -10,6 +10,8 @@ import {
   runMigrations,
 } from '@/database/migration-runner';
 import { INITIAL_SCHEMA_SQL } from '@/database/migrations/0001-initial-schema';
+import { WORKOUT_TEMPLATE_CONSTRAINTS_SQL } from '@/database/migrations/0002-workout-template-constraints';
+import { WORKOUT_SESSION_SCHEMA_SQL } from '@/database/migrations/0003-workout-session-schema';
 import type { Migration } from '@/database/migrations';
 import type { DatabaseConnection } from '@/database/types';
 
@@ -87,7 +89,7 @@ describe('database migration runner', () => {
     const result = await runMigrations(database);
 
     expect(result.schemaVersion).toBe(LATEST_SCHEMA_VERSION);
-    expect(result.appliedVersions).toEqual([1, 2, 3]);
+    expect(result.appliedVersions).toEqual([1, 2, 3, 4]);
     await expectSqliteObjects('table', REQUIRED_TABLES);
     await expectSqliteObjects('index', REQUIRED_INDEXES);
   });
@@ -102,7 +104,7 @@ describe('database migration runner', () => {
 
     expect(rerunResult.schemaVersion).toBe(LATEST_SCHEMA_VERSION);
     expect(rerunResult.appliedVersions).toEqual([]);
-    expect(migrationRows?.count).toBe(3);
+    expect(migrationRows?.count).toBe(4);
   });
 
   it('rolls back a failed migration without recording success', async () => {
@@ -140,7 +142,7 @@ describe('database migration runner', () => {
 
   it('restores foreign keys when migration setup fails before transaction starts', async () => {
     let foreignKeys = 1;
-    let schemaVersion = 2;
+    let schemaVersion = 3;
     let rollbackCount = 0;
     const execCalls: string[] = [];
     const beginFailureMigrations: readonly Migration[] = [
@@ -156,7 +158,12 @@ describe('database migration runner', () => {
       },
       {
         version: 3,
-        name: '0003_begin_fails',
+        name: '0003_already_applied',
+        sql: '',
+      },
+      {
+        version: 4,
+        name: '0004_begin_fails',
         sql: 'SELECT 1;',
         disableForeignKeysDuringMigration: true,
       },
@@ -219,13 +226,82 @@ describe('database migration runner', () => {
       );
 
     expect(foreignKeyState?.foreign_keys).toBe(1);
-    expect(await getCurrentSchemaVersion(failingBeginDatabase)).toBe(2);
+    expect(await getCurrentSchemaVersion(failingBeginDatabase)).toBe(3);
     expect(rollbackCount).toBe(0);
     expect(execCalls).toEqual([
       'PRAGMA foreign_keys = OFF;',
       'BEGIN IMMEDIATE;',
       'PRAGMA foreign_keys = ON;',
     ]);
+  });
+
+  it('upgrades version 3 exercise data without loss and reruns safely', async () => {
+    await applyVersion3Migrations();
+    await insertExercise('exercise-existing');
+
+    const result = await runMigrations(database);
+    const exercise = await database.getFirstAsync<{
+      readonly id: string;
+      readonly source_name: string | null;
+      readonly instruction_steps_json: string | null;
+      readonly source_license: string | null;
+      readonly source_attribution: string | null;
+    }>(
+      `
+      SELECT
+        id,
+        source_name,
+        instruction_steps_json,
+        source_license,
+        source_attribution
+      FROM exercises
+      WHERE id = ?;
+      `,
+      'exercise-existing',
+    );
+
+    expect(result).toEqual({
+      schemaVersion: 4,
+      appliedVersions: [4],
+    });
+    expect(exercise).toEqual({
+      id: 'exercise-existing',
+      source_name: 'test',
+      instruction_steps_json: null,
+      source_license: null,
+      source_attribution: null,
+    });
+
+    await expect(runMigrations(database)).resolves.toEqual({
+      schemaVersion: 4,
+      appliedVersions: [],
+    });
+  });
+
+  it('rolls back a failed version 4 upgrade without recording success', async () => {
+    await applyVersion3Migrations();
+    const failingVersion4: readonly Migration[] = [
+      { version: 1, name: '0001_applied', sql: '' },
+      { version: 2, name: '0002_applied', sql: '' },
+      { version: 3, name: '0003_applied', sql: '' },
+      {
+        version: 4,
+        name: '0004_failing_exercise_metadata',
+        sql: `
+          ALTER TABLE exercises ADD COLUMN should_rollback TEXT;
+          INSERT INTO missing_table (id) VALUES ('broken');
+        `,
+      },
+    ];
+
+    await expect(runMigrations(database, failingVersion4)).rejects.toEqual(
+      expect.objectContaining({
+        code: 'database_migration_failed',
+      }),
+    );
+
+    expect(await getCurrentSchemaVersion(database)).toBe(3);
+    await expectColumnToBeMissing('exercises', 'should_rollback');
   });
 
   it('enforces foreign keys for migrated connections', async () => {
@@ -354,9 +430,9 @@ describe('database migration runner', () => {
 
     const result = await runMigrations(database);
 
-    expect(result.schemaVersion).toBe(3);
-    expect(result.appliedVersions).toEqual([2, 3]);
-    expect(await getCurrentSchemaVersion(database)).toBe(3);
+    expect(result.schemaVersion).toBe(4);
+    expect(result.appliedVersions).toEqual([2, 3, 4]);
+    expect(await getCurrentSchemaVersion(database)).toBe(4);
     expect(await getTableCount('workout_templates')).toBe(2);
     expect(await getTableCount('workout_template_exercises')).toBe(2);
 
@@ -394,9 +470,9 @@ describe('database migration runner', () => {
 
     const rerunResult = await runMigrations(database);
 
-    expect(rerunResult.schemaVersion).toBe(3);
+    expect(rerunResult.schemaVersion).toBe(4);
     expect(rerunResult.appliedVersions).toEqual([]);
-    expect(await getTableCount('schema_migrations')).toBe(3);
+    expect(await getTableCount('schema_migrations')).toBe(4);
   });
 
   it('rolls back a failed version 2 upgrade without recording success', async () => {
@@ -635,6 +711,60 @@ describe('database migration runner', () => {
       '2026-07-15T00:00:00.000Z',
     );
     await database.execAsync('COMMIT;');
+  }
+
+  async function applyVersion3Migrations(): Promise<void> {
+    await applyInitialMigrationOnly();
+    await applyHistoricalMigration(
+      2,
+      '0002_workout_template_constraints',
+      WORKOUT_TEMPLATE_CONSTRAINTS_SQL,
+      true,
+    );
+    await applyHistoricalMigration(
+      3,
+      '0003_workout_session_schema',
+      WORKOUT_SESSION_SCHEMA_SQL,
+      true,
+    );
+  }
+
+  async function applyHistoricalMigration(
+    version: number,
+    name: string,
+    sql: string,
+    disableForeignKeys: boolean,
+  ): Promise<void> {
+    if (disableForeignKeys) {
+      await database.execAsync('PRAGMA foreign_keys = OFF;');
+    }
+
+    try {
+      await database.execAsync('BEGIN IMMEDIATE;');
+      await database.execAsync(sql);
+      await database.runAsync(
+        'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?);',
+        version,
+        name,
+        '2026-07-15T00:00:00.000Z',
+      );
+      await database.execAsync('COMMIT;');
+    } finally {
+      if (disableForeignKeys) {
+        await database.execAsync('PRAGMA foreign_keys = ON;');
+      }
+    }
+  }
+
+  async function expectColumnToBeMissing(
+    tableName: string,
+    columnName: string,
+  ): Promise<void> {
+    const columns = await database.getAllAsync<{ readonly name: string }>(
+      `PRAGMA table_info(${tableName});`,
+    );
+
+    expect(columns.some((column) => column.name === columnName)).toBe(false);
   }
 
   async function getTableCount(tableName: string): Promise<number> {

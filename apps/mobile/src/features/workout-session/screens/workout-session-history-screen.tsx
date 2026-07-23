@@ -5,6 +5,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,7 +19,14 @@ import {
 } from '@/features/workout-session/application/use-workout-session-history';
 import type {
   WorkoutSessionHistoryItem,
+  WorkoutSessionHistoryPeriod,
   WorkoutSessionHistorySection,
+} from '@/features/workout-session/application/workout-session-history';
+import {
+  createWorkoutSessionHistoryCalendar,
+  createWorkoutSessionHistoryOverview,
+  createWorkoutSessionHistorySections,
+  filterWorkoutSessionHistoryItems,
 } from '@/features/workout-session/application/workout-session-history';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -145,9 +153,31 @@ function HistoryList({
   readonly sections: readonly WorkoutSessionHistorySection[];
   readonly onOpenSummary: (sessionId: WorkoutSessionId) => void;
 }) {
+  const [period, setPeriod] = useState<WorkoutSessionHistoryPeriod>('all');
+  const items = useMemo(
+    () => sections.flatMap((section) => section.items),
+    [sections],
+  );
+  const filteredItems = useMemo(
+    () => filterWorkoutSessionHistoryItems(items, period, new Date()),
+    [items, period],
+  );
+  const filteredSections = useMemo(
+    () => createWorkoutSessionHistorySections(filteredItems),
+    [filteredItems],
+  );
+  const overview = useMemo(
+    () => createWorkoutSessionHistoryOverview(filteredItems),
+    [filteredItems],
+  );
+  const calendar = useMemo(
+    () => createWorkoutSessionHistoryCalendar(items, new Date()),
+    [items],
+  );
+
   return (
     <SectionList
-      sections={sections.map((section) => ({
+      sections={filteredSections.map((section) => ({
         ...section,
         data: section.items,
       }))}
@@ -163,8 +193,192 @@ function HistoryList({
       ItemSeparatorComponent={ItemSeparator}
       SectionSeparatorComponent={SectionSeparator}
       contentContainerStyle={styles.listContent}
+      ListHeaderComponent={
+        <HistoryOverview
+          period={period}
+          overview={overview}
+          calendar={calendar}
+          onChangePeriod={setPeriod}
+        />
+      }
+      ListEmptyComponent={
+        <ThemedView style={styles.noPeriodResults}>
+          <ThemedText type="small" themeColor="textSecondary">
+            这个时间范围内没有已记录的训练。
+          </ThemedText>
+        </ThemedView>
+      }
       accessibilityLabel="历史训练列表"
     />
+  );
+}
+
+function HistoryOverview({
+  period,
+  overview,
+  calendar,
+  onChangePeriod,
+}: {
+  readonly period: WorkoutSessionHistoryPeriod;
+  readonly overview: ReturnType<typeof createWorkoutSessionHistoryOverview>;
+  readonly calendar: ReturnType<typeof createWorkoutSessionHistoryCalendar>;
+  readonly onChangePeriod: (period: WorkoutSessionHistoryPeriod) => void;
+}) {
+  return (
+    <View style={styles.overview}>
+      <View style={styles.periodFilters} accessibilityLabel="历史时间范围">
+        {(
+          [
+            ['week', '本周'],
+            ['month', '本月'],
+            ['three_months', '3个月'],
+            ['all', '全部'],
+          ] as const
+        ).map(([value, label]) => (
+          <PeriodButton
+            key={value}
+            label={label}
+            selected={period === value}
+            onPress={() => onChangePeriod(value)}
+          />
+        ))}
+      </View>
+      <View style={styles.summaryBand}>
+        <HistoryMetric
+          label="完成训练"
+          value={`${overview.completedSessionCount} 次`}
+        />
+        <HistoryMetric
+          label="完成组数"
+          value={`${overview.completedSetCount} 组`}
+        />
+        <HistoryMetric
+          label="总训练量"
+          value={`${formatVolume(overview.totalVolume)} kg`}
+        />
+        <HistoryMetric
+          label="总时长"
+          value={formatDuration(overview.totalDurationSeconds)}
+        />
+      </View>
+      <ThemedText type="small" themeColor="textSecondary">
+        {formatVolumeTrend(overview.volumeTrend)}
+      </ThemedText>
+      <HistoryCalendar calendar={calendar} />
+      <ThemedText type="small" themeColor="textSecondary">
+        正式统计仅包含已完成训练，已取消记录不计入汇总。
+      </ThemedText>
+    </View>
+  );
+}
+
+function PeriodButton({
+  label,
+  selected,
+  onPress,
+}: {
+  readonly label: string;
+  readonly selected: boolean;
+  readonly onPress: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`查看${label}历史`}
+      accessibilityState={{ selected }}
+      style={({ pressed }) => [
+        styles.periodButton,
+        {
+          backgroundColor: selected
+            ? theme.backgroundSelected
+            : theme.background,
+          borderColor: theme.backgroundSelected,
+        },
+        pressed && styles.pressed,
+      ]}
+    >
+      <ThemedText type="smallBold">{label}</ThemedText>
+    </Pressable>
+  );
+}
+
+function HistoryMetric({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: string;
+}) {
+  return (
+    <View
+      style={styles.historyMetric}
+      accessibilityLabel={`${label}：${value}`}
+    >
+      <ThemedText type="small" themeColor="textSecondary">
+        {label}
+      </ThemedText>
+      <ThemedText type="smallBold">{value}</ThemedText>
+    </View>
+  );
+}
+
+function HistoryCalendar({
+  calendar,
+}: {
+  readonly calendar: ReturnType<typeof createWorkoutSessionHistoryCalendar>;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View
+      style={styles.calendar}
+      accessibilityLabel={`${calendar.title}训练日历`}
+    >
+      <ThemedText type="smallBold">{calendar.title}</ThemedText>
+      <View style={styles.calendarGrid} importantForAccessibility="no">
+        {['日', '一', '二', '三', '四', '五', '六'].map((weekday) => (
+          <View key={weekday} style={styles.calendarDay}>
+            <ThemedText type="small" themeColor="textSecondary">
+              {weekday}
+            </ThemedText>
+          </View>
+        ))}
+      </View>
+      <View style={styles.calendarGrid}>
+        {Array.from({ length: calendar.leadingEmptyDays }, (_, emptyIndex) => (
+          <View
+            key={`empty-${emptyIndex}`}
+            style={styles.calendarDay}
+            importantForAccessibility="no"
+          />
+        ))}
+        {calendar.days.map((day) => (
+          <View
+            key={day.localDate}
+            style={styles.calendarDay}
+            accessibilityLabel={`${day.localDate}${day.hasCompletedWorkout ? '有已完成训练' : '无训练'}`}
+          >
+            <ThemedText
+              type={day.hasCompletedWorkout ? 'smallBold' : 'small'}
+              themeColor={day.hasCompletedWorkout ? 'text' : 'textSecondary'}
+            >
+              {day.dayOfMonth}
+            </ThemedText>
+            {day.hasCompletedWorkout && (
+              <View
+                style={[
+                  styles.calendarMarker,
+                  { backgroundColor: theme.statusSuccess },
+                ]}
+              />
+            )}
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -296,6 +510,20 @@ function formatVolume(value: number): string {
   }).format(value);
 }
 
+function formatVolumeTrend(
+  trend: ReturnType<typeof createWorkoutSessionHistoryOverview>['volumeTrend'],
+): string {
+  if (trend.status === 'insufficient') {
+    return '训练量趋势：至少完成两次训练后显示。';
+  }
+
+  if (trend.direction === 'stable') {
+    return '训练量趋势：与上一次完成训练持平。';
+  }
+
+  return `训练量趋势：较上一次${trend.direction === 'up' ? '增加' : '减少'} ${formatVolume(Math.abs(trend.difference))} kg。`;
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center' },
   safeArea: {
@@ -312,6 +540,47 @@ const styles = StyleSheet.create({
   },
   header: { gap: Spacing.one },
   listContent: { paddingBottom: Spacing.four },
+  overview: { gap: Spacing.three, paddingBottom: Spacing.four },
+  periodFilters: { flexDirection: 'row', gap: Spacing.one },
+  periodButton: {
+    minHeight: 44,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.one,
+  },
+  summaryBand: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  historyMetric: {
+    minWidth: 96,
+    flex: 1,
+    gap: Spacing.one,
+    paddingVertical: Spacing.three,
+  },
+  calendar: { gap: Spacing.two },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calendarDay: {
+    width: '14.2857%',
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  calendarMarker: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  noPeriodResults: {
+    alignItems: 'center',
+    paddingVertical: Spacing.four,
+  },
   sectionTitle: { paddingBottom: Spacing.two },
   historyRow: {
     minHeight: 76,

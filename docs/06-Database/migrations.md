@@ -40,8 +40,6 @@ Last Updated: 2026-07-17
 0003_add_workout_groups.sql
 ```
 
----
-
 ## 3. 初始迁移
 
 V1 初始迁移：
@@ -140,6 +138,23 @@ V1 初始迁移：
 
 如既有数据不满足生命周期或字段约束，迁移失败并完整回滚，
 `schema_migrations` 不记录版本 3。
+
+## 3.3 Exercise Dataset Metadata Migration
+
+第四个迁移：
+
+```text
+0004_exercise_dataset_metadata
+```
+
+为 `exercises` 增加：
+
+- `instruction_steps_json`
+- `source_license`
+- `source_attribution`
+
+字段均允许为空以保留 Sprint 1-5 数据。Migration 不修改历史 Migration，必须在
+事务内执行，并覆盖从 0003 升级、重复运行和失败回滚测试。
 
 ---
 

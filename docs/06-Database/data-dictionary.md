@@ -66,6 +66,23 @@ Last Updated: 2026-07-17
 
 目标组数，必须大于 0。
 
+### exercises.instruction_steps_json
+
+本地化有序动作步骤，保存 JSON 对象。键为受支持语言代码，值为非空字符串
+数组。缺失时使用 `description`，不得生成不存在的步骤。
+
+### exercises.image_uri
+
+可选的本地媒体 URI。只允许引用项目有权分发的资源；不得在运行时指向 GitHub。
+
+### exercises.source_license
+
+动作元数据或说明文本的许可证标识，例如 `MIT`。导入外部数据时必须填写。
+
+### exercises.source_attribution
+
+来源要求的归属文案。存在时必须在 P012 展示。
+
 ### session status
 
 - draft：已创建但未开始

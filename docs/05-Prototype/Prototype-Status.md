@@ -25,18 +25,18 @@ Prototype 编号不等于 Sprint 编号。
 
 | Prototype             | Sprint来源 | 状态     | 说明                                             |
 | --------------------- | ---------- | -------- | ------------------------------------------------ |
-| P001 Today            | Sprint 4/6 | 部分完成 | 基础页面存在，缺 DailyStatus、本周概览、推荐展示 |
+| P001 Today            | Sprint 4/6 | 已批准   | 基础页面存在，Sprint 6 补齐 DailyStatus、本周概览、推荐展示 |
 | P002 Workout Template | Sprint 3   | 基本完成 | 创建、编辑、排序、归档能力已实现                 |
 | P003 Start Workout    | Sprint 4   | 部分完成 | 开始训练流程存在，缺训练前预览增强               |
 | P004 Workout          | Sprint 4/5 | 核心完成 | Workout Runtime 主流程已完成                     |
 | P005 Rest Timer       | Sprint 4/5 | 部分完成 | 基础计时完成，缺暂停、延长、跳过等完整交互       |
 | P006 Workout Summary  | Sprint 4/6 | 部分完成 | 基础总结完成，缺 PR、备注、详情分析              |
-| P007 Exercise Library | Sprint 2/6 | 部分完成 | 基础动作库存在，需要真实数据、图片、详情增强     |
-| P008 History          | Sprint 4/6 | 部分完成 | 已有训练记录，需要日历、趋势、统计               |
+| P007 Exercise Library | Sprint 2/6 | 已批准   | 基础动作库存在，Sprint 6 接入真实本地数据并增强筛选 |
+| P008 History          | Sprint 4/6 | 已批准   | 已有训练记录，Sprint 6 增加日历、趋势、统计       |
 | P009 Settings         | 后续       | 未开始   | 当前为占位能力                                   |
 | P010 Onboarding       | 后续       | 未开始   | 未建立完整流程                                   |
 | P011 Voice Coach      | Sprint 7   | 规划中   | 基于 Companion Event 接入语音反馈                |
-| P012 Exercise Detail  | Sprint 6   | 规划中   | 从 P007 Exercise Library 拆出的详情能力          |
+| P012 Exercise Detail  | Sprint 6   | 已批准   | 从 P007 Exercise Library 拆出的详情能力          |
 | P013 AI Coach         | Sprint 8   | 规划中   | AI 训练辅助入口                                  |
 
 ---
@@ -72,10 +72,12 @@ Sprint 描述工程实现阶段。
 
 当 Prototype、Sprint、代码状态出现差异时：
 
-1. Architecture
-2. PRD
+1. Constitution
+2. Vision / PRD
 3. Prototype
-4. Sprint Plan
-5. Implementation Status
+4. Architecture / Domain Model
+5. Database / Design System / Development Guide
+6. Sprint Plan
+7. Implementation Status
 
 作为判断依据。

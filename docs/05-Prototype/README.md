@@ -29,6 +29,6 @@ P010 Onboarding
 V1 Core:
 P001 Today、P002 Workout Template、P003 Start Workout、P004 Workout、P005 Rest Timer、P006 Workout Summary、P007 Exercise Library、P008 History、P009 Settings、P010 Onboarding。
 Future Extension:
-P011 Voice Coach
-P012 Exercise Detail
-P013 AI Coach
+P011 Voice Coach、P013 AI Coach。
+
+P012 Exercise Detail 已纳入 Sprint 6 核心体验。

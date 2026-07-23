@@ -2,7 +2,7 @@ import { LATEST_SCHEMA_VERSION } from '@/database/constants';
 import { openApplicationDatabase } from '@/database/connection';
 import { toDatabaseError, type DatabaseError } from '@/database/errors';
 import { runMigrations } from '@/database/migration-runner';
-import { importStarterExerciseSeed } from '@/database/seed/exercises';
+import { importBundledExerciseDataset } from '@/database/seed/exercises';
 import type { DatabaseConnection } from '@/database/types';
 
 export type DatabaseStartupResult =
@@ -20,7 +20,7 @@ export async function initializeApplicationDatabase(
   openDatabase: () => Promise<DatabaseConnection> = openApplicationDatabase,
   importSeedData: (
     database: DatabaseConnection,
-  ) => Promise<unknown> = importStarterExerciseSeed,
+  ) => Promise<unknown> = importBundledExerciseDataset,
 ): Promise<DatabaseStartupResult> {
   try {
     const database = await openDatabase();

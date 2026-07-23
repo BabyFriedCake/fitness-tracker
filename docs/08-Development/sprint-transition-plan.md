@@ -21,11 +21,14 @@ P0:
 - Exercise Dataset
 - Exercise Detail
 - History Detail
+- Calendar / Statistics / Trends
 
 P1:
 - Today Experience
+- Deterministic Recommendation
 - Design System Integration
 
-P2:
+不包含：
 - Settings
 - Onboarding
+- Voice / AI / Camera

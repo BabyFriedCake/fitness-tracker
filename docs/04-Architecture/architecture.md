@@ -31,11 +31,11 @@ WorkoutTemplate
 
 - Exercise
 - WorkoutTemplate
-- WorkoutTemplateExercise
+- TemplateExercise
 - WorkoutSession
-- WorkoutSessionExercise
+- SessionExercise
 - WorkoutSet
-- RestTimerState
+- RestTimer
 - DailyStatus
 - UserSetting
 

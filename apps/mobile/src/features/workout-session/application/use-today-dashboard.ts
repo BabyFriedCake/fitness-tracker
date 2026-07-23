@@ -6,11 +6,16 @@ import {
   type DatabaseStartupResult,
 } from '@/database/bootstrap';
 import { createSqliteExerciseRepository } from '@/database/repositories/exercise';
+import { createSqliteDailyStatusRepository } from '@/database/repositories/daily-status';
 import { createSqliteRestTimerRepository } from '@/database/repositories/rest-timer';
 import { createSqliteWorkoutRuntimeSnapshotRepository } from '@/database/repositories/workout-runtime-snapshot';
 import { createSqliteWorkoutSessionRepository } from '@/database/repositories/workout-session';
 import { createSqliteWorkoutTemplateRepository } from '@/database/repositories/workout-template';
 import type { ExerciseRepository } from '@/domain/exercise';
+import type {
+  DailyStatusRepository,
+  DailyStatusValue,
+} from '@/domain/daily-status';
 import type {
   WorkoutTemplateId,
   WorkoutTemplateRepository,
@@ -28,6 +33,7 @@ import {
 import {
   createWorkoutSessionFromTemplate,
   loadTodayDashboard,
+  toLocalDateKey,
   type TodayDashboardData,
   type TodayDashboardRepositories,
 } from './today-dashboard';
@@ -52,6 +58,7 @@ export type TodayDashboardScreenControls = {
     templateId: WorkoutTemplateId,
   ) => Promise<void>;
   readonly continueSession: (sessionId: WorkoutSessionId) => Promise<boolean>;
+  readonly updateDailyStatus: (status: DailyStatusValue) => Promise<void>;
 };
 
 export type TodayDashboardScreenModel = {
@@ -79,6 +86,12 @@ export type UseTodayDashboardDependencies = {
       { readonly status: 'ready' }
     >['database'],
   ) => ExerciseRepository;
+  readonly createDailyStatusRepository?: (
+    database: Extract<
+      DatabaseStartupResult,
+      { readonly status: 'ready' }
+    >['database'],
+  ) => DailyStatusRepository;
   readonly createRestTimerRepository?: (
     database: Extract<
       DatabaseStartupResult,
@@ -100,14 +113,19 @@ const TODAY_LOAD_ERROR_MESSAGE =
 const TODAY_ACTION_ERROR_MESSAGE =
   '训练入口操作失败。已保存的训练数据不会丢失，请重试。';
 
+function getCurrentTimestamp(): string {
+  return new Date().toISOString();
+}
+
 export function useTodayDashboard({
   initializeDatabase = initializeApplicationDatabase,
   createWorkoutSessionRepository = createSqliteWorkoutSessionRepository,
   createWorkoutTemplateRepository = createSqliteWorkoutTemplateRepository,
   createExerciseRepository = createSqliteExerciseRepository,
+  createDailyStatusRepository = createSqliteDailyStatusRepository,
   createRestTimerRepository = createSqliteRestTimerRepository,
   createWorkoutRuntimeSnapshotRepository = createSqliteWorkoutRuntimeSnapshotRepository,
-  now = () => new Date().toISOString(),
+  now = getCurrentTimestamp,
   createId = createDefaultWorkoutSessionId,
   continueRecovery = continueWorkoutSessionRecovery,
 }: UseTodayDashboardDependencies = {}): TodayDashboardScreenModel {
@@ -155,6 +173,9 @@ export function useTodayDashboard({
             startupResult.database,
           ),
           exerciseRepository: createExerciseRepository(startupResult.database),
+          dailyStatusRepository: createDailyStatusRepository(
+            startupResult.database,
+          ),
           restTimerRepository: createRestTimerRepository(
             startupResult.database,
           ),
@@ -164,7 +185,7 @@ export function useTodayDashboard({
         repositoriesRef.current = repositories;
       }
 
-      const result = await loadTodayDashboard(repositories);
+      const result = await loadTodayDashboard(repositories, new Date(now()));
 
       if (!isCurrentRequest(isMountedRef, requestIdRef, requestId)) {
         return;
@@ -187,11 +208,13 @@ export function useTodayDashboard({
     }
   }, [
     createExerciseRepository,
+    createDailyStatusRepository,
     createRestTimerRepository,
     createWorkoutRuntimeSnapshotRepository,
     createWorkoutSessionRepository,
     createWorkoutTemplateRepository,
     initializeDatabase,
+    now,
   ]);
 
   const refreshReadyState = useCallback(async (): Promise<void> => {
@@ -201,7 +224,7 @@ export function useTodayDashboard({
       return;
     }
 
-    const result = await loadTodayDashboard(repositories);
+    const result = await loadTodayDashboard(repositories, new Date(now()));
 
     if (!isMountedRef.current) {
       return;
@@ -217,7 +240,39 @@ export function useTodayDashboard({
           }
         : { status: 'error', message: result.message },
     );
-  }, []);
+  }, [now]);
+
+  const updateDailyStatus = useCallback(
+    async (status: DailyStatusValue): Promise<void> => {
+      const repositories = repositoriesRef.current;
+
+      if (!repositories || !isMountedRef.current) {
+        return;
+      }
+
+      try {
+        const currentTime = now();
+        await repositories.dailyStatusRepository.save({
+          localDate: toLocalDateKey(new Date(currentTime)),
+          status,
+          updatedAt: currentTime,
+        });
+
+        if (isMountedRef.current) {
+          await refreshReadyState();
+        }
+      } catch {
+        if (isMountedRef.current) {
+          setState((current) =>
+            current.status === 'ready'
+              ? { ...current, actionError: TODAY_ACTION_ERROR_MESSAGE }
+              : current,
+          );
+        }
+      }
+    },
+    [now, refreshReadyState],
+  );
 
   const createSessionFromTemplate = useCallback(
     async (templateId: WorkoutTemplateId): Promise<void> => {
@@ -383,6 +438,7 @@ export function useTodayDashboard({
       reload: () => void load(),
       createSessionFromTemplate,
       continueSession,
+      updateDailyStatus,
     },
   };
 }

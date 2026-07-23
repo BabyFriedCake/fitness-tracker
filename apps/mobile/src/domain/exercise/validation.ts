@@ -20,6 +20,7 @@ export type ExerciseValidationIssueCode =
   | 'exercise_primary_muscle_group_invalid'
   | 'exercise_secondary_muscle_group_invalid'
   | 'exercise_equipment_invalid'
+  | 'exercise_instruction_steps_invalid'
   | 'exercise_status_invalid'
   | 'exercise_created_at_invalid'
   | 'exercise_updated_at_invalid';
@@ -66,9 +67,15 @@ export function validateExerciseInput(
   const nameZh = input.nameZh.trim();
   const nameEn = normalizeOptionalText(input.nameEn);
   const description = normalizeOptionalText(input.description);
+  const instructionSteps = normalizeInstructionSteps(
+    input.instructionSteps,
+    issues,
+  );
   const imageUri = normalizeOptionalText(input.imageUri);
   const sourceName = normalizeOptionalText(input.sourceName);
   const sourceReference = normalizeOptionalText(input.sourceReference);
+  const sourceLicense = normalizeOptionalText(input.sourceLicense);
+  const sourceAttribution = normalizeOptionalText(input.sourceAttribution);
   const secondaryMuscleGroups = input.secondaryMuscleGroups ?? [];
 
   if (!id) {
@@ -173,12 +180,15 @@ export function validateExerciseInput(
       secondaryMuscleGroups: secondaryMuscleGroups as readonly MuscleGroup[],
       equipment: input.equipment as Equipment,
       ...(description ? { description } : {}),
+      ...(instructionSteps ? { instructionSteps } : {}),
       ...(imageUri ? { imageUri } : {}),
-      ...(sourceName || sourceReference
+      ...(sourceName || sourceReference || sourceLicense || sourceAttribution
         ? {
             source: {
               ...(sourceName ? { name: sourceName } : {}),
               ...(sourceReference ? { reference: sourceReference } : {}),
+              ...(sourceLicense ? { license: sourceLicense } : {}),
+              ...(sourceAttribution ? { attribution: sourceAttribution } : {}),
             },
           }
         : {}),
@@ -211,6 +221,51 @@ function normalizeOptionalText(
   const normalized = value?.trim();
 
   return normalized ? normalized : null;
+}
+
+function normalizeInstructionSteps(
+  value: ExerciseInput['instructionSteps'],
+  issues: ExerciseValidationIssue[],
+): ExerciseInput['instructionSteps'] {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  const normalizedEntries: [string, readonly string[]][] = [];
+
+  for (const [rawLocale, rawSteps] of Object.entries(value)) {
+    const locale = rawLocale.trim();
+    if (
+      !Array.isArray(rawSteps) ||
+      rawSteps.some((step) => typeof step !== 'string')
+    ) {
+      issues.push({
+        code: 'exercise_instruction_steps_invalid',
+        path: 'instructionSteps',
+        message:
+          'Instruction steps must use a locale key and non-empty ordered steps.',
+      });
+      return undefined;
+    }
+
+    const steps = rawSteps.map((step) => step.trim()).filter(Boolean);
+
+    if (!locale || steps.length === 0 || steps.length !== rawSteps.length) {
+      issues.push({
+        code: 'exercise_instruction_steps_invalid',
+        path: 'instructionSteps',
+        message:
+          'Instruction steps must use a locale key and non-empty ordered steps.',
+      });
+      return undefined;
+    }
+
+    normalizedEntries.push([locale, steps]);
+  }
+
+  return normalizedEntries.length > 0
+    ? Object.fromEntries(normalizedEntries)
+    : undefined;
 }
 
 function isValidSlug(value: string): boolean {

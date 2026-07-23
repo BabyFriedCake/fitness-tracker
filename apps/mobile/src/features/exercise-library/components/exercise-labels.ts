@@ -9,6 +9,7 @@ const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
   core: '核心',
   full_body: '全身',
   cardio: '心肺',
+  neck: '颈部',
 };
 
 const EQUIPMENT_LABELS: Record<Equipment, string> = {
@@ -18,6 +19,8 @@ const EQUIPMENT_LABELS: Record<Equipment, string> = {
   cable: '绳索',
   bodyweight: '自重',
   cardio_machine: '有氧器械',
+  band: '弹力带',
+  kettlebell: '壶铃',
   other: '其他',
 };
 

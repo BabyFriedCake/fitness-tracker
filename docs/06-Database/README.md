@@ -21,11 +21,14 @@ Status: Approved
 
 ## Sprint 6 Extension
 
-Sprint 6 可能增加：
+Sprint 6 新增：
 
-- Exercise media metadata
-- Exercise detail content
-- Exercise source mapping
+- Exercise 有序说明步骤
+- Exercise source license
+- Exercise source attribution
+
+现有 `image_uri` 只保存可合法分发的本地媒体 URI。上游受限媒体不得直接复制
+进 App；无可用媒体时由 UI 显示占位。
 
 原则：
 

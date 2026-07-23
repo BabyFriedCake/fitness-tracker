@@ -128,7 +128,7 @@ Sprint 5 已完成：
 
 # Sprint 6 开始前要求
 
-1. 保持现有 Domain 不变。
+1. 保持 WorkoutSession 与 Runtime Domain 不变；Exercise Domain 只增加获批的数据集字段。
 2. 保持 Runtime 边界。
 3. 不绕过 Event Contract 修改训练状态。
 4. 优先完成已有 Prototype 与代码实现差距。

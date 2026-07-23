@@ -35,9 +35,12 @@ CREATE TABLE exercises (
   secondary_muscle_groups_json TEXT,
   equipment TEXT NOT NULL,
   description TEXT,
+  instruction_steps_json TEXT,
   image_uri TEXT,
   source_name TEXT,
   source_reference TEXT,
+  source_license TEXT,
+  source_attribution TEXT,
   is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -49,6 +52,9 @@ CREATE TABLE exercises (
 - exercise_type: strength | cardio
 - is_active: 0 | 1
 - secondary_muscle_groups_json 保存 JSON 数组
+- instruction_steps_json 保存本地化有序步骤对象
+- image_uri 只引用可合法分发的本地媒体
+- source_license 和 source_attribution 不得通过 source_reference 拼接代替
 
 索引：
 
@@ -429,7 +435,7 @@ CREATE INDEX idx_rest_timer_target_end
 ON rest_timer_states(target_end_at);
 ```
 
-每个 Session 最多一条当前 RestTimerState。
+每个 Session 最多一条当前 RestTimer 记录。
 
 完成或跳过后可以更新状态，也可以在 Session 完成时清理。
 

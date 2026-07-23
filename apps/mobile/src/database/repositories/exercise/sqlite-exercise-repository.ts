@@ -113,9 +113,12 @@ function selectExerciseRowsSql(): string {
       secondary_muscle_groups_json,
       equipment,
       description,
+      instruction_steps_json,
       image_uri,
       source_name,
       source_reference,
+      source_license,
+      source_attribution,
       is_active,
       created_at,
       updated_at

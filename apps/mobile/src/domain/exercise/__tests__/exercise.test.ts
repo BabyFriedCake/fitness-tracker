@@ -17,9 +17,15 @@ const VALID_EXERCISE_INPUT: ExerciseInput = {
   secondaryMuscleGroups: ['shoulders', 'arms'],
   equipment: 'barbell',
   description: '水平推举动作。',
+  instructionSteps: {
+    zh: ['收紧肩胛骨。', '将杠铃控制下放后推起。'],
+    en: ['Set the shoulder blades.', 'Lower and press the bar.'],
+  },
   imageUri: 'exercise://barbell-bench-press',
   sourceName: 'Fitness Tracker Standard Library',
   sourceReference: 'standard-library:v1',
+  sourceLicense: 'MIT',
+  sourceAttribution: 'Fitness Tracker',
   status: 'active',
   createdAt: '2026-07-15T00:00:00.000Z',
   updatedAt: '2026-07-15T00:00:00.000Z',
@@ -39,10 +45,16 @@ describe('Exercise domain', () => {
       secondaryMuscleGroups: ['shoulders', 'arms'],
       equipment: 'barbell',
       description: '水平推举动作。',
+      instructionSteps: {
+        zh: ['收紧肩胛骨。', '将杠铃控制下放后推起。'],
+        en: ['Set the shoulder blades.', 'Lower and press the bar.'],
+      },
       imageUri: 'exercise://barbell-bench-press',
       source: {
         name: 'Fitness Tracker Standard Library',
         reference: 'standard-library:v1',
+        license: 'MIT',
+        attribution: 'Fitness Tracker',
       },
       status: 'active',
       createdAt: '2026-07-15T00:00:00.000Z',
@@ -59,9 +71,12 @@ describe('Exercise domain', () => {
       nameEn: ' ',
       secondaryMuscleGroups: null,
       description: null,
+      instructionSteps: null,
       imageUri: undefined,
       sourceName: ' ',
       sourceReference: null,
+      sourceLicense: null,
+      sourceAttribution: undefined,
     });
 
     expect(exercise.id).toBe('exercise-dumbbell-shoulder-press');
@@ -70,6 +85,36 @@ describe('Exercise domain', () => {
     expect(exercise.nameEn).toBeUndefined();
     expect(exercise.secondaryMuscleGroups).toEqual([]);
     expect(exercise.source).toBeUndefined();
+  });
+
+  it('normalizes instruction steps and rejects malformed step data', () => {
+    const exercise = createExercise({
+      ...VALID_EXERCISE_INPUT,
+      instructionSteps: {
+        zh: [' 第一步 ', '第二步'],
+      },
+    });
+
+    expect(exercise.instructionSteps).toEqual({
+      zh: ['第一步', '第二步'],
+    });
+
+    const result = validateExerciseInput({
+      ...VALID_EXERCISE_INPUT,
+      instructionSteps: {
+        zh: [''],
+      },
+    });
+
+    expect(result).toEqual({
+      valid: false,
+      issues: [
+        expect.objectContaining({
+          code: 'exercise_instruction_steps_invalid',
+          path: 'instructionSteps',
+        }),
+      ],
+    });
   });
 
   it('rejects imported exercise data with invalid domain values', () => {
