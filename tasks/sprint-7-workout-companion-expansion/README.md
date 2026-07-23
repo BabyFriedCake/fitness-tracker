@@ -13,6 +13,7 @@
 - [x] `S7-00-R1-today-plan-ui-binding.md`
 - [x] `S7-00-R2-today-plan-detail-entry.md`
 - [x] `S7-00-R3-today-plan-session-edit.md`
+- [x] `S7-00-R4-exercise-library-figma-alignment.md`
 - [ ] `S7-00-figma-product-alignment.md`
 
 后续 Voice Coach、Rep Event、Auto Rep Counter 接口和 Companion Settings
