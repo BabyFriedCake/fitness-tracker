@@ -47,6 +47,8 @@ const ACTIVE_SESSION_ID = 'session-active' as WorkoutSessionId;
 const SESSION_EXERCISE_ID = 'session-exercise-bench' as SessionExerciseId;
 const STARTED_AT = '2026-07-20T01:00:00.000Z';
 const ENDED_AT = '2026-07-20T02:00:00.000Z';
+const OLDER_STARTED_AT = '2026-07-19T01:30:00.000Z';
+const OLDER_ENDED_AT = '2026-07-19T02:00:00.000Z';
 
 describe('WorkoutSession history entry', () => {
   afterEach(() => {
@@ -57,8 +59,8 @@ describe('WorkoutSession history entry', () => {
 
   it('loads only completed and cancelled sessions for history', async () => {
     const listByStatuses = jest.fn(async () => [
+      buildOlderCancelledSession(),
       buildSession('completed'),
-      buildSession('cancelled', CANCELLED_SESSION_ID),
     ]);
 
     const result = await loadWorkoutSessionHistory(
@@ -75,6 +77,7 @@ describe('WorkoutSession history entry', () => {
       sessionId: SESSION_ID,
       status: 'completed',
       workoutName: 'Push',
+      localDate: '2026-07-20',
       completedSetCount: 2,
       totalVolume: 1200,
       durationSeconds: 3600,
@@ -82,9 +85,23 @@ describe('WorkoutSession history entry', () => {
     expect(result.items[1]).toMatchObject({
       sessionId: CANCELLED_SESSION_ID,
       status: 'cancelled',
+      localDate: '2026-07-19',
       completedSetCount: 2,
       totalVolume: 1200,
+      durationSeconds: 1800,
     });
+    expect(result.sections).toEqual([
+      {
+        localDate: '2026-07-20',
+        title: '7月20日',
+        items: [result.items[0]],
+      },
+      {
+        localDate: '2026-07-19',
+        title: '7月19日',
+        items: [result.items[1]],
+      },
+    ]);
   });
 
   it('does not expose draft or in-progress sessions if the repository returns them', async () => {
@@ -97,34 +114,49 @@ describe('WorkoutSession history entry', () => {
       }),
     );
 
-    expect(result).toEqual({ status: 'ready', items: [] });
+    expect(result).toEqual({ status: 'ready', items: [], sections: [] });
   });
 
-  it('renders history rows and opens completed summaries only', async () => {
+  it('renders grouped history rows with duration and volume', async () => {
     const onOpenSummary = jest.fn();
     const { getByLabelText, getByText } = await render(
       <WorkoutSessionHistoryScreenContent
         state={{
           status: 'ready',
-          items: [
+          sections: [
             {
-              sessionId: SESSION_ID,
-              workoutName: 'Push',
-              status: 'completed',
-              startedAt: STARTED_AT,
-              endedAt: ENDED_AT,
-              durationSeconds: 3600,
-              completedSetCount: 2,
-              totalVolume: 1200,
+              localDate: '2026-07-20',
+              title: '7月20日',
+              items: [
+                {
+                  sessionId: SESSION_ID,
+                  workoutName: 'Push',
+                  status: 'completed',
+                  startedAt: STARTED_AT,
+                  endedAt: ENDED_AT,
+                  localDate: '2026-07-20',
+                  durationSeconds: 3600,
+                  completedSetCount: 2,
+                  totalVolume: 1200,
+                },
+              ],
             },
             {
-              sessionId: CANCELLED_SESSION_ID,
-              workoutName: 'Pull',
-              status: 'cancelled',
-              startedAt: STARTED_AT,
-              endedAt: ENDED_AT,
-              completedSetCount: 1,
-              totalVolume: 400,
+              localDate: '2026-07-19',
+              title: '7月19日',
+              items: [
+                {
+                  sessionId: CANCELLED_SESSION_ID,
+                  workoutName: 'Pull',
+                  status: 'cancelled',
+                  startedAt: OLDER_STARTED_AT,
+                  endedAt: OLDER_ENDED_AT,
+                  localDate: '2026-07-19',
+                  durationSeconds: 1800,
+                  completedSetCount: 1,
+                  totalVolume: 400,
+                },
+              ],
             },
           ],
         }}
@@ -134,18 +166,24 @@ describe('WorkoutSession history entry', () => {
       />,
     );
 
+    expect(getByText('7月20日')).toBeTruthy();
+    expect(getByText('7月19日')).toBeTruthy();
     expect(getByText('Push')).toBeTruthy();
     expect(getByText('Pull')).toBeTruthy();
-    await fireEvent.press(getByLabelText('已完成Push，2 组'));
-    await fireEvent.press(getByLabelText('已取消Pull，1 组'));
+    expect(getByText('1 小时')).toBeTruthy();
+    expect(getByText('30 分钟')).toBeTruthy();
+    expect(getByText('2 组 · 1,200 kg')).toBeTruthy();
+    expect(getByText('1 组 · 400 kg')).toBeTruthy();
+    await fireEvent.press(getByLabelText('已完成Push，1 小时，1,200 kg'));
+    await fireEvent.press(getByLabelText('已取消Pull，30 分钟，400 kg'));
 
     expect(onOpenSummary).toHaveBeenCalledTimes(1);
     expect(onOpenSummary).toHaveBeenCalledWith(SESSION_ID);
-    expect(getByLabelText('已取消Pull，1 组').props.accessibilityState).toEqual(
-      {
-        disabled: true,
-      },
-    );
+    expect(
+      getByLabelText('已取消Pull，30 分钟，400 kg').props.accessibilityState,
+    ).toEqual({
+      disabled: true,
+    });
   });
 
   it('shows empty and retryable error states', async () => {
@@ -188,7 +226,7 @@ describe('WorkoutSession history entry', () => {
     await flushHistoryHookInitialLoad();
     expect(result.current.state).toMatchObject({
       status: 'ready',
-      items: [{ sessionId: SESSION_ID, status: 'completed' }],
+      sections: [{ items: [{ sessionId: SESSION_ID, status: 'completed' }] }],
     });
     jest.useRealTimers();
   });
@@ -328,6 +366,19 @@ function buildSession(
     case 'cancelled':
       return { ...base, status, startedAt: STARTED_AT, endedAt: ENDED_AT };
   }
+}
+
+function buildOlderCancelledSession(): WorkoutSession {
+  return {
+    id: CANCELLED_SESSION_ID,
+    workoutNameSnapshot: 'Pull',
+    sessionExercises: [buildExercise(CANCELLED_SESSION_ID)],
+    status: 'cancelled',
+    startedAt: OLDER_STARTED_AT,
+    endedAt: OLDER_ENDED_AT,
+    createdAt: STARTED_AT,
+    updatedAt: OLDER_ENDED_AT,
+  };
 }
 
 function buildExercise(sessionId: WorkoutSessionId): SessionExercise {

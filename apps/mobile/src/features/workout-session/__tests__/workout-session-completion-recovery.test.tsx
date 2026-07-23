@@ -23,6 +23,7 @@ import {
   loadWorkoutSessionSummary,
 } from '@/features/workout-session/application/workout-session-completion-recovery';
 import { recordWorkoutSet } from '@/features/workout-session/application/workout-session-execution';
+import type { WorkoutRuntimeSnapshotRepository } from '@/features/workout-session/application/workout-runtime-snapshot-repository';
 import { WorkoutSessionSummaryScreenContent } from '@/features/workout-session/screens/workout-session-summary-screen';
 import { TodayWorkoutRecoveryScreenContent } from '@/features/workout-session/screens/today-workout-recovery-screen';
 
@@ -77,6 +78,8 @@ describe('WorkoutSession completion and recovery', () => {
         {
           workoutSessionRepository: repository,
           restTimerRepository,
+          workoutRuntimeSnapshotRepository:
+            buildWorkoutRuntimeSnapshotRepository(),
         },
         SESSION_ID,
         '2026-07-20T01:31:00.000Z',
@@ -87,9 +90,9 @@ describe('WorkoutSession completion and recovery', () => {
         throw new Error('Expected recoverable session data.');
       }
       expect(result.data.session.id).toBe(SESSION_ID);
-      expect(result.data.currentExercise?.id).toBe(EXERCISE_ID);
-      expect(result.data.currentSetNumber).toBe(2);
-      expect(result.data.currentExercise?.sets).toEqual([
+      expect(result.runtime.currentExercise?.id).toBe(EXERCISE_ID);
+      expect(result.runtime.currentSet).toBe(2);
+      expect(result.runtime.currentExercise?.sets).toEqual([
         buildWorkoutSet({ id: 'set-1' as WorkoutSetId, setNumber: 1 }),
       ]);
       expect(result.data.restTimerStatus).toBe('running');
@@ -111,6 +114,8 @@ describe('WorkoutSession completion and recovery', () => {
         {
           workoutSessionRepository: repository,
           restTimerRepository: buildRestTimerRepository(),
+          workoutRuntimeSnapshotRepository:
+            buildWorkoutRuntimeSnapshotRepository(),
         },
         '2026-07-20T01:31:00.000Z',
       );
@@ -131,6 +136,8 @@ describe('WorkoutSession completion and recovery', () => {
       {
         workoutSessionRepository: repository,
         restTimerRepository: buildRestTimerRepository(timer),
+        workoutRuntimeSnapshotRepository:
+          buildWorkoutRuntimeSnapshotRepository(),
       },
       SESSION_ID,
       '2026-07-20T01:31:00.000Z',
@@ -147,7 +154,7 @@ describe('WorkoutSession completion and recovery', () => {
       currentSetNumber: 2,
       notes: '保留备注',
     });
-    expect(result.data.currentExercise?.sets).toEqual(
+    expect(result.runtime.currentExercise?.sets).toEqual(
       draft.sessionExercises[0]?.sets,
     );
     expect(result.data.restTimerStatus).toBe('running');
@@ -162,6 +169,8 @@ describe('WorkoutSession completion and recovery', () => {
       {
         workoutSessionRepository: repository,
         restTimerRepository: buildRestTimerRepository(),
+        workoutRuntimeSnapshotRepository:
+          buildWorkoutRuntimeSnapshotRepository(),
       },
       SESSION_ID,
       '2026-07-20T01:31:00.000Z',
@@ -192,6 +201,8 @@ describe('WorkoutSession completion and recovery', () => {
       {
         workoutSessionRepository: repository,
         restTimerRepository: buildRestTimerRepository(),
+        workoutRuntimeSnapshotRepository:
+          buildWorkoutRuntimeSnapshotRepository(),
       },
       SESSION_ID,
       '2026-07-20T01:31:00.000Z',
@@ -247,6 +258,8 @@ describe('WorkoutSession completion and recovery', () => {
       {
         workoutSessionRepository: buildRepository(session),
         restTimerRepository: buildRestTimerRepository(buildTimer()),
+        workoutRuntimeSnapshotRepository:
+          buildWorkoutRuntimeSnapshotRepository(),
       },
       SESSION_ID,
       '2026-07-20T01:31:00.000Z',
@@ -258,7 +271,7 @@ describe('WorkoutSession completion and recovery', () => {
 
     const { getByLabelText, getByText } = await render(
       <TodayWorkoutRecoveryScreenContent
-        state={{ status: 'ready', data: result.data }}
+        state={{ status: 'ready', data: result.data, runtime: result.runtime }}
         onReload={jest.fn()}
         onResume={onResume}
       />,
@@ -278,6 +291,8 @@ describe('WorkoutSession completion and recovery', () => {
           buildRecoverableDraftSession(),
         ),
         restTimerRepository: buildRestTimerRepository(),
+        workoutRuntimeSnapshotRepository:
+          buildWorkoutRuntimeSnapshotRepository(),
       },
       '2026-07-20T01:31:00.000Z',
     );
@@ -288,7 +303,7 @@ describe('WorkoutSession completion and recovery', () => {
 
     const { getByLabelText, getByText } = await render(
       <TodayWorkoutRecoveryScreenContent
-        state={{ status: 'ready', data: result.data }}
+        state={{ status: 'ready', data: result.data, runtime: result.runtime }}
         onReload={jest.fn()}
         onResume={onResume}
       />,
@@ -476,6 +491,14 @@ function buildRestTimerRepository(timer?: RestTimer): RestTimerRepository {
     })),
     update: jest.fn(async (next) => next),
     completeIfExpired: jest.fn(async () => null),
+  };
+}
+
+function buildWorkoutRuntimeSnapshotRepository(): WorkoutRuntimeSnapshotRepository {
+  return {
+    save: jest.fn(async () => ({ success: true as const })),
+    load: jest.fn(async () => null),
+    clear: jest.fn(async () => undefined),
   };
 }
 

@@ -1,36 +1,39 @@
 import type {
   RestTimerRepository,
-  SessionExercise,
+  RestTimerStatus,
   WorkoutSession,
   WorkoutSessionId,
   WorkoutSessionRepository,
 } from '@/domain/workout-session';
 
 import { getRestTimerState } from './workout-session-rest-timer';
+import {
+  createWorkoutRuntimeSnapshot,
+  restoreRuntimeSnapshot,
+  type WorkoutRuntimeSnapshot,
+} from './workout-runtime-engine';
+import type { WorkoutRuntimeSnapshotRepository } from './workout-runtime-snapshot-repository';
 
 export type WorkoutSessionTimerDisplayStatus =
   'running' | 'paused' | 'completed';
 
 export type WorkoutSessionScreenData = {
   readonly session: WorkoutSession;
-  readonly orderedExercises: readonly SessionExercise[];
-  readonly currentExercise?: SessionExercise;
-  readonly currentExerciseIndex?: number;
-  readonly currentSetNumber?: number;
-  readonly completedSetCount: number;
-  readonly totalTargetSetCount: number;
   readonly restTimerStatus?: WorkoutSessionTimerDisplayStatus;
+  readonly restRemainingSeconds?: number;
 };
 
 export type WorkoutSessionScreenRepositories = {
   readonly workoutSessionRepository: WorkoutSessionRepository;
   readonly restTimerRepository: RestTimerRepository;
+  readonly workoutRuntimeSnapshotRepository: WorkoutRuntimeSnapshotRepository;
 };
 
 export type LoadWorkoutSessionScreenResult =
   | {
       readonly status: 'ready';
       readonly data: WorkoutSessionScreenData;
+      readonly runtime: WorkoutRuntimeSnapshot;
     }
   | {
       readonly status: 'not_found';
@@ -52,90 +55,59 @@ export async function loadWorkoutSessionScreen(
     sessionId,
     now,
   });
+  const persistedRestTimerStatus = isPersistedTimerStatus(restTimer.status)
+    ? restTimer.status
+    : undefined;
   const restTimerStatus = isDisplayableTimerStatus(restTimer.status)
     ? restTimer.status
     : undefined;
+  const runtime = await restoreRuntimeSnapshot(
+    repositories.workoutRuntimeSnapshotRepository,
+    session,
+    persistedRestTimerStatus,
+  );
+  const nextRuntime =
+    runtime ?? createWorkoutRuntimeSnapshot(session, persistedRestTimerStatus);
+
+  if (session.status !== 'in_progress') {
+    await repositories.workoutRuntimeSnapshotRepository.clear(session.id);
+  }
 
   return {
     status: 'ready',
-    data: createWorkoutSessionScreenData(session, restTimerStatus),
+    data: createWorkoutSessionScreenData(
+      session,
+      restTimerStatus,
+      restTimer.status === 'not_found' ? undefined : restTimer.remainingSeconds,
+    ),
+    runtime: nextRuntime,
   };
 }
 
 export function createWorkoutSessionScreenData(
   session: WorkoutSession,
   restTimerStatus?: WorkoutSessionTimerDisplayStatus,
+  restRemainingSeconds?: number,
 ): WorkoutSessionScreenData {
-  const orderedExercises = [...session.sessionExercises].sort(
-    (left, right) => left.position - right.position,
-  );
-  const currentExerciseIndex = findCurrentExerciseIndex(
-    orderedExercises,
-    session,
-  );
-  const currentExercise =
-    currentExerciseIndex === undefined
-      ? undefined
-      : orderedExercises[currentExerciseIndex];
-  const completedSetCount = orderedExercises.reduce(
-    (total, exercise) =>
-      total +
-      exercise.sets.filter((workoutSet) => workoutSet.isCompleted).length,
-    0,
-  );
-  const totalTargetSetCount = orderedExercises.reduce(
-    (total, exercise) => total + exercise.targetSets,
-    0,
-  );
-
   return {
     session,
-    orderedExercises,
-    currentExercise,
-    currentExerciseIndex,
-    currentSetNumber: currentExercise
-      ? Math.max(
-          session.currentSetNumber ?? 1,
-          getSessionExerciseNextSetNumber(currentExercise),
-        )
-      : undefined,
-    completedSetCount,
-    totalTargetSetCount,
     restTimerStatus,
+    restRemainingSeconds,
   };
-}
-
-function findCurrentExerciseIndex(
-  exercises: readonly SessionExercise[],
-  session: WorkoutSession,
-): number | undefined {
-  if (exercises.length === 0) {
-    return undefined;
-  }
-
-  if (session.currentSessionExerciseId) {
-    const index = exercises.findIndex(
-      (exercise) => exercise.id === session.currentSessionExerciseId,
-    );
-
-    if (index >= 0) {
-      return index;
-    }
-  }
-
-  return 0;
-}
-
-export function getSessionExerciseNextSetNumber(
-  exercise: SessionExercise,
-): number {
-  return (
-    Math.max(0, ...exercise.sets.map((workoutSet) => workoutSet.setNumber)) + 1
-  );
 }
 
 function isDisplayableTimerStatus(
   status: string,
 ): status is WorkoutSessionTimerDisplayStatus {
   return status === 'running' || status === 'paused' || status === 'completed';
+}
+
+function isPersistedTimerStatus(status: string): status is RestTimerStatus {
+  return (
+    status === 'running' ||
+    status === 'paused' ||
+    status === 'completed' ||
+    status === 'skipped' ||
+    status === 'cancelled'
+  );
 }

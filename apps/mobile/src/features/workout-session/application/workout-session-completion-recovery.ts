@@ -11,6 +11,7 @@ import {
   type WorkoutSessionScreenData,
   type WorkoutSessionScreenRepositories,
 } from './load-workout-session-screen';
+import type { WorkoutRuntimeSnapshot } from './workout-runtime-engine';
 import { startSession } from './workout-session-flow';
 import {
   cancelRestTimer,
@@ -34,7 +35,11 @@ export type LoadWorkoutSessionSummaryResult =
   | { readonly status: 'not_completed' };
 
 export type LoadWorkoutSessionRecoveryResult =
-  | { readonly status: 'ready'; readonly data: WorkoutSessionScreenData }
+  | {
+      readonly status: 'ready';
+      readonly data: WorkoutSessionScreenData;
+      readonly runtime: WorkoutRuntimeSnapshot;
+    }
   | { readonly status: 'not_found' }
   | { readonly status: 'not_recoverable' };
 
