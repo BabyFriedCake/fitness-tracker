@@ -17,6 +17,7 @@ import {
   DAILY_STATUS_VALUES,
   type DailyStatusValue,
 } from '@/domain/daily-status';
+import type { TodayWorkoutPlanId } from '@/domain/today-workout-plan';
 import type { WorkoutTemplateId } from '@/domain/workout-template';
 import type { WorkoutSessionId } from '@/domain/workout-session';
 import {
@@ -47,6 +48,12 @@ export function TodayDashboardScreen() {
           params: { id: templateId },
         });
       }}
+      onOpenTodayPlan={(planId) => {
+        router.push({
+          pathname: '/today-plans/[id]',
+          params: { id: planId },
+        });
+      }}
       onOpenWorkoutSession={(sessionId) => {
         router.push({
           pathname: '/workout-sessions/[id]',
@@ -65,6 +72,7 @@ export type TodayDashboardScreenContentProps = {
   readonly controls: TodayDashboardScreenControls;
   readonly onCreateTemplate: () => void;
   readonly onOpenTemplate: (templateId: WorkoutTemplateId) => void;
+  readonly onOpenTodayPlan: (planId: TodayWorkoutPlanId) => void;
   readonly onOpenWorkoutSession: (sessionId: WorkoutSessionId) => void;
   readonly onOpenHistory: () => void;
 };
@@ -74,6 +82,7 @@ export function TodayDashboardScreenContent({
   controls,
   onCreateTemplate,
   onOpenTemplate,
+  onOpenTodayPlan,
   onOpenWorkoutSession,
   onOpenHistory,
 }: TodayDashboardScreenContentProps) {
@@ -105,6 +114,7 @@ export function TodayDashboardScreenContent({
                 controls={controls}
                 onCreateTemplate={onCreateTemplate}
                 onOpenTemplate={onOpenTemplate}
+                onOpenTodayPlan={onOpenTodayPlan}
                 onOpenWorkoutSession={onOpenWorkoutSession}
                 onOpenHistory={onOpenHistory}
               />
@@ -158,6 +168,7 @@ function ReadyState({
   controls,
   onCreateTemplate,
   onOpenTemplate,
+  onOpenTodayPlan,
   onOpenWorkoutSession,
   onOpenHistory,
 }: {
@@ -165,6 +176,7 @@ function ReadyState({
   readonly controls: TodayDashboardScreenControls;
   readonly onCreateTemplate: () => void;
   readonly onOpenTemplate: (templateId: WorkoutTemplateId) => void;
+  readonly onOpenTodayPlan: (planId: TodayWorkoutPlanId) => void;
   readonly onOpenWorkoutSession: (sessionId: WorkoutSessionId) => void;
   readonly onOpenHistory: () => void;
 }) {
@@ -212,7 +224,7 @@ function ReadyState({
               onOpenWorkoutSession(sessionId);
             }
           }}
-          onOpenTemplate={onOpenTemplate}
+          onOpenTodayPlan={onOpenTodayPlan}
         />
       )}
 
@@ -487,7 +499,7 @@ function TodayPlanList({
   isCreating,
   onOpenPicker,
   onStartPlan,
-  onOpenTemplate,
+  onOpenTodayPlan,
 }: {
   readonly plans: readonly TodayDashboardPlanItem[];
   readonly templates: readonly TodayDashboardTemplateItem[];
@@ -495,7 +507,7 @@ function TodayPlanList({
   readonly isCreating: boolean;
   readonly onOpenPicker: () => void;
   readonly onStartPlan: (planId: TodayDashboardPlanItem['id']) => Promise<void>;
-  readonly onOpenTemplate: (templateId: WorkoutTemplateId) => void;
+  readonly onOpenTodayPlan: (planId: TodayDashboardPlanItem['id']) => void;
 }) {
   return (
     <View style={styles.templateSection}>
@@ -532,7 +544,7 @@ function TodayPlanList({
                 disabled={disabled}
                 isCreating={isCreating}
                 onStartPlan={onStartPlan}
-                onOpenTemplate={onOpenTemplate}
+                onOpenTodayPlan={onOpenTodayPlan}
               />
               {index < plans.length - 1 && <ListSeparator />}
             </View>
@@ -548,13 +560,13 @@ function TodayPlanCard({
   disabled,
   isCreating,
   onStartPlan,
-  onOpenTemplate,
+  onOpenTodayPlan,
 }: {
   readonly plan: TodayDashboardPlanItem;
   readonly disabled: boolean;
   readonly isCreating: boolean;
   readonly onStartPlan: (planId: TodayDashboardPlanItem['id']) => Promise<void>;
-  readonly onOpenTemplate: (templateId: WorkoutTemplateId) => void;
+  readonly onOpenTodayPlan: (planId: TodayDashboardPlanItem['id']) => void;
 }) {
   const theme = useTheme();
   const metrics = `${plan.exerciseCount} 个动作 · ${plan.totalTargetSets} 组`;
@@ -577,7 +589,7 @@ function TodayPlanCard({
       ]}
     >
       <Pressable
-        onPress={() => onOpenTemplate(plan.templateId)}
+        onPress={() => onOpenTodayPlan(plan.id)}
         accessibilityRole="button"
         accessibilityLabel={`查看今日训练计划${plan.name}，${metrics}`}
         style={({ pressed }) => [
