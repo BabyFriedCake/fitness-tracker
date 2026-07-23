@@ -16,7 +16,7 @@
 - [x] `S7-00-R4-exercise-library-figma-alignment.md`
 - [x] `S7-00-R5-history-calendar-figma-alignment.md`
 - [x] `S7-00-R6-workout-runtime-ui-figma-alignment.md`
-- [ ] `S7-00-figma-product-alignment.md`
+- [x] `S7-00-figma-product-alignment.md`
 
 后续 Voice Coach、Rep Event、Auto Rep Counter 接口和 Companion Settings
 任务必须在 `S7-00-R0` 和 `S7-00` 完成后再细化。
