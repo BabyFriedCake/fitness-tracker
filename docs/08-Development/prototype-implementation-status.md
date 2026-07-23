@@ -149,3 +149,8 @@ Avoid:
 - 修改 Workout Runtime
 - 修改 Event Contract
 - 修改 Session 数据模型
+
+
+## Prototype 与 Sprint 关系
+
+Prototype 定义产品体验边界，Sprint 定义工程实现阶段。二者不是一一映射关系。

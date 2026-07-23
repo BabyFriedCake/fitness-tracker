@@ -48,3 +48,34 @@ Prototype 描述产品体验。
 Sprint 描述工程实现阶段。
 
 不要根据 Prototype 编号判断开发顺序。
+
+
+---
+
+# Prototype Responsibilities
+
+## P001-P010 Core Product Prototype
+
+定义当前产品核心页面和用户流程。
+
+## P011-P013 Future Extension Prototype
+
+定义未来能力，不代表当前已实现：
+
+- P011 Voice Coach
+- P012 Exercise Detail
+- P013 AI Coach
+
+---
+
+# Source Priority
+
+当 Prototype、Sprint、代码状态出现差异时：
+
+1. Architecture
+2. PRD
+3. Prototype
+4. Sprint Plan
+5. Implementation Status
+
+作为判断依据。

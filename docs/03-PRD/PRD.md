@@ -183,3 +183,39 @@ UI 不直接修改训练状态。
 基于 Sprint 5 Runtime 架构扩展。
 
 不推翻已有 Domain。
+
+
+---
+
+# Workout Runtime 状态模型补充
+
+## WorkoutSession 状态
+
+WorkoutSession 表示一次真实训练生命周期。
+
+状态：
+
+- draft
+- in_progress
+- completed
+- cancelled
+
+## WorkoutRuntime 状态
+
+WorkoutRuntime 表示训练过程中的当前阶段，不代表 Session 生命周期。
+
+状态：
+
+- idle
+- running
+- paused
+- resting
+- completed
+- set_completion_pending
+- exercise_completion_pending
+
+规则：
+
+- Session 状态用于历史记录和业务生命周期。
+- Runtime 状态用于训练过程 UI 和事件流。
+- cancelled 属于 Session 生命周期，不属于 Runtime phase。
