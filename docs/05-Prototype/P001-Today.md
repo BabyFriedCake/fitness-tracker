@@ -1,7 +1,7 @@
 # P001 - Today Dashboard
 
 Version: v1.0  
-Status: Review  
+Status: Approved
 Owner: Product Owner  
 Module: Workout Flow  
 Priority: P0

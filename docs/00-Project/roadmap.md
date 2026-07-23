@@ -76,7 +76,6 @@ Exit Review：PASS
 - Exercise Domain Model
 - 动作分类
 - 器械分类
-- 难度分类
 - 肌群分类
 - 动作 Seed 数据
 - 动作查询能力
@@ -288,63 +287,30 @@ Sprint 5 完成训练陪练运行时基础能力。
 
 ---
 
-# Sprint 6（📋 计划）
+# Sprint 6（✅ 已完成）
 
 ## Product Experience Completion
 
-目标：
+完成时间：2026-07-23
 
-完善已有 Prototype 与实际产品体验之间的差距。
+Exit Review：PASS WITH WARNINGS
 
-重点：
+Tag：待创建
 
-## Exercise Library Upgrade
+Release：待创建
 
-内容：
+已完成：
 
-- 接入真实动作数据集
-- 数据清洗
-- 字段映射
-- 图片资源
-- 动作说明
-- 动作详情体验增强
+- [x] S6-01 Documentation and Sprint Readiness
+- [x] S6-02 Exercise Dataset Contract and Schema
+- [x] S6-03 Exercise Dataset Import
+- [x] S6-04 Exercise Library and Detail
+- [x] S6-05 History and Analytics
+- [x] S6-06 Today Experience
+- [x] S6-07 Design System Integration
+- [x] S6-08 Sprint Exit Review
 
----
-
-## History Enhancement
-
-内容：
-
-- 完整训练历史
-- 训练详情
-- 日历视图
-- 数据统计
-- 趋势分析
-
----
-
-## Today Experience
-
-内容：
-
-- DailyStatus
-- 最近训练
-- 本周概览
-- 确定性 Recommendation
-
----
-
-## Design System Integration
-
-内容：
-
-- 页面交互统一
-- UI 状态完善
-- 真机体验优化
-
----
-
-不包含：
+Sprint 6 未包含：
 
 - AI 模型
 - 摄像头识别

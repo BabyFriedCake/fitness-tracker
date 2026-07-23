@@ -179,7 +179,7 @@ SessionExercise 除了保存 exercise_id，还保存：
 
 ### 5.3 每组即时保存
 
-用户点击“完成本组”后，必须立即写入 workout_sets。
+Runtime 根据已验证的 Rep 事件确认组完成后，必须立即写入 workout_sets。
 
 不得等到训练结束后统一保存。
 
@@ -268,7 +268,7 @@ V1 数据模型允许 Exercise 类型为 cardio。
 
 必须同时成功或同时失败。
 
-### 完成本组
+### 组完成持久化
 
 - 写入 workout_set
 - 更新 session 当前状态或更新时间

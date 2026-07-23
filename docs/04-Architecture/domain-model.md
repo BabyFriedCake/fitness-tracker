@@ -746,7 +746,6 @@ WorkoutTemplate
 WorkoutSession
 ├── SessionExercise[]
 │   └── WorkoutSet[]
-└── RestTimer
 ```
 
 Session 负责保证：
@@ -755,6 +754,9 @@ Session 负责保证：
 - 训练组属于正确动作
 - Completed 后历史内容完整
 - 同一 Session 的组号和动作关系有效
+
+RestTimer 是独立聚合，通过 WorkoutSessionId 和 SessionExerciseId 与当前训练
+关联。它不属于 WorkoutSession 聚合内部，也不得改变 WorkoutSet 事实。
 
 ---
 
@@ -770,7 +772,7 @@ WorkoutTemplate 1 ──── * WorkoutSession
 WorkoutSession 1 ──── * SessionExercise
 SessionExercise 1 ──── * WorkoutSet
 
-WorkoutSession 1 ──── 0..1 RestTimer
+WorkoutSession 1 ──── 0..* RestTimer
 WorkoutSession * ──── 0..1 DailyStatus
 
 Exercise 1 ──── * PersonalRecord

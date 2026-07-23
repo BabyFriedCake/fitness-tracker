@@ -1,7 +1,7 @@
 # Sprint 2 — Exercise Library
 
 Version: v1.0  
-Status: Ready
+Status: Completed
 
 ## Sprint Goal
 

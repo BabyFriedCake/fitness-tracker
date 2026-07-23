@@ -13,6 +13,7 @@ export const MUSCLE_GROUPS = [
   'core',
   'full_body',
   'cardio',
+  'neck',
 ] as const;
 
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number];
@@ -24,6 +25,8 @@ export const EQUIPMENT_TYPES = [
   'cable',
   'bodyweight',
   'cardio_machine',
+  'band',
+  'kettlebell',
   'other',
 ] as const;
 
@@ -36,7 +39,13 @@ export type ExerciseStatus = (typeof EXERCISE_STATUSES)[number];
 export type ExerciseSource = {
   readonly name?: string;
   readonly reference?: string;
+  readonly license?: string;
+  readonly attribution?: string;
 };
+
+export type ExerciseInstructionSteps = Readonly<
+  Record<string, readonly string[]>
+>;
 
 export type Exercise = {
   readonly id: ExerciseId;
@@ -48,6 +57,7 @@ export type Exercise = {
   readonly secondaryMuscleGroups: readonly MuscleGroup[];
   readonly equipment: Equipment;
   readonly description?: string;
+  readonly instructionSteps?: ExerciseInstructionSteps;
   readonly imageUri?: string;
   readonly source?: ExerciseSource;
   readonly status: ExerciseStatus;
@@ -65,9 +75,12 @@ export type ExerciseInput = {
   readonly secondaryMuscleGroups?: readonly string[] | null;
   readonly equipment: string;
   readonly description?: string | null;
+  readonly instructionSteps?: ExerciseInstructionSteps | null;
   readonly imageUri?: string | null;
   readonly sourceName?: string | null;
   readonly sourceReference?: string | null;
+  readonly sourceLicense?: string | null;
+  readonly sourceAttribution?: string | null;
   readonly status: string;
   readonly createdAt: string;
   readonly updatedAt: string;

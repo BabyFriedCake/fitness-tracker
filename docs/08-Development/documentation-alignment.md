@@ -1,12 +1,12 @@
 # Documentation Alignment
 
-## 问题
+## 状态
 
-当前存在：
+Sprint 6 使用：
 
-- Roadmap 与 Sprint 描述不一致
-- Prototype 编号与 screens 目录存在重复表达
-- Task 编号跨 Sprint 使用
+- Prototype：P001、P007、P008、P012
+- Task：S6-01 至 S6-08
+- Runtime：沿用 Sprint 5 六个 phase
 
 ## 修正原则
 
@@ -24,10 +24,11 @@
 优先级：
 
 1. Constitution
-2. Architecture
-3. PRD
-4. Prototype
-5. Sprint Plan
-6. Code
+2. Vision / PRD
+3. Prototype
+4. Architecture / Domain Model
+5. Database / Design System / Development Guide
+6. Sprint Plan
+7. Code
 
 冲突时以上级文档为准。

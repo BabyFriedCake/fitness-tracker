@@ -47,6 +47,29 @@ describe('WorkoutSession completion and recovery', () => {
       completedExerciseCount: 1,
       completedSetCount: 2,
       totalVolume: 1120,
+      notes: '保留备注',
+      exercises: [
+        {
+          exerciseName: '杠铃卧推',
+          completed: true,
+          skipped: false,
+          totalVolume: 1120,
+          sets: [
+            {
+              setNumber: 1,
+              actualReps: 10,
+              weight: 80,
+              completedAt: '2026-07-20T01:30:00.000Z',
+            },
+            {
+              setNumber: 2,
+              actualReps: 8,
+              weight: 40,
+              completedAt: '2026-07-20T01:30:00.000Z',
+            },
+          ],
+        },
+      ],
     });
     expect(completed.sessionExercises[0]?.sets).toHaveLength(3);
   });
@@ -230,6 +253,11 @@ describe('WorkoutSession completion and recovery', () => {
     expect(getByLabelText('完成动作：1 个')).toBeTruthy();
     expect(getByLabelText('完成组数：2 组')).toBeTruthy();
     expect(getByLabelText('总训练量：1,120 kg')).toBeTruthy();
+    expect(getByText('动作记录')).toBeTruthy();
+    expect(getByText('杠铃卧推')).toBeTruthy();
+    expect(getByLabelText('第 1 组，80 kg，10 次')).toBeTruthy();
+    expect(getByLabelText('第 2 组，40 kg，8 次')).toBeTruthy();
+    expect(getByText('保留备注')).toBeTruthy();
 
     await fireEvent.press(getByLabelText('完成查看训练总结'));
     expect(onDone).toHaveBeenCalledTimes(1);

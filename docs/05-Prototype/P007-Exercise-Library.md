@@ -1,7 +1,7 @@
 # P007 - Exercise Library
 
 Version: v1.0  
-Status: Review  
+Status: Approved
 Owner: Product Owner  
 Module: Exercise Domain  
 Priority: P0
@@ -86,7 +86,7 @@ P002/P003/P004 → 搜索筛选 → 选择 → 返回来源；或动作库Tab浏
 - Filter Chips
 - Exercise Row
 - Add Button
-- Detail View
+- Detail Entry
 - Empty State
 - Source Label
 
@@ -121,7 +121,7 @@ P002/P003/P004 → 搜索筛选 → 选择 → 返回来源；或动作库Tab浏
 ## 14. State Machine
 
 ```text
-Loading → Ready/Filtering/NoResults/Detail/Selecting 或 Error
+Loading → Ready/Filtering/NoResults/Selecting 或 Error
 ```
 
 ## 15. Data Dependency

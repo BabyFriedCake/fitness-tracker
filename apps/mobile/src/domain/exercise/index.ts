@@ -4,6 +4,7 @@ export type {
   ExerciseFilters,
   ExerciseId,
   ExerciseInput,
+  ExerciseInstructionSteps,
   ExerciseListQuery,
   ExerciseSearchField,
   ExerciseSearchQuery,

@@ -8,7 +8,7 @@ import {
 } from '@/database/bootstrap';
 import { enableForeignKeys } from '@/database/connection';
 import { toDatabaseError } from '@/database/errors';
-import { STARTER_EXERCISES } from '@/database/seed/exercises';
+import { BUNDLED_EXERCISES } from '@/database/seed/exercises';
 
 type CountRow = {
   readonly count: number;
@@ -35,7 +35,7 @@ describe('database bootstrap service', () => {
 
     expect(isDatabaseReady(result)).toBe(true);
     expect(result.status).toBe('ready');
-    expect(seededExercises?.count).toBe(STARTER_EXERCISES.length);
+    expect(seededExercises?.count).toBe(BUNDLED_EXERCISES.length);
   });
 
   it('returns an error startup result when database initialization fails', async () => {

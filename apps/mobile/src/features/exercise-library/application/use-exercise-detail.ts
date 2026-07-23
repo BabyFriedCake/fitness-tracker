@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { initializeApplicationDatabase } from '@/database/bootstrap';
 import { createSqliteExerciseRepository } from '@/database/repositories/exercise';
@@ -22,12 +22,22 @@ export type ExerciseDetailScreenState =
       readonly message: string;
     };
 
+export type ExerciseDetailScreenModel = {
+  readonly state: ExerciseDetailScreenState;
+  readonly reload: () => void;
+};
+
 export function useExerciseDetail(
   exerciseId: string,
-): ExerciseDetailScreenState {
+): ExerciseDetailScreenModel {
   const [state, setState] = useState<ExerciseDetailScreenState>({
     status: 'loading',
   });
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const reload = useCallback(() => {
+    setState({ status: 'loading' });
+    setReloadVersion((currentVersion) => currentVersion + 1);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -42,7 +52,7 @@ export function useExerciseDetail(
       if (startupResult.status === 'error') {
         setState({
           status: 'error',
-          message: startupResult.error.message,
+          message: '动作详情加载失败，请稍后重试。',
         });
         return;
       }
@@ -62,7 +72,7 @@ export function useExerciseDetail(
     return () => {
       isMounted = false;
     };
-  }, [exerciseId]);
+  }, [exerciseId, reloadVersion]);
 
-  return state;
+  return { state, reload };
 }

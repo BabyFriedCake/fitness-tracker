@@ -58,7 +58,7 @@ Button:
 
 继续训练
 
-完成一组
+暂停训练
 
 Secondary:
 

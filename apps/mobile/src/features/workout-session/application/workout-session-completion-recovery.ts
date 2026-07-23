@@ -27,6 +27,21 @@ export type WorkoutSessionSummary = {
   readonly completedExerciseCount: number;
   readonly completedSetCount: number;
   readonly totalVolume: number;
+  readonly notes?: string;
+  readonly exercises: readonly WorkoutSessionSummaryExercise[];
+};
+
+export type WorkoutSessionSummaryExercise = {
+  readonly exerciseName: string;
+  readonly completed: boolean;
+  readonly skipped: boolean;
+  readonly totalVolume: number;
+  readonly sets: readonly {
+    readonly setNumber: number;
+    readonly actualReps: number;
+    readonly weight: number;
+    readonly completedAt: string;
+  }[];
 };
 
 export type LoadWorkoutSessionSummaryResult =
@@ -68,6 +83,28 @@ export function createWorkoutSessionSummary(
   const completedSets = session.sessionExercises.flatMap((exercise) =>
     exercise.sets.filter((workoutSet) => workoutSet.isCompleted),
   );
+  const exercises = session.sessionExercises.map((exercise) => {
+    const sets = exercise.sets
+      .filter((workoutSet) => workoutSet.isCompleted)
+      .map((workoutSet) => ({
+        setNumber: workoutSet.setNumber,
+        actualReps: workoutSet.actualReps,
+        weight: workoutSet.weight,
+        completedAt: workoutSet.completedAt,
+      }));
+
+    return {
+      exerciseName: exercise.exerciseNameSnapshot,
+      completed: exercise.isCompleted,
+      skipped: exercise.isSkipped,
+      totalVolume: sets.reduce(
+        (total, workoutSet) =>
+          total + workoutSet.weight * workoutSet.actualReps,
+        0,
+      ),
+      sets,
+    };
+  });
 
   return {
     sessionId: session.id,
@@ -83,6 +120,8 @@ export function createWorkoutSessionSummary(
       (total, workoutSet) => total + workoutSet.weight * workoutSet.actualReps,
       0,
     ),
+    notes: session.notes,
+    exercises,
   };
 }
 

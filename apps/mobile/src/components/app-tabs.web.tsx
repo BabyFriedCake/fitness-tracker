@@ -6,7 +6,13 @@ import {
   TabTriggerSlotProps,
   TabListProps,
 } from 'expo-router/ui';
-import { Pressable, useColorScheme, View, StyleSheet } from 'react-native';
+import {
+  Pressable,
+  useColorScheme,
+  useWindowDimensions,
+  View,
+  StyleSheet,
+} from 'react-native';
 
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
@@ -15,11 +21,14 @@ import { TOP_LEVEL_ROUTES } from '@/constants/routes';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 
 export default function AppTabs() {
+  const { width } = useWindowDimensions();
+  const compact = width < 640;
+
   return (
     <Tabs>
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
-        <CustomTabList>
+        <CustomTabList compact={compact}>
           {TOP_LEVEL_ROUTES.map((route) => (
             <TabTrigger
               key={route.key}
@@ -27,7 +36,7 @@ export default function AppTabs() {
               href={route.href}
               asChild
             >
-              <TabButton>{route.title}</TabButton>
+              <TabButton compact={compact}>{route.title}</TabButton>
             </TabTrigger>
           ))}
         </CustomTabList>
@@ -39,17 +48,25 @@ export default function AppTabs() {
 export function TabButton({
   children,
   isFocused,
+  compact = false,
   ...props
-}: TabTriggerSlotProps) {
+}: TabTriggerSlotProps & { readonly compact?: boolean }) {
   return (
-    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
+    <Pressable
+      {...props}
+      style={({ pressed }) => [
+        compact && styles.compactTrigger,
+        pressed && styles.pressed,
+      ]}
+    >
       <ThemedView
         type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
-        style={styles.tabButtonView}
+        style={[styles.tabButtonView, compact && styles.compactTabButtonView]}
       >
         <ThemedText
           type="small"
           themeColor={isFocused ? 'text' : 'textSecondary'}
+          style={compact ? styles.compactTabText : undefined}
         >
           {children}
         </ThemedText>
@@ -58,7 +75,10 @@ export function TabButton({
   );
 }
 
-export function CustomTabList(props: TabListProps) {
+export function CustomTabList({
+  compact = false,
+  ...props
+}: TabListProps & { readonly compact?: boolean }) {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
 
@@ -68,12 +88,15 @@ export function CustomTabList(props: TabListProps) {
         type="backgroundElement"
         style={[
           styles.innerContainer,
+          compact && styles.compactInnerContainer,
           { borderColor: colors.backgroundSelected },
         ]}
       >
-        <ThemedText type="smallBold" style={styles.brandText}>
-          Fitness Tracker
-        </ThemedText>
+        {!compact && (
+          <ThemedText type="smallBold" style={styles.brandText}>
+            Fitness Tracker
+          </ThemedText>
+        )}
 
         {props.children}
       </ThemedView>
@@ -111,5 +134,22 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
+  },
+  compactInnerContainer: {
+    paddingHorizontal: Spacing.one,
+    gap: 0,
+  },
+  compactTrigger: {
+    minWidth: 0,
+    flex: 1,
+  },
+  compactTabButtonView: {
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.one,
+  },
+  compactTabText: {
+    textAlign: 'center',
   },
 });

@@ -2,11 +2,12 @@ import type { ExerciseInput } from '@/domain/exercise';
 
 export type ExerciseSeedRow = Omit<
   ExerciseInput,
-  'sourceName' | 'sourceReference'
+  'sourceName' | 'sourceReference' | 'sourceLicense' | 'sourceAttribution'
 > & {
   readonly sourceName: string;
   readonly sourceReference: string;
   readonly license: string;
+  readonly attribution?: string;
 };
 
 export type ExerciseSeedImportSummary = {

@@ -16,6 +16,7 @@ import {
   type WorkoutSessionSummaryScreenState,
 } from '@/features/workout-session/application/use-workout-session-summary-screen';
 import type { WorkoutSessionRouteParams } from '@/features/workout-session/application/use-workout-session-screen';
+import type { WorkoutSessionSummaryExercise } from '@/features/workout-session/application/workout-session-completion-recovery';
 import { useTheme } from '@/hooks/use-theme';
 
 export function WorkoutSessionSummaryScreen({
@@ -115,6 +116,21 @@ export function WorkoutSessionSummaryScreenContent({
                 value={`${formatVolume(state.summary.totalVolume)} kg`}
               />
             </View>
+            <View style={styles.exerciseHistory}>
+              <ThemedText type="smallBold">动作记录</ThemedText>
+              {state.summary.exercises.map((exercise, index) => (
+                <ExerciseHistory
+                  key={`${index}-${exercise.exerciseName}`}
+                  exercise={exercise}
+                />
+              ))}
+            </View>
+            {state.summary.notes && (
+              <View style={styles.notes}>
+                <ThemedText type="smallBold">训练备注</ThemedText>
+                <ThemedText>{state.summary.notes}</ThemedText>
+              </View>
+            )}
             <SummaryButton
               label="完成"
               accessibilityLabel="完成查看训练总结"
@@ -130,6 +146,48 @@ export function WorkoutSessionSummaryScreenContent({
         )}
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+function ExerciseHistory({
+  exercise,
+}: {
+  readonly exercise: WorkoutSessionSummaryExercise;
+}) {
+  return (
+    <View style={styles.exercise}>
+      <View style={styles.exerciseHeader}>
+        <ThemedText type="default">{exercise.exerciseName}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {exercise.skipped
+            ? '已跳过'
+            : exercise.completed
+              ? '已完成'
+              : '未完成'}
+        </ThemedText>
+      </View>
+      {exercise.sets.length > 0 ? (
+        exercise.sets.map((workoutSet) => (
+          <View
+            key={`${workoutSet.setNumber}-${workoutSet.completedAt}`}
+            style={styles.setRow}
+            accessibilityLabel={`第 ${workoutSet.setNumber} 组，${formatVolume(workoutSet.weight)} kg，${workoutSet.actualReps} 次`}
+          >
+            <ThemedText type="small">第 {workoutSet.setNumber} 组</ThemedText>
+            <ThemedText type="smallBold">
+              {formatVolume(workoutSet.weight)} kg × {workoutSet.actualReps} 次
+            </ThemedText>
+          </View>
+        ))
+      ) : (
+        <ThemedText type="small" themeColor="textSecondary">
+          没有已完成组。
+        </ThemedText>
+      )}
+      <ThemedText type="small" themeColor="textSecondary">
+        训练量 {formatVolume(exercise.totalVolume)} kg
+      </ThemedText>
+    </View>
   );
 }
 
@@ -223,6 +281,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  exerciseHistory: { gap: Spacing.three },
+  exercise: {
+    gap: Spacing.two,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
+  },
+  exerciseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  setRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  notes: {
+    gap: Spacing.two,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
   },
   metric: {
     minWidth: 150,

@@ -11,6 +11,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  DAILY_STATUS_VALUES,
+  type DailyStatusValue,
+} from '@/domain/daily-status';
 import type { WorkoutTemplateId } from '@/domain/workout-template';
 import type { WorkoutSessionId } from '@/domain/workout-session';
 import {
@@ -169,10 +173,9 @@ function ReadyState({
         <ThemedText accessibilityRole="alert">{state.actionError}</ThemedText>
       )}
 
-      <SecondaryButton
-        label="查看历史"
-        accessibilityLabel="查看历史训练"
-        onPress={onOpenHistory}
+      <DailyStatusSelector
+        value={state.data.dailyStatus}
+        onChange={controls.updateDailyStatus}
       />
 
       {state.data.templates.length === 0 ? (
@@ -185,6 +188,153 @@ function ReadyState({
           onCreateSession={controls.createSessionFromTemplate}
         />
       )}
+
+      {state.data.recommendation && (
+        <Recommendation
+          title={state.data.recommendation.title}
+          message={state.data.recommendation.message}
+        />
+      )}
+
+      {state.data.recentWorkout && (
+        <RecentWorkout
+          workout={state.data.recentWorkout}
+          onOpenHistory={onOpenHistory}
+        />
+      )}
+
+      {state.data.weeklySummary && (
+        <WeeklySummary summary={state.data.weeklySummary} />
+      )}
+
+      <SecondaryButton
+        label="查看全部历史"
+        accessibilityLabel="查看历史训练"
+        onPress={onOpenHistory}
+      />
+    </View>
+  );
+}
+
+function DailyStatusSelector({
+  value,
+  onChange,
+}: {
+  readonly value?: DailyStatusValue;
+  readonly onChange: (status: DailyStatusValue) => Promise<void>;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.statusSection}>
+      <ThemedText type="default">今日状态</ThemedText>
+      <View style={styles.statusOptions}>
+        {DAILY_STATUS_VALUES.map((status) => {
+          const selected = status === value;
+          const label = formatDailyStatus(status);
+
+          return (
+            <Pressable
+              key={status}
+              onPress={() => void onChange(status)}
+              accessibilityRole="button"
+              accessibilityLabel={`今日状态：${label}`}
+              accessibilityState={{ selected }}
+              style={({ pressed }) => [
+                styles.statusOption,
+                {
+                  backgroundColor: selected
+                    ? theme.backgroundSelected
+                    : theme.background,
+                  borderColor: theme.backgroundSelected,
+                },
+                pressed && styles.pressed,
+              ]}
+            >
+              <ThemedText type="smallBold">{label}</ThemedText>
+            </Pressable>
+          );
+        })}
+      </View>
+      <ThemedText type="small" themeColor="textSecondary">
+        状态仅用于记录和提示，不会自动修改训练。
+      </ThemedText>
+    </View>
+  );
+}
+
+function Recommendation({
+  title,
+  message,
+}: {
+  readonly title: string;
+  readonly message: string;
+}) {
+  return (
+    <View style={styles.insightSection}>
+      <ThemedText type="smallBold">{title}</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        {message}
+      </ThemedText>
+    </View>
+  );
+}
+
+function RecentWorkout({
+  workout,
+  onOpenHistory,
+}: {
+  readonly workout: NonNullable<
+    Extract<
+      TodayDashboardScreenState,
+      { status: 'ready' }
+    >['data']['recentWorkout']
+  >;
+  readonly onOpenHistory: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onOpenHistory}
+      accessibilityRole="button"
+      accessibilityLabel={`查看最近训练${workout.workoutName}`}
+      style={({ pressed }) => [
+        styles.insightSection,
+        pressed && styles.pressed,
+      ]}
+    >
+      <ThemedText type="small" themeColor="textSecondary">
+        最近完成
+      </ThemedText>
+      <ThemedText type="default">{workout.workoutName}</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        {workout.completedSetCount} 组 · {formatVolume(workout.totalVolume)} kg
+      </ThemedText>
+    </Pressable>
+  );
+}
+
+function WeeklySummary({
+  summary,
+}: {
+  readonly summary: NonNullable<
+    Extract<
+      TodayDashboardScreenState,
+      { status: 'ready' }
+    >['data']['weeklySummary']
+  >;
+}) {
+  return (
+    <View style={styles.insightSection}>
+      <ThemedText type="smallBold">本周概览</ThemedText>
+      <View style={styles.weeklyMetrics}>
+        <ThemedText type="small">
+          {summary.completedWorkoutCount} 次训练
+        </ThemedText>
+        <ThemedText type="small">{summary.completedSetCount} 组</ThemedText>
+        <ThemedText type="small">
+          {formatVolume(summary.totalVolume)} kg
+        </ThemedText>
+      </View>
     </View>
   );
 }
@@ -444,6 +594,25 @@ function getSessionActionLabel(
   }
 }
 
+function formatDailyStatus(status: DailyStatusValue): string {
+  switch (status) {
+    case 'normal':
+      return '正常';
+    case 'fatigued':
+      return '疲劳';
+    case 'menstrual':
+      return '经期';
+    case 'unwell':
+      return '不适';
+  }
+}
+
+function formatVolume(value: number): string {
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center' },
   safeArea: {
@@ -461,6 +630,28 @@ const styles = StyleSheet.create({
   header: { gap: Spacing.one },
   readyScrollContent: { paddingBottom: Spacing.four },
   readyContent: { gap: Spacing.four },
+  statusSection: { gap: Spacing.two },
+  statusOptions: { flexDirection: 'row', gap: Spacing.one },
+  statusOption: {
+    minHeight: 44,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.one,
+  },
+  insightSection: {
+    gap: Spacing.one,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
+  },
+  weeklyMetrics: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
   sessionCard: {
     gap: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,

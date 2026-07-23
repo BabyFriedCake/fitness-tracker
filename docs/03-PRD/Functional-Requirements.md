@@ -2,7 +2,7 @@
 
 版本：2.1
 
-## FR-001 Action Library
+## FR-001 Exercise Library
 
 目标：
 

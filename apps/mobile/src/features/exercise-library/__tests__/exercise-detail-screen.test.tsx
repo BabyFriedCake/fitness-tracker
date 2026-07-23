@@ -29,9 +29,11 @@ describe('Exercise Detail screen', () => {
     expect(getByText('这个动作可能尚未导入，或链接已失效。')).toBeTruthy();
   });
 
-  it('renders a distinct persistence error state', async () => {
-    const { getByText } = await render(
+  it('renders a distinct persistence error state with reload', async () => {
+    const onReload = jest.fn();
+    const { getByText, getByLabelText } = await render(
       <ExerciseDetailContent
+        onReload={onReload}
         state={{
           status: 'error',
           message: '动作详情加载失败。已保存的训练数据不会受影响，请稍后重试。',
@@ -43,6 +45,8 @@ describe('Exercise Detail screen', () => {
     expect(
       getByText('动作详情加载失败。已保存的训练数据不会受影响，请稍后重试。'),
     ).toBeTruthy();
+    fireEvent.press(getByLabelText('重新加载动作详情'));
+    expect(onReload).toHaveBeenCalledTimes(1);
   });
 
   it('renders exercise details and visible source license attribution', async () => {
@@ -58,8 +62,13 @@ describe('Exercise Detail screen', () => {
             secondaryMuscleGroups: ['shoulders', 'arms'],
             equipment: 'barbell',
             description: '平板卧推，主要训练胸部推举力量。',
+            instructionSteps: {
+              zh: ['肩胛骨后收并平躺。', '控制杠铃下放后推起。'],
+            },
             sourceName: 'Fitness Tracker Starter Exercise Set',
-            sourceReference: 'starter-v1; license=CC0-1.0',
+            sourceReference: 'starter-v1',
+            sourceLicense: 'CC0-1.0',
+            sourceAttribution: 'Fitness Tracker',
           }),
         }}
       />,
@@ -69,10 +78,13 @@ describe('Exercise Detail screen', () => {
     expect(getByText('Barbell Bench Press')).toBeTruthy();
     expect(getByText('胸 · 杠铃')).toBeTruthy();
     expect(getByText('平板卧推，主要训练胸部推举力量。')).toBeTruthy();
+    expect(getByText('肩胛骨后收并平躺。')).toBeTruthy();
+    expect(getByText('控制杠铃下放后推起。')).toBeTruthy();
     expect(getByText('肩、手臂')).toBeTruthy();
     expect(getByText('Fitness Tracker Starter Exercise Set')).toBeTruthy();
     expect(getByText('starter-v1')).toBeTruthy();
     expect(getByText('CC0-1.0')).toBeTruthy();
+    expect(getByText('Fitness Tracker')).toBeTruthy();
     expect(getByLabelText('动作图片占位：杠铃卧推')).toBeTruthy();
   });
 
@@ -196,7 +208,8 @@ function buildExercise(overrides: Partial<ExerciseInput> = {}): Exercise {
     description: '默认动作说明。',
     imageUri: null,
     sourceName: 'Exercise Detail Test',
-    sourceReference: 'detail-test; license=CC0-1.0',
+    sourceReference: 'detail-test',
+    sourceLicense: 'CC0-1.0',
     status: 'active',
     createdAt: '2026-07-15T00:00:00.000Z',
     updatedAt: '2026-07-15T00:00:00.000Z',

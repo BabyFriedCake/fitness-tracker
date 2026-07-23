@@ -1,4 +1,8 @@
 import type { Exercise, ExerciseRepository } from '@/domain/exercise';
+import type {
+  DailyStatusRepository,
+  DailyStatusValue,
+} from '@/domain/daily-status';
 import {
   assertWorkoutTemplateCanStart,
   type WorkoutTemplate,
@@ -38,6 +42,29 @@ export type TodayDashboardSessionEntry =
 export type TodayDashboardData = {
   readonly sessionEntry: TodayDashboardSessionEntry;
   readonly templates: readonly TodayDashboardTemplateItem[];
+  readonly dailyStatus?: DailyStatusValue;
+  readonly recentWorkout?: TodayDashboardRecentWorkout;
+  readonly weeklySummary?: TodayDashboardWeeklySummary;
+  readonly recommendation?: TodayDashboardRecommendation;
+};
+
+export type TodayDashboardRecentWorkout = {
+  readonly sessionId: WorkoutSessionId;
+  readonly workoutName: string;
+  readonly endedAt: string;
+  readonly completedSetCount: number;
+  readonly totalVolume: number;
+};
+
+export type TodayDashboardWeeklySummary = {
+  readonly completedWorkoutCount: number;
+  readonly completedSetCount: number;
+  readonly totalVolume: number;
+};
+
+export type TodayDashboardRecommendation = {
+  readonly title: string;
+  readonly message: string;
 };
 
 export type LoadTodayDashboardResult =
@@ -48,6 +75,7 @@ export type TodayDashboardRepositories = {
   readonly workoutSessionRepository: WorkoutSessionRepository;
   readonly workoutTemplateRepository: WorkoutTemplateRepository;
   readonly exerciseRepository: ExerciseRepository;
+  readonly dailyStatusRepository: DailyStatusRepository;
 };
 
 export type CreateWorkoutSessionFromTemplateResult =
@@ -78,17 +106,44 @@ const TODAY_DASHBOARD_ERROR_MESSAGE =
 
 export async function loadTodayDashboard(
   repositories: TodayDashboardRepositories,
+  now = new Date(),
 ): Promise<LoadTodayDashboardResult> {
   try {
+    const localDate = toLocalDateKey(now);
     const [recoverableSession, templates] = await Promise.all([
       repositories.workoutSessionRepository.findRecoverableSession(),
       repositories.workoutTemplateRepository.list({
         filters: { statuses: ['active'] },
       }),
     ]);
+    const supplementalData = await loadTodaySupplementalData(
+      repositories,
+      localDate,
+    );
+    const { completedSessions, dailyStatus } = supplementalData;
     const session =
       recoverableSession ??
       (await repositories.workoutSessionRepository.findLatestSession());
+    const sortedCompletedSessions = [...completedSessions]
+      .filter(
+        (
+          completedSession,
+        ): completedSession is Extract<
+          WorkoutSession,
+          { readonly status: 'completed' }
+        > => completedSession.status === 'completed',
+      )
+      .sort(
+        (first, second) =>
+          Date.parse(second.endedAt) - Date.parse(first.endedAt),
+      );
+    const recentWorkout = sortedCompletedSessions[0]
+      ? toTodayDashboardRecentWorkout(sortedCompletedSessions[0])
+      : undefined;
+    const weeklySummary = createTodayDashboardWeeklySummary(
+      sortedCompletedSessions,
+      now,
+    );
 
     return {
       status: 'ready',
@@ -97,6 +152,13 @@ export async function loadTodayDashboard(
           ? toTodayDashboardSessionEntry(session)
           : { status: 'none' },
         templates: templates.map(toTodayDashboardTemplateItem),
+        dailyStatus: dailyStatus?.status,
+        recentWorkout,
+        weeklySummary,
+        recommendation: createTodayDashboardRecommendation(
+          dailyStatus?.status,
+          recentWorkout,
+        ),
       },
     };
   } catch {
@@ -104,8 +166,91 @@ export async function loadTodayDashboard(
   }
 }
 
-export async function createWorkoutSessionFromTemplate(
+export function createTodayDashboardWeeklySummary(
+  sessions: readonly Extract<
+    WorkoutSession,
+    { readonly status: 'completed' }
+  >[],
+  now: Date,
+): TodayDashboardWeeklySummary {
+  const weekStart = new Date(now);
+  weekStart.setHours(0, 0, 0, 0);
+  const mondayOffset = (weekStart.getDay() + 6) % 7;
+  weekStart.setDate(weekStart.getDate() - mondayOffset);
+  const currentWeekSessions = sessions.filter((session) => {
+    const endedAt = Date.parse(session.endedAt);
+    return endedAt >= weekStart.getTime() && endedAt <= now.getTime();
+  });
+  const completedSets = currentWeekSessions.flatMap((session) =>
+    session.sessionExercises.flatMap((exercise) =>
+      exercise.sets.filter((workoutSet) => workoutSet.isCompleted),
+    ),
+  );
+
+  return {
+    completedWorkoutCount: currentWeekSessions.length,
+    completedSetCount: completedSets.length,
+    totalVolume: completedSets.reduce(
+      (total, workoutSet) => total + workoutSet.weight * workoutSet.actualReps,
+      0,
+    ),
+  };
+}
+
+async function loadTodaySupplementalData(
   repositories: TodayDashboardRepositories,
+  localDate: string,
+): Promise<{
+  readonly completedSessions: readonly WorkoutSession[];
+  readonly dailyStatus: Awaited<
+    ReturnType<DailyStatusRepository['findByLocalDate']>
+  >;
+}> {
+  try {
+    const [completedSessions, dailyStatus] = await Promise.all([
+      repositories.workoutSessionRepository.listByStatuses(['completed']),
+      repositories.dailyStatusRepository.findByLocalDate(localDate),
+    ]);
+
+    return { completedSessions, dailyStatus };
+  } catch {
+    return { completedSessions: [], dailyStatus: null };
+  }
+}
+
+export function createTodayDashboardRecommendation(
+  dailyStatus: DailyStatusValue | undefined,
+  recentWorkout: TodayDashboardRecentWorkout | undefined,
+): TodayDashboardRecommendation | undefined {
+  if (dailyStatus === 'unwell') {
+    return {
+      title: '根据今日状态调整',
+      message: '你记录了身体不适。可以休息或降低训练强度，由你决定是否训练。',
+    };
+  }
+
+  if (dailyStatus === 'fatigued' || dailyStatus === 'menstrual') {
+    return {
+      title: '保留余量',
+      message:
+        dailyStatus === 'fatigued'
+          ? '你记录了疲劳。可以减少组数或重量，不会自动修改训练计划。'
+          : '你记录了经期状态。可按体感调整，系统不会限制训练。',
+    };
+  }
+
+  if (recentWorkout) {
+    return {
+      title: '延续训练节奏',
+      message: `最近完成了“${recentWorkout.workoutName}”，今天可从已有模板中自主选择。`,
+    };
+  }
+
+  return undefined;
+}
+
+export async function createWorkoutSessionFromTemplate(
+  repositories: Omit<TodayDashboardRepositories, 'dailyStatusRepository'>,
   templateId: WorkoutTemplateId,
   options: {
     readonly now: () => string;
@@ -220,4 +365,31 @@ function toTodayDashboardSessionEntry(
     completedSetCount,
     totalTargetSetCount,
   };
+}
+
+function toTodayDashboardRecentWorkout(
+  session: Extract<WorkoutSession, { readonly status: 'completed' }>,
+): TodayDashboardRecentWorkout {
+  const completedSets = session.sessionExercises.flatMap((exercise) =>
+    exercise.sets.filter((workoutSet) => workoutSet.isCompleted),
+  );
+
+  return {
+    sessionId: session.id,
+    workoutName: session.workoutNameSnapshot,
+    endedAt: session.endedAt,
+    completedSetCount: completedSets.length,
+    totalVolume: completedSets.reduce(
+      (total, workoutSet) => total + workoutSet.weight * workoutSet.actualReps,
+      0,
+    ),
+  };
+}
+
+export function toLocalDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
 }

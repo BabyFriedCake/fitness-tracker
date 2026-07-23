@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
+import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -30,10 +31,13 @@ export function ExerciseDetailScreen({
   exerciseId,
   onBack,
 }: ExerciseDetailScreenProps) {
+  const model = useExerciseDetail(exerciseId);
+
   return (
     <ExerciseDetailContent
-      state={useExerciseDetail(exerciseId)}
+      state={model.state}
       onBack={onBack}
+      onReload={model.reload}
     />
   );
 }
@@ -41,11 +45,13 @@ export function ExerciseDetailScreen({
 export type ExerciseDetailContentProps = {
   readonly state: ExerciseDetailScreenState;
   readonly onBack?: () => void;
+  readonly onReload?: () => void;
 };
 
 export function ExerciseDetailContent({
   state,
   onBack,
+  onReload,
 }: ExerciseDetailContentProps) {
   return (
     <ThemedView style={styles.container}>
@@ -54,7 +60,9 @@ export function ExerciseDetailContent({
           {onBack && <BackButton onBack={onBack} />}
           {state.status === 'loading' && <LoadingState />}
           {state.status === 'not-found' && <NotFoundState />}
-          {state.status === 'error' && <ErrorState message={state.message} />}
+          {state.status === 'error' && (
+            <ErrorState message={state.message} onReload={onReload} />
+          )}
           {state.status === 'ready' && (
             <ExerciseDetail exercise={state.exercise} />
           )}
@@ -107,7 +115,15 @@ function NotFoundState() {
   );
 }
 
-function ErrorState({ message }: { readonly message: string }) {
+function ErrorState({
+  message,
+  onReload,
+}: {
+  readonly message: string;
+  readonly onReload?: () => void;
+}) {
+  const theme = useTheme();
+
   return (
     <ThemedView style={styles.feedbackState} accessibilityRole="alert">
       <ThemedText type="default">动作详情加载失败</ThemedText>
@@ -118,6 +134,20 @@ function ErrorState({ message }: { readonly message: string }) {
       >
         {message}
       </ThemedText>
+      {onReload && (
+        <Pressable
+          onPress={onReload}
+          accessibilityRole="button"
+          accessibilityLabel="重新加载动作详情"
+          style={({ pressed }) => [
+            styles.reloadButton,
+            { borderColor: theme.backgroundSelected },
+            pressed && styles.pressed,
+          ]}
+        >
+          <ThemedText type="smallBold">重新加载</ThemedText>
+        </Pressable>
+      )}
     </ThemedView>
   );
 }
@@ -128,12 +158,13 @@ function ExerciseDetail({ exercise }: { readonly exercise: Exercise }) {
   const secondaryMuscleGroups =
     exercise.secondaryMuscleGroups.map(formatMuscleGroup);
   const attribution = getExerciseSourceAttribution(exercise);
+  const instructionSteps = getPreferredInstructionSteps(exercise);
 
   return (
     <>
       <ThemedView style={styles.header}>
         <ThemedText type="subtitle">{exercise.nameZh}</ThemedText>
-        {exercise.nameEn && (
+        {exercise.nameEn && exercise.nameEn !== exercise.nameZh && (
           <ThemedText type="small" themeColor="textSecondary">
             {exercise.nameEn}
           </ThemedText>
@@ -148,7 +179,7 @@ function ExerciseDetail({ exercise }: { readonly exercise: Exercise }) {
         )}
       </ThemedView>
 
-      <ImagePlaceholder exerciseName={exercise.nameZh} />
+      <ExerciseMedia exercise={exercise} />
 
       <DetailSection title="动作说明">
         <ThemedText type="default">
@@ -167,15 +198,59 @@ function ExerciseDetail({ exercise }: { readonly exercise: Exercise }) {
           }
         />
         <DetailLine label="器械" value={equipment} />
+        <DetailLine
+          label="训练类型"
+          value={exercise.type === 'strength' ? '力量' : '有氧'}
+        />
+      </DetailSection>
+
+      <DetailSection title="动作步骤">
+        {instructionSteps ? (
+          <>
+            {instructionSteps.language !== 'zh' && (
+              <ThemedText type="small" themeColor="textSecondary">
+                暂无中文步骤，显示已导入的其他语言说明。
+              </ThemedText>
+            )}
+            {instructionSteps.steps.map((step, index) => (
+              <ThemedView key={`${index}-${step}`} style={styles.stepLine}>
+                <ThemedText type="smallBold">{index + 1}.</ThemedText>
+                <ThemedText type="default" style={styles.stepText}>
+                  {step}
+                </ThemedText>
+              </ThemedView>
+            ))}
+          </>
+        ) : (
+          <ThemedText type="default">暂无动作步骤。</ThemedText>
+        )}
       </DetailSection>
 
       <DetailSection title="来源与许可">
         <DetailLine label="来源" value={attribution.sourceName} />
         <DetailLine label="引用" value={attribution.reference} />
         <DetailLine label="许可" value={attribution.license} />
+        {attribution.attribution !== '未记录' && (
+          <DetailLine label="归属" value={attribution.attribution} />
+        )}
       </DetailSection>
     </>
   );
+}
+
+function ExerciseMedia({ exercise }: { readonly exercise: Exercise }) {
+  if (exercise.imageUri) {
+    return (
+      <Image
+        source={exercise.imageUri}
+        contentFit="contain"
+        accessibilityLabel={`${exercise.nameZh}动作图片`}
+        style={styles.exerciseImage}
+      />
+    );
+  }
+
+  return <ImagePlaceholder exerciseName={exercise.nameZh} />;
 }
 
 function ImagePlaceholder({ exerciseName }: { readonly exerciseName: string }) {
@@ -238,20 +313,41 @@ function getExerciseSourceAttribution(exercise: Exercise): {
   readonly sourceName: string;
   readonly reference: string;
   readonly license: string;
+  readonly attribution: string;
 } {
-  const sourceReference = exercise.source?.reference;
-  const sourceParts = sourceReference?.split(';').map((part) => part.trim());
-  const licensePart = sourceParts?.find((part) => part.startsWith('license='));
-  const reference = sourceParts
-    ?.filter((part) => part && !part.startsWith('license='))
-    .join('; ');
-  const license = licensePart?.replace('license=', '').trim();
-
   return {
     sourceName: exercise.source?.name ?? '未记录',
-    reference: reference || '未记录',
-    license: license || '未记录',
+    reference: exercise.source?.reference ?? '未记录',
+    license: exercise.source?.license ?? '未记录',
+    attribution: exercise.source?.attribution ?? '未记录',
   };
+}
+
+function getPreferredInstructionSteps(exercise: Exercise):
+  | {
+      readonly language: string;
+      readonly steps: readonly string[];
+    }
+  | undefined {
+  const instructionSteps = exercise.instructionSteps;
+  if (!instructionSteps) {
+    return undefined;
+  }
+
+  const preferredLanguage = instructionSteps.zh?.length
+    ? 'zh'
+    : instructionSteps.en?.length
+      ? 'en'
+      : Object.keys(instructionSteps).find(
+          (language) => instructionSteps[language]?.length,
+        );
+
+  return preferredLanguage
+    ? {
+        language: preferredLanguage,
+        steps: instructionSteps[preferredLanguage],
+      }
+    : undefined;
 }
 
 const styles = StyleSheet.create({
@@ -292,6 +388,10 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
   },
+  exerciseImage: {
+    width: '100%',
+    aspectRatio: 1.6,
+  },
   section: {
     gap: Spacing.two,
   },
@@ -307,6 +407,14 @@ const styles = StyleSheet.create({
   detailValue: {
     flexShrink: 1,
   },
+  stepLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  stepText: {
+    flex: 1,
+  },
   feedbackState: {
     flexGrow: 1,
     minHeight: 320,
@@ -317,6 +425,15 @@ const styles = StyleSheet.create({
   },
   centerText: {
     textAlign: 'center',
+  },
+  reloadButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
   },
   pressed: {
     opacity: 0.72,
