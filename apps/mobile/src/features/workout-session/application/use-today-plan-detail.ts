@@ -19,6 +19,7 @@ import type {
   WorkoutTemplateRepository,
 } from '@/domain/workout-template';
 import type {
+  SessionExerciseId,
   WorkoutSession,
   WorkoutSessionId,
   WorkoutSessionRepository,
@@ -60,6 +61,11 @@ export type TodayPlanDetailState =
 
 export type TodayPlanDetailControls = {
   readonly reload: () => void;
+  readonly prepareEdit: () => Promise<boolean>;
+  readonly updateExerciseConfig: (
+    sessionExerciseId: SessionExerciseId,
+    input: TodayPlanSessionExerciseConfigInput,
+  ) => Promise<boolean>;
   readonly startPlan: () => Promise<WorkoutSessionId | null>;
 };
 
@@ -97,6 +103,15 @@ const DETAIL_ERROR_MESSAGE =
   '今日训练计划加载失败。已保存的训练数据不会丢失，请重试。';
 const DETAIL_NOT_FOUND_MESSAGE = '没有找到这个今日训练计划。';
 const START_ERROR_MESSAGE = '训练启动失败。已保存的训练数据不会丢失，请重试。';
+const EDIT_ERROR_MESSAGE =
+  '本次训练配置保存失败。已保存的训练数据不会丢失，请重试。';
+
+export type TodayPlanSessionExerciseConfigInput = {
+  readonly targetSets: number;
+  readonly targetRepsMin: number;
+  readonly targetRepsMax: number;
+  readonly restSeconds: number;
+};
 
 type TodayPlanDetailRepositories = {
   readonly todayWorkoutPlanRepository: TodayWorkoutPlanRepository;
@@ -254,6 +269,163 @@ export function useTodayPlanDetail(
     }
   }, [createId, load, now, planId]);
 
+  const prepareEdit = useCallback(async (): Promise<boolean> => {
+    if (!planId || isStartingRef.current) {
+      return false;
+    }
+
+    const repositories = repositoriesRef.current;
+
+    if (!repositories) {
+      return false;
+    }
+
+    isStartingRef.current = true;
+    setState((current) =>
+      current.status === 'ready'
+        ? { ...current, isStarting: true, actionError: undefined }
+        : current,
+    );
+
+    try {
+      const result = await startTodayPlan(repositories, planId, {
+        now,
+        createId,
+      });
+
+      if (!isMountedRef.current) {
+        return false;
+      }
+
+      if (result.status !== 'ready') {
+        await load();
+        return false;
+      }
+
+      const detail = await loadTodayPlanDetail(repositories, planId);
+
+      if (!isMountedRef.current) {
+        return false;
+      }
+
+      setState(
+        detail.status === 'ready'
+          ? {
+              status: 'ready',
+              data: detail.data,
+              isStarting: false,
+            }
+          : { status: detail.status, message: detail.message },
+      );
+
+      return (
+        detail.status === 'ready' && detail.data.session?.status === 'draft'
+      );
+    } catch {
+      if (isMountedRef.current) {
+        setState((current) =>
+          current.status === 'ready'
+            ? {
+                ...current,
+                isStarting: false,
+                actionError: EDIT_ERROR_MESSAGE,
+              }
+            : current,
+        );
+      }
+      return false;
+    } finally {
+      isStartingRef.current = false;
+    }
+  }, [createId, load, now, planId]);
+
+  const updateExerciseConfig = useCallback(
+    async (
+      sessionExerciseId: SessionExerciseId,
+      input: TodayPlanSessionExerciseConfigInput,
+    ): Promise<boolean> => {
+      if (!planId || isStartingRef.current) {
+        return false;
+      }
+
+      const repositories = repositoriesRef.current;
+
+      if (!repositories) {
+        return false;
+      }
+
+      isStartingRef.current = true;
+      setState((current) =>
+        current.status === 'ready'
+          ? { ...current, isStarting: true, actionError: undefined }
+          : current,
+      );
+
+      try {
+        const result = await updateTodayPlanDraftSessionExerciseConfig(
+          repositories,
+          planId,
+          sessionExerciseId,
+          input,
+          now(),
+        );
+
+        if (!isMountedRef.current) {
+          return false;
+        }
+
+        if (result.status !== 'updated') {
+          setState((current) =>
+            current.status === 'ready'
+              ? {
+                  ...current,
+                  isStarting: false,
+                  actionError:
+                    result.status === 'not_editable'
+                      ? '只有尚未开始的训练草稿可以编辑。'
+                      : EDIT_ERROR_MESSAGE,
+                }
+              : current,
+          );
+          return false;
+        }
+
+        const detail = await loadTodayPlanDetail(repositories, planId);
+
+        if (!isMountedRef.current) {
+          return false;
+        }
+
+        setState(
+          detail.status === 'ready'
+            ? {
+                status: 'ready',
+                data: detail.data,
+                isStarting: false,
+              }
+            : { status: detail.status, message: detail.message },
+        );
+        return true;
+      } catch {
+        if (isMountedRef.current) {
+          setState((current) =>
+            current.status === 'ready'
+              ? {
+                  ...current,
+                  isStarting: false,
+                  actionError: EDIT_ERROR_MESSAGE,
+                }
+              : current,
+          );
+        }
+        return false;
+      } finally {
+        isStartingRef.current = false;
+      }
+    },
+    [now, planId],
+  );
+
   useEffect(() => {
     isMountedRef.current = true;
     const initialLoadTimeout = setTimeout(() => {
@@ -269,7 +441,15 @@ export function useTodayPlanDetail(
     };
   }, [load]);
 
-  return { state, controls: { reload: () => void load(), startPlan } };
+  return {
+    state,
+    controls: {
+      reload: () => void load(),
+      prepareEdit,
+      updateExerciseConfig,
+      startPlan,
+    },
+  };
 }
 
 export type LoadTodayPlanDetailResult =
@@ -328,12 +508,101 @@ export async function loadTodayPlanDetail(
   }
 }
 
+export type UpdateTodayPlanDraftSessionExerciseConfigResult =
+  | { readonly status: 'updated'; readonly session: WorkoutSession }
+  | { readonly status: 'plan_not_found' }
+  | { readonly status: 'session_not_found' }
+  | { readonly status: 'exercise_not_found' }
+  | { readonly status: 'not_editable' }
+  | { readonly status: 'invalid_input' };
+
+export async function updateTodayPlanDraftSessionExerciseConfig(
+  repositories: Pick<
+    TodayPlanDetailRepositories,
+    'todayWorkoutPlanRepository' | 'workoutSessionRepository'
+  >,
+  planId: TodayWorkoutPlanId,
+  sessionExerciseId: SessionExerciseId,
+  input: TodayPlanSessionExerciseConfigInput,
+  updatedAt: string,
+): Promise<UpdateTodayPlanDraftSessionExerciseConfigResult> {
+  if (!isValidExerciseConfigInput(input)) {
+    return { status: 'invalid_input' };
+  }
+
+  const plan = await repositories.todayWorkoutPlanRepository.findById(planId);
+
+  if (!plan) {
+    return { status: 'plan_not_found' };
+  }
+
+  if (!plan.sessionId) {
+    return { status: 'session_not_found' };
+  }
+
+  const session = await repositories.workoutSessionRepository.findById(
+    plan.sessionId,
+  );
+
+  if (!session) {
+    return { status: 'session_not_found' };
+  }
+
+  if (session.status !== 'draft') {
+    return { status: 'not_editable' };
+  }
+
+  let didUpdate = false;
+  const nextSession: WorkoutSession = {
+    ...session,
+    sessionExercises: session.sessionExercises.map((exercise) => {
+      if (exercise.id !== sessionExerciseId) {
+        return exercise;
+      }
+
+      didUpdate = true;
+
+      return {
+        ...exercise,
+        targetSets: input.targetSets,
+        targetRepsMin: input.targetRepsMin,
+        targetRepsMax: input.targetRepsMax,
+        currentRestSeconds: input.restSeconds,
+      };
+    }),
+    updatedAt,
+  };
+
+  if (!didUpdate) {
+    return { status: 'exercise_not_found' };
+  }
+
+  const saved = await repositories.workoutSessionRepository.update(nextSession);
+
+  return { status: 'updated', session: saved };
+}
+
 function parsePlanId(
   value: string | readonly string[] | undefined,
 ): TodayWorkoutPlanId | null {
   const raw = Array.isArray(value) ? value[0] : value;
 
   return raw && raw.trim().length > 0 ? (raw as TodayWorkoutPlanId) : null;
+}
+
+function isValidExerciseConfigInput(
+  input: TodayPlanSessionExerciseConfigInput,
+): boolean {
+  return (
+    Number.isInteger(input.targetSets) &&
+    input.targetSets > 0 &&
+    Number.isInteger(input.targetRepsMin) &&
+    input.targetRepsMin > 0 &&
+    Number.isInteger(input.targetRepsMax) &&
+    input.targetRepsMax >= input.targetRepsMin &&
+    Number.isInteger(input.restSeconds) &&
+    input.restSeconds >= 0
+  );
 }
 
 function createDefaultWorkoutSessionId(kind: WorkoutSessionIdKind): string {

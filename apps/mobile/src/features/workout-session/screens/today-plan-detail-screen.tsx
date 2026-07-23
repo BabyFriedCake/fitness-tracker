@@ -5,15 +5,18 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import type { SessionExerciseId } from '@/domain/workout-session';
 import {
   useTodayPlanDetail,
   type TodayPlanDetailData,
+  type TodayPlanDetailExercise,
   type TodayPlanDetailRouteParams,
   type TodayPlanDetailState,
 } from '@/features/workout-session/application/use-today-plan-detail';
@@ -52,6 +55,8 @@ export function TodayPlanDetailContent({
   readonly onBack: () => void;
   readonly onOpenWorkoutSession: (sessionId: string) => void;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -73,10 +78,10 @@ export function TodayPlanDetailContent({
             state.data.plan.status !== 'completed' && (
               <Pressable
                 onPress={async () => {
-                  const sessionId = await controls.startPlan();
+                  const didPrepare = await controls.prepareEdit();
 
-                  if (sessionId) {
-                    onOpenWorkoutSession(sessionId);
+                  if (didPrepare) {
+                    setIsEditing(true);
                   }
                 }}
                 disabled={state.isStarting}
@@ -106,8 +111,10 @@ export function TodayPlanDetailContent({
         {state.status === 'ready' && (
           <PlanDetail
             data={state.data}
+            isEditing={isEditing}
             isStarting={state.isStarting}
             actionError={state.actionError}
+            onUpdateExerciseConfig={controls.updateExerciseConfig}
             onStart={async () => {
               const sessionId = await controls.startPlan();
 
@@ -124,16 +131,23 @@ export function TodayPlanDetailContent({
 
 function PlanDetail({
   data,
+  isEditing,
   isStarting,
   actionError,
+  onUpdateExerciseConfig,
   onStart,
 }: {
   readonly data: TodayPlanDetailData;
+  readonly isEditing: boolean;
   readonly isStarting: boolean;
   readonly actionError?: string;
+  readonly onUpdateExerciseConfig: ReturnType<
+    typeof useTodayPlanDetail
+  >['controls']['updateExerciseConfig'];
   readonly onStart: () => Promise<void>;
 }) {
-  const totalSets = data.template.exercises.reduce(
+  const displayExercises = getDisplayExercises(data);
+  const totalSets = displayExercises.reduce(
     (total, exercise) => total + exercise.targetSets,
     0,
   );
@@ -146,7 +160,7 @@ function PlanDetail({
     >
       <View style={styles.hero}>
         <ThemedText type="small" themeColor="textSecondary">
-          力量训练 · {data.template.exercises.length} 个动作
+          力量训练 · {displayExercises.length} 个动作
         </ThemedText>
         <ThemedText type="title" style={styles.heroTitle}>
           {data.plan.titleSnapshot}
@@ -159,7 +173,7 @@ function PlanDetail({
       </View>
 
       <View style={styles.exerciseList}>
-        {data.exercises.map((exercise, index) => (
+        {displayExercises.map((exercise, index) => (
           <View key={exercise.id} style={styles.exerciseRow}>
             <ThemedText type="smallBold" themeColor="textSecondary">
               {(index + 1).toString().padStart(2, '0')}
@@ -175,6 +189,74 @@ function PlanDetail({
                   : `-${exercise.targetRepsMax}`}{' '}
                 次 · {exercise.restSeconds} 秒
               </ThemedText>
+              {isEditing && (
+                <View style={styles.configActions}>
+                  <ConfigButton
+                    label="-组"
+                    accessibilityLabel={`减少${exercise.name}组数`}
+                    disabled={isStarting || exercise.targetSets <= 1}
+                    onPress={() =>
+                      void onUpdateExerciseConfig(
+                        exercise.id as SessionExerciseId,
+                        {
+                          targetSets: exercise.targetSets - 1,
+                          targetRepsMin: exercise.targetRepsMin,
+                          targetRepsMax: exercise.targetRepsMax,
+                          restSeconds: exercise.restSeconds,
+                        },
+                      )
+                    }
+                  />
+                  <ConfigButton
+                    label="+组"
+                    accessibilityLabel={`增加${exercise.name}组数`}
+                    disabled={isStarting}
+                    onPress={() =>
+                      void onUpdateExerciseConfig(
+                        exercise.id as SessionExerciseId,
+                        {
+                          targetSets: exercise.targetSets + 1,
+                          targetRepsMin: exercise.targetRepsMin,
+                          targetRepsMax: exercise.targetRepsMax,
+                          restSeconds: exercise.restSeconds,
+                        },
+                      )
+                    }
+                  />
+                  <ConfigButton
+                    label="+次"
+                    accessibilityLabel={`增加${exercise.name}次数`}
+                    disabled={isStarting}
+                    onPress={() =>
+                      void onUpdateExerciseConfig(
+                        exercise.id as SessionExerciseId,
+                        {
+                          targetSets: exercise.targetSets,
+                          targetRepsMin: exercise.targetRepsMin + 1,
+                          targetRepsMax: exercise.targetRepsMax + 1,
+                          restSeconds: exercise.restSeconds,
+                        },
+                      )
+                    }
+                  />
+                  <ConfigButton
+                    label="+15秒"
+                    accessibilityLabel={`增加${exercise.name}休息时间`}
+                    disabled={isStarting}
+                    onPress={() =>
+                      void onUpdateExerciseConfig(
+                        exercise.id as SessionExerciseId,
+                        {
+                          targetSets: exercise.targetSets,
+                          targetRepsMin: exercise.targetRepsMin,
+                          targetRepsMax: exercise.targetRepsMax,
+                          restSeconds: exercise.restSeconds + 15,
+                        },
+                      )
+                    }
+                  />
+                </View>
+              )}
             </View>
           </View>
         ))}
@@ -202,6 +284,60 @@ function PlanDetail({
       </Pressable>
     </ScrollView>
   );
+}
+
+function ConfigButton({
+  label,
+  accessibilityLabel,
+  disabled,
+  onPress,
+}: {
+  readonly label: string;
+  readonly accessibilityLabel: string;
+  readonly disabled: boolean;
+  readonly onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      style={({ pressed }) => [
+        styles.configButton,
+        pressed && !disabled && styles.pressed,
+        disabled && styles.disabled,
+      ]}
+    >
+      <ThemedText type="smallBold">{label}</ThemedText>
+    </Pressable>
+  );
+}
+
+function getDisplayExercises(
+  data: TodayPlanDetailData,
+): readonly TodayPlanDetailExercise[] {
+  if (data.session?.status === 'draft') {
+    const detailBySourceExerciseId = new Map(
+      data.exercises.map((exercise) => [exercise.id, exercise]),
+    );
+
+    return data.session.sessionExercises.map((exercise) => {
+      const detail = detailBySourceExerciseId.get(exercise.id);
+
+      return {
+        id: exercise.id,
+        name: exercise.exerciseNameSnapshot || detail?.name || '训练动作',
+        targetSets: exercise.targetSets,
+        targetRepsMin: exercise.targetRepsMin,
+        targetRepsMax: exercise.targetRepsMax,
+        restSeconds: exercise.currentRestSeconds,
+      };
+    });
+  }
+
+  return data.exercises;
 }
 
 function LoadingState() {
@@ -297,6 +433,19 @@ const styles = StyleSheet.create({
   },
   exerciseCopy: { flex: 1, gap: Spacing.one },
   exerciseName: { fontSize: 22, lineHeight: 30 },
+  configActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+    paddingTop: Spacing.two,
+  },
+  configButton: {
+    minHeight: 36,
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: '#E8E5DC',
+    paddingHorizontal: Spacing.two,
+  },
   startButton: {
     minHeight: 72,
     alignItems: 'center',
