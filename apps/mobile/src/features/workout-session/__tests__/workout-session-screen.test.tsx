@@ -245,6 +245,26 @@ describe('WorkoutSessionScreenContent', () => {
     expect(resumeWorkout).toHaveBeenCalledTimes(1);
   });
 
+  it('shows and toggles the voice coach control', async () => {
+    const toggleVoiceFeedback = jest.fn();
+    const { getByLabelText, getByText } = await render(
+      <WorkoutSessionScreenContent
+        state={{
+          ...buildReadyState(buildSession(), undefined, 'running'),
+          isVoiceFeedbackEnabled: false,
+        }}
+        controls={buildControls({ toggleVoiceFeedback })}
+        onBack={jest.fn()}
+      />,
+    );
+
+    expect(getByText('语音已关闭')).toBeTruthy();
+
+    await fireEvent.press(getByLabelText('切换语音教练'));
+
+    expect(toggleVoiceFeedback).toHaveBeenCalledTimes(1);
+  });
+
   it('connects previous and next exercise controls through selectExercise', async () => {
     const selectExercise = jest.fn(async () => undefined);
     const session = buildSession({
@@ -1182,6 +1202,79 @@ describe('useWorkoutSessionScreen', () => {
     ).toHaveLength(1);
   });
 
+  it('does not call voice feedback while the screen voice coach is disabled', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const voiceAdapter: WorkoutVoiceFeedbackAdapter = {
+      speak: jest.fn(async () => undefined),
+    };
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({ targetRepsMin: 2, targetRepsMax: 2 }),
+        ],
+      }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          workoutCompanionEventSource: source,
+          voiceAdapter,
+          voiceFeedbackEnabled: false,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    expect(getReadyState(result.current.state).isVoiceFeedbackEnabled).toBe(
+      false,
+    );
+
+    await act(async () => {
+      source.emit(buildCompanionEvent(1));
+      await Promise.resolve();
+    });
+
+    expect(voiceAdapter.speak).not.toHaveBeenCalled();
+  });
+
+  it('resumes voice feedback after the screen voice coach is enabled again', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const voiceAdapter: WorkoutVoiceFeedbackAdapter = {
+      speak: jest.fn(async () => undefined),
+    };
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({ targetRepsMin: 2, targetRepsMax: 2 }),
+        ],
+      }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          workoutCompanionEventSource: source,
+          voiceAdapter,
+          voiceFeedbackEnabled: false,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => result.current.controls.toggleVoiceFeedback());
+    expect(getReadyState(result.current.state).isVoiceFeedbackEnabled).toBe(
+      true,
+    );
+
+    await act(async () => {
+      source.emit(buildCompanionEvent(1));
+      await Promise.resolve();
+    });
+
+    expect(voiceAdapter.speak).toHaveBeenCalledWith('第 1 次');
+  });
+
   it('silently refreshes durable session state when the page regains focus', async () => {
     const initialSession = buildSession();
     const refreshedSession = buildSession({
@@ -1468,6 +1561,7 @@ function buildReadyState(
     isMutating: false,
     isConfirmingSkip: false,
     endFlow: 'closed',
+    isVoiceFeedbackEnabled: true,
   };
 }
 
@@ -1496,6 +1590,7 @@ function buildControls(
     confirmCancelSession: jest.fn(async () => undefined),
     confirmCompleteSession: jest.fn(async () => undefined),
     clearNavigationIntent: jest.fn(),
+    toggleVoiceFeedback: jest.fn(),
     ...overrides,
   };
 }
@@ -1667,6 +1762,7 @@ function buildDependencies(
     readonly restTimerRepository?: RestTimerRepository;
     readonly runtimeSnapshotRepository?: WorkoutRuntimeSnapshotRepository;
     readonly voiceAdapter?: WorkoutVoiceFeedbackAdapter;
+    readonly voiceFeedbackEnabled?: boolean;
     readonly workoutCompanionEventSource?: WorkoutCompanionEventSource;
   } = {},
 ) {
@@ -1685,6 +1781,7 @@ function buildDependencies(
     createWorkoutSetId:
       overrides.createWorkoutSetId ?? (() => 'workout-set-new'),
     voiceAdapter: overrides.voiceAdapter,
+    voiceFeedbackEnabled: overrides.voiceFeedbackEnabled,
     workoutCompanionEventSource: overrides.workoutCompanionEventSource,
   };
 }

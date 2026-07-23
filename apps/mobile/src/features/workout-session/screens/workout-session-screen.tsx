@@ -215,6 +215,8 @@ function ReadyState({
               runtime={state.runtime}
               completedReps={state.companionRuntime?.progress.completedReps}
               coachFeedback={state.coachFeedback}
+              isVoiceFeedbackEnabled={state.isVoiceFeedbackEnabled}
+              onToggleVoiceFeedback={controls.toggleVoiceFeedback}
             />
             <SetEditor
               state={state}
@@ -743,10 +745,14 @@ function CurrentExerciseSection({
   runtime,
   completedReps,
   coachFeedback,
+  isVoiceFeedbackEnabled,
+  onToggleVoiceFeedback,
 }: {
   readonly runtime: WorkoutRuntimeSnapshot;
   readonly completedReps?: number;
   readonly coachFeedback?: string;
+  readonly isVoiceFeedbackEnabled: boolean;
+  readonly onToggleVoiceFeedback: () => void;
 }) {
   const exercise = runtime.currentExercise;
 
@@ -794,7 +800,36 @@ function CurrentExerciseSection({
           </ThemedText>
         </View>
         <View style={styles.coachPanel}>
-          <ThemedText style={styles.coachLabel}>语音教练</ThemedText>
+          <View style={styles.coachHeader}>
+            <View>
+              <ThemedText style={styles.coachLabel}>语音教练</ThemedText>
+              <ThemedText type="small" style={styles.workoutMutedText}>
+                {isVoiceFeedbackEnabled ? '语音已开启' : '语音已关闭'}
+              </ThemedText>
+            </View>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityLabel="切换语音教练"
+              accessibilityState={{ checked: isVoiceFeedbackEnabled }}
+              onPress={onToggleVoiceFeedback}
+              style={({ pressed }) => [
+                styles.voiceToggle,
+                isVoiceFeedbackEnabled && styles.voiceToggleEnabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              <ThemedText
+                type="smallBold"
+                style={
+                  isVoiceFeedbackEnabled
+                    ? styles.voiceToggleEnabledText
+                    : styles.workoutMutedText
+                }
+              >
+                {isVoiceFeedbackEnabled ? '开' : '关'}
+              </ThemedText>
+            </Pressable>
+          </View>
           <ThemedText style={styles.coachCopy} accessibilityLiveRegion="polite">
             {coachFeedback ?? formatCurrentSetState(exercise)}
           </ThemedText>
@@ -1443,6 +1478,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     padding: Spacing.three,
   },
+  coachHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
   coachLabel: {
     color: '#CAFF00',
     fontSize: 12,
@@ -1455,6 +1496,21 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '600',
   },
+  voiceToggle: {
+    minWidth: 48,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 999,
+    paddingHorizontal: Spacing.two,
+  },
+  voiceToggleEnabled: {
+    borderColor: '#CAFF00',
+    backgroundColor: 'rgba(202, 255, 0, 0.18)',
+  },
+  voiceToggleEnabledText: { color: '#CAFF00' },
   section: {
     gap: Spacing.three,
     borderRadius: 22,

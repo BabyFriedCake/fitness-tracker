@@ -106,6 +106,7 @@ export type WorkoutSessionScreenState =
       readonly endFlow: 'closed' | 'options' | 'confirm_cancel';
       readonly navigationIntent?: 'summary' | 'today';
       readonly coachFeedback?: string;
+      readonly isVoiceFeedbackEnabled: boolean;
       readonly canRetryCompanionEvent?: boolean;
       readonly actionError?: string;
     };
@@ -132,6 +133,7 @@ export type WorkoutSessionScreenControls = {
   readonly confirmCancelSession: () => Promise<void>;
   readonly confirmCompleteSession: () => Promise<void>;
   readonly clearNavigationIntent: () => void;
+  readonly toggleVoiceFeedback: () => void;
 };
 
 export type WorkoutSessionScreenModel = {
@@ -459,6 +461,9 @@ export function useWorkoutSessionScreen(
           coachFeedback: shouldPreserveDraft
             ? current.coachFeedback
             : undefined,
+          isVoiceFeedbackEnabled: shouldPreserveDraft
+            ? current.isVoiceFeedbackEnabled
+            : dependenciesRef.current.voiceFeedbackEnabled,
           canRetryCompanionEvent: shouldPreserveDraft
             ? current.canRetryCompanionEvent
             : false,
@@ -849,7 +854,11 @@ export function useWorkoutSessionScreen(
           );
         }
 
-        speakWorkoutVoiceFeedbackEvents(voiceEvents, dependenciesRef.current);
+        speakWorkoutVoiceFeedbackEvents(
+          voiceEvents,
+          current,
+          dependenciesRef.current,
+        );
       }
 
       if (!isMountedRef.current) {
@@ -1186,7 +1195,11 @@ export function useWorkoutSessionScreen(
         return;
       }
 
-      speakWorkoutVoiceFeedbackEvents(result.events, dependenciesRef.current);
+      speakWorkoutVoiceFeedbackEvents(
+        result.events,
+        current,
+        dependenciesRef.current,
+      );
 
       if (result.status === 'ignored') {
         isMutatingRef.current = false;
@@ -1272,6 +1285,7 @@ export function useWorkoutSessionScreen(
           );
           speakWorkoutVoiceFeedbackEvents(
             [exerciseResult.event],
+            current,
             dependenciesRef.current,
           );
           nextSession = exerciseResult.session;
@@ -1484,6 +1498,7 @@ export function useWorkoutSessionScreen(
             );
             speakWorkoutVoiceFeedbackEvents(
               [exerciseResult.event],
+              current,
               dependenciesRef.current,
             );
 
@@ -1823,6 +1838,19 @@ export function useWorkoutSessionScreen(
     }
   }, [commitState]);
 
+  const toggleVoiceFeedback = useCallback((): void => {
+    const current = stateRef.current;
+
+    if (current.status !== 'ready') {
+      return;
+    }
+
+    commitState({
+      ...current,
+      isVoiceFeedbackEnabled: !current.isVoiceFeedbackEnabled,
+    });
+  }, [commitState]);
+
   return {
     state,
     controls: {
@@ -1849,6 +1877,7 @@ export function useWorkoutSessionScreen(
       confirmCancelSession,
       confirmCompleteSession,
       clearNavigationIntent,
+      toggleVoiceFeedback,
     },
   };
 }
@@ -1923,14 +1952,14 @@ function parseWorkoutSetDraft(
 
 function speakWorkoutVoiceFeedbackEvents(
   events: readonly WorkoutVoiceFeedbackEvent[],
+  state: Extract<WorkoutSessionScreenState, { readonly status: 'ready' }>,
   dependencies: {
-    readonly voiceFeedbackEnabled: boolean;
     readonly voiceAdapter: WorkoutVoiceFeedbackAdapter;
   },
 ): void {
   events.forEach((event) => {
     void speakWorkoutVoiceFeedbackEvent(event, {
-      isEnabled: dependencies.voiceFeedbackEnabled,
+      isEnabled: state.isVoiceFeedbackEnabled,
       voiceAdapter: dependencies.voiceAdapter,
     }).catch(() => undefined);
   });
