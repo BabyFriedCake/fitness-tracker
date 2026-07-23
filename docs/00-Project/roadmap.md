@@ -149,7 +149,7 @@ Exit Review：PASS WITH WARNINGS
 
 ---
 
-# Sprint 5（🚧 进行中）
+# Sprint 5（✅ 已完成）
 
 ## Workout Assistant
 
@@ -170,8 +170,17 @@ Exit Review：PASS WITH WARNINGS
 - [x] S5-05 Workout Runtime Persistence
 - [x] S5-06 Workout Companion Runtime Flow
 - [x] S5-07-R0 Workout Companion Specification Alignment
-- [ ] S5-07 Workout Companion UI Runtime Binding
-- [ ] S5-08 Sprint 5 Exit Review
+- [x] S5-07 Workout Companion UI Runtime Binding
+- [x] S5-07-R1 Workout Companion Runtime Recovery Fix
+- [x] S5-08 Sprint 5 Exit Review
+
+完成时间：2026-07-23
+
+Exit Review：PASS WITH WARNINGS
+
+Tag：待创建
+
+Release：待创建
 
 ## S5-01 Workout Runtime Engine（✅ 已完成）
 
@@ -239,9 +248,9 @@ Exit Review：PASS WITH WARNINGS
 - Runtime 六个 phase 的 UI 行为
 - P004 与 Workout UI 规范对齐
 
-## S5-07 Workout Companion UI Runtime Binding（⏳ 待实现）
+## S5-07 Workout Companion UI Runtime Binding（✅ 已完成）
 
-计划：
+实现：
 
 - 绑定受控 `WorkoutCompanionEventSource`
 - 验证并串行处理 `RepCompleted`
@@ -249,7 +258,22 @@ Exit Review：PASS WITH WARNINGS
 - 复用现有暂停、恢复、RestTimer、持久化和 Summary Flow
 - 不实现 Voice Engine、Camera、Pose Detection 或 AI
 
-## S5-08 Sprint 5 Exit Review（⏳ 待执行）
+## S5-07-R1 Workout Companion Runtime Recovery Fix（✅ 已完成）
+
+实现：
+
+- resting 阶段真实倒计时展示
+- Set、RestTimer、Exercise 和 Session completion pending 失败恢复
+- Runtime/Session 替换时的 Event Source 生命周期安全
+- pending 状态事件拒绝与可重试持久化
+
+## S5-08 Sprint 5 Exit Review（✅ 已完成）
+
+验证：
+
+- 34 suites / 442 tests PASS
+- format:check / lint / typecheck / test / git diff --check PASS
+- 详见 `docs/09-Release/Sprint-5-Exit-Report.md`
 
 ## Unscheduled Follow-up
 

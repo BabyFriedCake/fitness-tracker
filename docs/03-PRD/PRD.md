@@ -1,75 +1,168 @@
-# Fitness Tracker PRD
+# Fitness Tracker Product Requirement Document
 
-Version: v1.0  
-Status: Approved  
-Owner: Product Owner  
-Last Updated: 2026-07-14
+版本：2.0
 
-## 产品概述
+状态：Active
 
-Fitness Tracker 是一款面向健身房力量训练用户的专业训练记录与计划管理 App。
+# 1. 产品定位
 
-> 让每一次训练，都成为下一次进步的依据。
+Fitness Tracker 从训练记录工具升级为 AI Fitness Coach（AI 健身陪练）。
 
-核心能力：
+目标：
 
-- 建立训练模板
-- 灵活选择当天训练
-- 记录每组重量、次数和组数
-- 后台休息计时与通知
-- 历史趋势与 PR
-- 规则驱动的渐进式挑战建议
+帮助用户完成训练计划管理、动作学习、实时训练陪伴、自动训练记录以及长期训练分析。
 
-## 目标用户
+产品参考方向：
 
-- 健身房力量训练用户
-- 使用器械、哑铃和杠铃训练的人
-- 希望自主安排训练并长期追踪进步的人
+-   Keep：训练陪练体验
+-   训记：动作库和训练记录体验
 
-## 核心设计
+# 2. 核心用户流程
 
-1. Template 与 Session 分离。
-2. 默认带入上次重量与次数，可快速修改。
-3. 每组独立记录并即时保存。
-4. 支持后台计时和恢复。
-5. 所有统计基于真实 Workout Set。
-6. 建议只提供参考，不自动修改用户数据。
-7. 今日状态支持正常、疲劳、经期和不适。
+    选择训练模板
 
-## V1 必须实现
+    ↓
 
-- 本地动作库
-- 训练模板
-- Session 创建与临时调整
-- 每组重量和次数记录
-- 默认带入上次数据
-- 单组编辑
-- 后台休息计时
-- 本地通知
-- 训练总结
-- 历史训练
-- 基础趋势与 PR
-- 规则驱动挑战建议
-- 今日状态
-- 本地数据持久化
+    开始 Workout Session
 
-## V1 暂不实现
+    ↓
 
-- AI 自动生成训练计划
-- 女性周期自动调整
-- 超级组入口
-- Apple Watch
-- 华为手环连接
-- 云同步
-- 社区和排行榜
-- 跟练视频
-- 音乐播放
-- 身体数据
+    Workout Companion 陪练
 
-## 成功标准
+    ↓
 
-- 可以完整记录一次真实训练
-- 切换其他 App 后计时和状态可恢复
-- 修改模板不会影响历史
-- 连续使用后可以查看动作进步
-- 用户可依据历史决定下一次训练重量
+    记录训练过程
+
+    ↓
+
+    生成 History
+
+    ↓
+
+    优化下一次训练
+
+# 3. 当前已有能力
+
+## Workout Template
+
+支持：
+
+-   创建模板
+-   添加动作
+-   设置组数
+-   设置目标次数
+-   设置休息时间
+
+## Action Library
+
+支持：
+
+-   动作列表
+-   搜索
+-   分类
+-   筛选
+-   动作详情
+
+## Workout Runtime
+
+作为训练核心状态机。
+
+支持：
+
+-   running
+-   paused
+-   resting
+-   completed
+-   cancelled
+
+## History
+
+记录：
+
+-   日期
+-   模板
+-   动作
+-   完成情况
+-   训练数据
+
+# 4. AI Fitness Coach 规划
+
+## Voice Coach
+
+目标：
+
+提供类似 Keep 的实时语音陪练。
+
+包括：
+
+-   开始训练提示
+-   次数反馈
+-   组完成提示
+-   休息提醒
+-   训练总结
+
+## Auto Rep Counter
+
+目标：
+
+自动识别动作次数。
+
+数据流：
+
+    Camera / Pose / Voice
+
+    ↓
+
+    RepCompleted Event
+
+    ↓
+
+    Workout Runtime
+
+    ↓
+
+    更新训练状态
+
+    ↓
+
+    Voice Feedback
+
+原则：
+
+识别模块不能直接修改 Runtime。
+
+## AI Coach
+
+未来能力：
+
+-   训练建议
+-   重量调整
+-   计划优化
+-   个性化反馈
+
+# 5. 产品原则
+
+## Runtime First
+
+所有训练状态必须由 Runtime 管理。
+
+UI 不直接修改训练状态。
+
+## Event Driven
+
+模块通过事件连接。
+
+核心事件：
+
+-   WorkoutStarted
+-   RepCompleted
+-   SetCompleted
+-   RestStarted
+-   WorkoutCompleted
+-   VoiceFeedbackRequested
+
+## Incremental Development
+
+基于 Sprint 5 Runtime 架构扩展。
+
+不推翻已有 Domain。
