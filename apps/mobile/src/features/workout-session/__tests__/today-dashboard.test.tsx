@@ -8,6 +8,11 @@ import type {
   ExerciseRepository,
 } from '@/domain/exercise';
 import type { DailyStatusRepository } from '@/domain/daily-status';
+import type {
+  TodayWorkoutPlan,
+  TodayWorkoutPlanId,
+  TodayWorkoutPlanRepository,
+} from '@/domain/today-workout-plan';
 import {
   createWorkoutTemplate,
   type WorkoutTemplate,
@@ -23,9 +28,11 @@ import {
 } from '@/domain/workout-session';
 import {
   createWorkoutSessionFromTemplate,
+  addTodayPlanFromTemplate,
   createTodayDashboardRecommendation,
   createTodayDashboardWeeklySummary,
   loadTodayDashboard,
+  startTodayPlan,
   type TodayDashboardData,
 } from '@/features/workout-session/application/today-dashboard';
 import type {
@@ -35,6 +42,7 @@ import type {
 import { TodayDashboardScreenContent } from '@/features/workout-session/screens/today-dashboard-screen';
 
 const TEMPLATE_ID = 'template-push' as WorkoutTemplateId;
+const TODAY_PLAN_ID = 'today-plan-push' as TodayWorkoutPlanId;
 const SESSION_ID = 'session-push' as WorkoutSessionId;
 const SESSION_EXERCISE_ID = 'session-exercise-bench' as SessionExerciseId;
 const EXERCISE_ID = 'exercise-bench' as ExerciseId;
@@ -47,6 +55,7 @@ describe('Today Dashboard', () => {
       workoutTemplateRepository: buildWorkoutTemplateRepository({
         list: jest.fn(async () => [buildTemplate()]),
       }),
+      todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository(),
       exerciseRepository: buildExerciseRepository(),
       dailyStatusRepository: buildDailyStatusRepository(),
     });
@@ -55,6 +64,7 @@ describe('Today Dashboard', () => {
       status: 'ready',
       data: {
         sessionEntry: { status: 'none' },
+        todayPlans: [],
         templates: [
           {
             id: TEMPLATE_ID,
@@ -87,6 +97,7 @@ describe('Today Dashboard', () => {
         workoutTemplateRepository: buildWorkoutTemplateRepository({
           list: jest.fn(async () => [buildTemplate()]),
         }),
+        todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository(),
         exerciseRepository: buildExerciseRepository(),
         dailyStatusRepository: buildDailyStatusRepository(),
       });
@@ -111,6 +122,7 @@ describe('Today Dashboard', () => {
           findLatestSession: jest.fn(async () => buildSession(status)),
         }),
         workoutTemplateRepository: buildWorkoutTemplateRepository(),
+        todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository(),
         exerciseRepository: buildExerciseRepository(),
         dailyStatusRepository: buildDailyStatusRepository(),
       });
@@ -134,6 +146,7 @@ describe('Today Dashboard', () => {
         workoutTemplateRepository: buildWorkoutTemplateRepository({
           getById: jest.fn(async () => buildTemplate()),
         }),
+        todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository(),
         exerciseRepository: buildExerciseRepository(),
       },
       TEMPLATE_ID,
@@ -198,6 +211,7 @@ describe('Today Dashboard', () => {
       workoutTemplateRepository: buildWorkoutTemplateRepository({
         list: async () => [buildTemplate()],
       }),
+      todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository(),
       exerciseRepository: buildExerciseRepository(),
       dailyStatusRepository: buildDailyStatusRepository(),
     });
@@ -225,6 +239,7 @@ describe('Today Dashboard', () => {
           save,
         }),
         workoutTemplateRepository: buildWorkoutTemplateRepository(),
+        todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository(),
         exerciseRepository: buildExerciseRepository(),
       },
       TEMPLATE_ID,
@@ -242,12 +257,88 @@ describe('Today Dashboard', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it('adds an active template to today plan', async () => {
+    const addFromTemplate = jest.fn(async (input) => buildTodayPlan(input));
+    const result = await addTodayPlanFromTemplate(
+      {
+        todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository({
+          addFromTemplate,
+        }),
+        workoutTemplateRepository: buildWorkoutTemplateRepository({
+          getById: jest.fn(async () => buildTemplate()),
+        }),
+      },
+      TEMPLATE_ID,
+      {
+        localDate: '2026-07-23',
+        now: () => CREATED_AT,
+        createId: () => TODAY_PLAN_ID,
+        position: 1,
+      },
+    );
+
+    expect(result.status).toBe('added');
+    expect(addFromTemplate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: TODAY_PLAN_ID,
+        sourceTemplateId: TEMPLATE_ID,
+        titleSnapshot: 'Push',
+      }),
+    );
+  });
+
+  it('starts a today plan by creating and attaching a draft session', async () => {
+    const save = jest.fn(async (session: WorkoutSession) => session);
+    const attachSession = jest.fn(async () =>
+      buildTodayPlan({ sessionId: SESSION_ID, status: 'draft' }),
+    );
+    const result = await startTodayPlan(
+      {
+        workoutSessionRepository: buildWorkoutSessionRepository({ save }),
+        workoutTemplateRepository: buildWorkoutTemplateRepository({
+          getById: jest.fn(async () => buildTemplate()),
+        }),
+        todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository({
+          findById: jest.fn(async () => buildTodayPlan()),
+          attachSession,
+        }),
+        exerciseRepository: buildExerciseRepository(),
+      },
+      TODAY_PLAN_ID,
+      {
+        now: () => CREATED_AT,
+        createId: createIds([SESSION_ID, SESSION_EXERCISE_ID]),
+      },
+    );
+
+    expect(result).toEqual({ status: 'ready', sessionId: SESSION_ID });
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: SESSION_ID, status: 'draft' }),
+    );
+    expect(attachSession).toHaveBeenCalledWith(
+      TODAY_PLAN_ID,
+      SESSION_ID,
+      CREATED_AT,
+    );
+  });
+
   it('renders the start entry and creates a draft from a template card', async () => {
-    const createSessionFromTemplate = jest.fn(async () => {});
+    const startPlan = jest.fn(async () => SESSION_ID);
+    const onOpenWorkoutSession = jest.fn();
     const { getByLabelText, getByText } = await render(
       <TodayDashboardScreenContent
         state={buildReadyState({
           sessionEntry: { status: 'none' },
+          todayPlans: [
+            {
+              id: TODAY_PLAN_ID,
+              templateId: TEMPLATE_ID,
+              name: 'Push',
+              status: 'planned',
+              exerciseCount: 1,
+              totalTargetSets: 4,
+            },
+          ],
           templates: [
             {
               id: TEMPLATE_ID,
@@ -257,17 +348,18 @@ describe('Today Dashboard', () => {
             },
           ],
         })}
-        controls={buildControls({ createSessionFromTemplate })}
+        controls={buildControls({ startTodayPlan: startPlan })}
         onCreateTemplate={jest.fn()}
         onOpenTemplate={jest.fn()}
-        onOpenWorkoutSession={jest.fn()}
+        onOpenWorkoutSession={onOpenWorkoutSession}
         onOpenHistory={jest.fn()}
       />,
     );
 
     expect(getByText('当前没有进行中的训练')).toBeTruthy();
-    await fireEvent.press(getByLabelText('开始训练Push，1 个动作 · 4 组'));
-    expect(createSessionFromTemplate).toHaveBeenCalledWith(TEMPLATE_ID);
+    await fireEvent.press(getByLabelText('开始训练Push'));
+    expect(startPlan).toHaveBeenCalledWith(TODAY_PLAN_ID);
+    expect(onOpenWorkoutSession).toHaveBeenCalledWith(SESSION_ID);
   });
 
   it('opens a template plan from the card body without starting a session', async () => {
@@ -277,6 +369,16 @@ describe('Today Dashboard', () => {
       <TodayDashboardScreenContent
         state={buildReadyState({
           sessionEntry: { status: 'none' },
+          todayPlans: [
+            {
+              id: TODAY_PLAN_ID,
+              templateId: TEMPLATE_ID,
+              name: 'Push',
+              status: 'planned',
+              exerciseCount: 1,
+              totalTargetSets: 4,
+            },
+          ],
           templates: [
             {
               id: TEMPLATE_ID,
@@ -294,7 +396,9 @@ describe('Today Dashboard', () => {
       />,
     );
 
-    await fireEvent.press(getByLabelText('查看训练计划Push，1 个动作 · 4 组'));
+    await fireEvent.press(
+      getByLabelText('查看今日训练计划Push，1 个动作 · 4 组'),
+    );
 
     expect(onOpenTemplate).toHaveBeenCalledWith(TEMPLATE_ID);
     expect(createSessionFromTemplate).not.toHaveBeenCalled();
@@ -315,6 +419,7 @@ describe('Today Dashboard', () => {
               completedSetCount: 1,
               totalTargetSetCount: 4,
             },
+            todayPlans: [],
             templates: [],
           })}
           controls={buildControls({ continueSession })}
@@ -349,6 +454,7 @@ describe('Today Dashboard', () => {
               completedSetCount: 2,
               totalTargetSetCount: 4,
             },
+            todayPlans: [],
             templates: [],
           })}
           controls={buildControls({ continueSession })}
@@ -374,6 +480,7 @@ describe('Today Dashboard', () => {
       <TodayDashboardScreenContent
         state={buildReadyState({
           sessionEntry: { status: 'none' },
+          todayPlans: [],
           templates: [],
         })}
         controls={buildControls()}
@@ -395,6 +502,7 @@ describe('Today Dashboard', () => {
       <TodayDashboardScreenContent
         state={buildReadyState({
           sessionEntry: { status: 'none' },
+          todayPlans: [],
           templates: [],
           dailyStatus: 'fatigued',
           recentWorkout: {
@@ -437,11 +545,20 @@ describe('Today Dashboard', () => {
 });
 
 function buildReadyState(
-  data: TodayDashboardData,
+  data: Partial<TodayDashboardData>,
 ): Extract<TodayDashboardScreenState, { status: 'ready' }> {
   return {
     status: 'ready',
-    data,
+    data: {
+      sessionEntry: { status: 'none' },
+      todayPlans: [],
+      templates: [],
+      dailyStatus: undefined,
+      recentWorkout: undefined,
+      weeklySummary: undefined,
+      recommendation: undefined,
+      ...data,
+    },
     isCreatingSession: false,
     isContinuingSession: false,
   };
@@ -452,9 +569,32 @@ function buildControls(
 ): TodayDashboardScreenControls {
   return {
     reload: jest.fn(),
+    addTodayPlanFromTemplate: jest.fn(async () => false),
+    startTodayPlan: jest.fn(async () => null),
     createSessionFromTemplate: jest.fn(async () => {}),
     continueSession: jest.fn(async () => false),
     updateDailyStatus: jest.fn(async () => {}),
+    ...overrides,
+  };
+}
+
+function buildTodayWorkoutPlanRepository(
+  overrides: Partial<TodayWorkoutPlanRepository> = {},
+): TodayWorkoutPlanRepository {
+  return {
+    listByDate: async () => [],
+    findById: async () => null,
+    findByDateAndTemplate: async () => null,
+    addFromTemplate: async (input) =>
+      buildTodayPlan({
+        ...input,
+        id: input.id as TodayWorkoutPlanId,
+        sourceTemplateId: input.sourceTemplateId as WorkoutTemplateId,
+      }),
+    attachSession: async (_planId, sessionId) =>
+      buildTodayPlan({ sessionId, status: 'draft' }),
+    syncStatusFromSession: async (_planId, sessionStatus) =>
+      buildTodayPlan({ status: sessionStatus }),
     ...overrides,
   };
 }
@@ -593,6 +733,22 @@ function buildSession(status: WorkoutSession['status']): WorkoutSession {
         endedAt: '2026-07-20T02:00:00.000Z',
       };
   }
+}
+
+function buildTodayPlan(
+  overrides: Partial<TodayWorkoutPlan> = {},
+): TodayWorkoutPlan {
+  return {
+    id: TODAY_PLAN_ID,
+    localDate: '2026-07-23',
+    sourceTemplateId: TEMPLATE_ID,
+    titleSnapshot: 'Push',
+    status: 'planned',
+    position: 1,
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+    ...overrides,
+  };
 }
 
 function buildSessionExercise(): SessionExercise {

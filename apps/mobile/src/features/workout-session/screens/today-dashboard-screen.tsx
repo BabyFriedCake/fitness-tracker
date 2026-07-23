@@ -1,10 +1,12 @@
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -23,6 +25,7 @@ import {
   type TodayDashboardScreenState,
 } from '@/features/workout-session/application/use-today-dashboard';
 import type {
+  TodayDashboardPlanItem,
   TodayDashboardSessionEntry,
   TodayDashboardTemplateItem,
 } from '@/features/workout-session/application/today-dashboard';
@@ -165,6 +168,7 @@ function ReadyState({
   readonly onOpenWorkoutSession: (sessionId: WorkoutSessionId) => void;
   readonly onOpenHistory: () => void;
 }) {
+  const [isPlanPickerVisible, setIsPlanPickerVisible] = useState(false);
   const hasBlockingSession =
     state.data.sessionEntry.status === 'draft' ||
     state.data.sessionEntry.status === 'in_progress';
@@ -195,14 +199,37 @@ function ReadyState({
       {state.data.templates.length === 0 ? (
         <EmptyTemplateEntry onCreateTemplate={onCreateTemplate} />
       ) : (
-        <TemplateStartList
+        <TodayPlanList
+          plans={state.data.todayPlans}
           templates={state.data.templates}
           disabled={hasBlockingSession || state.isCreatingSession}
           isCreating={state.isCreatingSession}
-          onCreateSession={controls.createSessionFromTemplate}
+          onOpenPicker={() => setIsPlanPickerVisible(true)}
+          onStartPlan={async (planId) => {
+            const sessionId = await controls.startTodayPlan(planId);
+
+            if (sessionId) {
+              onOpenWorkoutSession(sessionId);
+            }
+          }}
           onOpenTemplate={onOpenTemplate}
         />
       )}
+
+      <TodayPlanPickerModal
+        visible={isPlanPickerVisible}
+        templates={state.data.templates}
+        plans={state.data.todayPlans}
+        isSubmitting={state.isCreatingSession}
+        onClose={() => setIsPlanPickerVisible(false)}
+        onAddTemplate={async (templateId) => {
+          const didAdd = await controls.addTodayPlanFromTemplate(templateId);
+
+          if (didAdd) {
+            setIsPlanPickerVisible(false);
+          }
+        }}
+      />
 
       {state.data.recommendation && (
         <Recommendation
@@ -453,55 +480,91 @@ function EmptyTemplateEntry({
   );
 }
 
-function TemplateStartList({
+function TodayPlanList({
+  plans,
   templates,
   disabled,
   isCreating,
-  onCreateSession,
+  onOpenPicker,
+  onStartPlan,
   onOpenTemplate,
 }: {
+  readonly plans: readonly TodayDashboardPlanItem[];
   readonly templates: readonly TodayDashboardTemplateItem[];
   readonly disabled: boolean;
   readonly isCreating: boolean;
-  readonly onCreateSession: (templateId: WorkoutTemplateId) => Promise<void>;
+  readonly onOpenPicker: () => void;
+  readonly onStartPlan: (planId: TodayDashboardPlanItem['id']) => Promise<void>;
   readonly onOpenTemplate: (templateId: WorkoutTemplateId) => void;
 }) {
   return (
     <View style={styles.templateSection}>
-      <ThemedText type="subtitle">训练计划</ThemedText>
-      <View accessibilityLabel="今日训练模板列表">
-        {templates.map((template, index) => (
-          <View key={template.id}>
-            <TemplateStartCard
-              template={template}
-              disabled={disabled}
-              isCreating={isCreating}
-              onCreateSession={onCreateSession}
-              onOpenTemplate={onOpenTemplate}
-            />
-            {index < templates.length - 1 && <ListSeparator />}
-          </View>
-        ))}
+      <View style={styles.sectionHeader}>
+        <ThemedText type="subtitle">训练计划</ThemedText>
+        <Pressable
+          onPress={onOpenPicker}
+          accessibilityRole="button"
+          accessibilityLabel="添加训练计划"
+          style={({ pressed }) => [
+            styles.addPlanButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <ThemedText type="smallBold" style={styles.accentText}>
+            + 添加计划
+          </ThemedText>
+        </Pressable>
       </View>
+
+      {plans.length === 0 ? (
+        <ThemedView style={styles.emptyPlanCard}>
+          <ThemedText type="default">今天还没有训练计划</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            从训练模板中选择今天要完成的训练。
+          </ThemedText>
+        </ThemedView>
+      ) : (
+        <View accessibilityLabel="今日训练计划列表">
+          {plans.map((plan, index) => (
+            <View key={plan.id}>
+              <TodayPlanCard
+                plan={plan}
+                disabled={disabled}
+                isCreating={isCreating}
+                onStartPlan={onStartPlan}
+                onOpenTemplate={onOpenTemplate}
+              />
+              {index < plans.length - 1 && <ListSeparator />}
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
 
-function TemplateStartCard({
-  template,
+function TodayPlanCard({
+  plan,
   disabled,
   isCreating,
-  onCreateSession,
+  onStartPlan,
   onOpenTemplate,
 }: {
-  readonly template: TodayDashboardTemplateItem;
+  readonly plan: TodayDashboardPlanItem;
   readonly disabled: boolean;
   readonly isCreating: boolean;
-  readonly onCreateSession: (templateId: WorkoutTemplateId) => Promise<void>;
+  readonly onStartPlan: (planId: TodayDashboardPlanItem['id']) => Promise<void>;
   readonly onOpenTemplate: (templateId: WorkoutTemplateId) => void;
 }) {
   const theme = useTheme();
-  const metrics = `${template.exerciseCount} 个动作 · ${template.totalTargetSets} 组`;
+  const metrics = `${plan.exerciseCount} 个动作 · ${plan.totalTargetSets} 组`;
+  const isCompleted = plan.status === 'completed';
+  const buttonLabel = isCompleted
+    ? '已完成'
+    : plan.status === 'in_progress'
+      ? '继续'
+      : '开始';
+  const isStartDisabled = disabled || isCompleted;
 
   return (
     <View
@@ -514,9 +577,9 @@ function TemplateStartCard({
       ]}
     >
       <Pressable
-        onPress={() => onOpenTemplate(template.id)}
+        onPress={() => onOpenTemplate(plan.templateId)}
         accessibilityRole="button"
-        accessibilityLabel={`查看训练计划${template.name}，${metrics}`}
+        accessibilityLabel={`查看今日训练计划${plan.name}，${metrics}`}
         style={({ pressed }) => [
           styles.templatePreview,
           pressed && styles.pressed,
@@ -528,29 +591,111 @@ function TemplateStartCard({
           </ThemedText>
         </View>
         <View style={styles.templateCopy}>
-          <ThemedText type="default">{template.name}</ThemedText>
+          <ThemedText type="default">{plan.name}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {metrics}
           </ThemedText>
         </View>
       </Pressable>
       <Pressable
-        onPress={() => void onCreateSession(template.id)}
-        disabled={disabled}
+        onPress={() => void onStartPlan(plan.id)}
+        disabled={isStartDisabled}
         accessibilityRole="button"
-        accessibilityLabel={`开始训练${template.name}，${metrics}`}
-        accessibilityState={{ disabled }}
+        accessibilityLabel={`${buttonLabel}训练${plan.name}`}
+        accessibilityState={{ disabled: isStartDisabled }}
         style={({ pressed }) => [
           styles.templateStartButton,
-          pressed && !disabled && styles.pressed,
-          disabled && styles.disabled,
+          pressed && !isStartDisabled && styles.pressed,
+          isStartDisabled && styles.disabled,
         ]}
       >
         <ThemedText type="smallBold" style={styles.templateStartText}>
-          {isCreating ? '…' : '▶'}
+          {isCreating ? '…' : buttonLabel}
         </ThemedText>
       </Pressable>
     </View>
+  );
+}
+
+function TodayPlanPickerModal({
+  visible,
+  templates,
+  plans,
+  isSubmitting,
+  onClose,
+  onAddTemplate,
+}: {
+  readonly visible: boolean;
+  readonly templates: readonly TodayDashboardTemplateItem[];
+  readonly plans: readonly TodayDashboardPlanItem[];
+  readonly isSubmitting: boolean;
+  readonly onClose: () => void;
+  readonly onAddTemplate: (templateId: WorkoutTemplateId) => Promise<void>;
+}) {
+  const plannedTemplateIds = new Set(plans.map((plan) => plan.templateId));
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.modalScrim}>
+        <View style={styles.planPicker}>
+          <View style={styles.sectionHeader}>
+            <View>
+              <ThemedText type="subtitle">添加计划</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                从训练模板中多选添加
+              </ThemedText>
+            </View>
+            <Pressable
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="关闭添加计划"
+              style={({ pressed }) => [
+                styles.modalCloseButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <ThemedText type="subtitle">×</ThemedText>
+            </Pressable>
+          </View>
+          <View style={styles.pickerList}>
+            {templates.map((template) => {
+              const isAdded = plannedTemplateIds.has(template.id);
+
+              return (
+                <Pressable
+                  key={template.id}
+                  onPress={() => void onAddTemplate(template.id)}
+                  disabled={isAdded || isSubmitting}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isAdded
+                      ? `${template.name}已添加到今日计划`
+                      : `添加${template.name}到今日计划`
+                  }
+                  accessibilityState={{ disabled: isAdded || isSubmitting }}
+                  style={({ pressed }) => [
+                    styles.pickerRow,
+                    pressed && !isAdded && styles.pressed,
+                    isAdded && styles.disabled,
+                  ]}
+                >
+                  <View>
+                    <ThemedText type="default">{template.name}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {template.exerciseCount} 个动作 ·{' '}
+                      {template.totalTargetSets} 组
+                    </ThemedText>
+                  </View>
+                  <View style={styles.pickerRadio}>
+                    {isAdded && <View style={styles.pickerRadioSelected} />}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -737,6 +882,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   templateSection: { gap: Spacing.three },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  addPlanButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: '#1B2016',
+    paddingHorizontal: Spacing.three,
+  },
+  accentText: { color: '#CAFF00' },
+  emptyPlanCard: {
+    gap: Spacing.one,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 28,
+    padding: Spacing.four,
+  },
   templateCard: {
     minHeight: 104,
     flexDirection: 'row',
@@ -764,14 +929,62 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F6B8',
   },
   templateStartButton: {
-    width: 52,
+    minWidth: 52,
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 26,
     backgroundColor: '#1B2016',
+    paddingHorizontal: Spacing.two,
   },
   templateStartText: { color: '#CAFF00' },
+  modalScrim: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    padding: Spacing.four,
+  },
+  planPicker: {
+    gap: Spacing.four,
+    borderRadius: 28,
+    backgroundColor: '#F7F5EF',
+    padding: Spacing.four,
+  },
+  modalCloseButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+  },
+  pickerList: { gap: Spacing.two },
+  pickerRow: {
+    minHeight: 86,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 24,
+    borderColor: '#DAD7CE',
+    backgroundColor: '#FFFFFF',
+    padding: Spacing.three,
+  },
+  pickerRadio: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 18,
+    borderColor: '#C9C5BA',
+  },
+  pickerRadioSelected: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#CAFF00',
+  },
   primaryButton: {
     minHeight: 52,
     alignItems: 'center',

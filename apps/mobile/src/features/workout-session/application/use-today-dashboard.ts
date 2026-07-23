@@ -8,6 +8,7 @@ import {
 import { createSqliteExerciseRepository } from '@/database/repositories/exercise';
 import { createSqliteDailyStatusRepository } from '@/database/repositories/daily-status';
 import { createSqliteRestTimerRepository } from '@/database/repositories/rest-timer';
+import { createSqliteTodayWorkoutPlanRepository } from '@/database/repositories/today-workout-plan';
 import { createSqliteWorkoutRuntimeSnapshotRepository } from '@/database/repositories/workout-runtime-snapshot';
 import { createSqliteWorkoutSessionRepository } from '@/database/repositories/workout-session';
 import { createSqliteWorkoutTemplateRepository } from '@/database/repositories/workout-template';
@@ -16,6 +17,10 @@ import type {
   DailyStatusRepository,
   DailyStatusValue,
 } from '@/domain/daily-status';
+import type {
+  TodayWorkoutPlanId,
+  TodayWorkoutPlanRepository,
+} from '@/domain/today-workout-plan';
 import type {
   WorkoutTemplateId,
   WorkoutTemplateRepository,
@@ -32,7 +37,9 @@ import {
 } from './workout-session-completion-recovery';
 import {
   createWorkoutSessionFromTemplate,
+  addTodayPlanFromTemplate,
   loadTodayDashboard,
+  startTodayPlan,
   toLocalDateKey,
   type TodayDashboardData,
   type TodayDashboardRepositories,
@@ -54,6 +61,12 @@ export type TodayDashboardScreenState =
 
 export type TodayDashboardScreenControls = {
   readonly reload: () => void;
+  readonly addTodayPlanFromTemplate: (
+    templateId: WorkoutTemplateId,
+  ) => Promise<boolean>;
+  readonly startTodayPlan: (
+    planId: TodayWorkoutPlanId,
+  ) => Promise<WorkoutSessionId | null>;
   readonly createSessionFromTemplate: (
     templateId: WorkoutTemplateId,
   ) => Promise<void>;
@@ -80,6 +93,12 @@ export type UseTodayDashboardDependencies = {
       { readonly status: 'ready' }
     >['database'],
   ) => WorkoutTemplateRepository;
+  readonly createTodayWorkoutPlanRepository?: (
+    database: Extract<
+      DatabaseStartupResult,
+      { readonly status: 'ready' }
+    >['database'],
+  ) => TodayWorkoutPlanRepository;
   readonly createExerciseRepository?: (
     database: Extract<
       DatabaseStartupResult,
@@ -101,6 +120,7 @@ export type UseTodayDashboardDependencies = {
   readonly createWorkoutRuntimeSnapshotRepository?: () => WorkoutRuntimeSnapshotRepository;
   readonly now?: () => string;
   readonly createId?: (kind: WorkoutSessionIdKind) => string;
+  readonly createTodayPlanId?: () => string;
   readonly continueRecovery?: (
     repositories: WorkoutSessionScreenRepositories,
     sessionId: WorkoutSessionId,
@@ -121,12 +141,14 @@ export function useTodayDashboard({
   initializeDatabase = initializeApplicationDatabase,
   createWorkoutSessionRepository = createSqliteWorkoutSessionRepository,
   createWorkoutTemplateRepository = createSqliteWorkoutTemplateRepository,
+  createTodayWorkoutPlanRepository = createSqliteTodayWorkoutPlanRepository,
   createExerciseRepository = createSqliteExerciseRepository,
   createDailyStatusRepository = createSqliteDailyStatusRepository,
   createRestTimerRepository = createSqliteRestTimerRepository,
   createWorkoutRuntimeSnapshotRepository = createSqliteWorkoutRuntimeSnapshotRepository,
   now = getCurrentTimestamp,
   createId = createDefaultWorkoutSessionId,
+  createTodayPlanId = createDefaultTodayWorkoutPlanId,
   continueRecovery = continueWorkoutSessionRecovery,
 }: UseTodayDashboardDependencies = {}): TodayDashboardScreenModel {
   const [state, setState] = useState<TodayDashboardScreenState>({
@@ -144,6 +166,11 @@ export function useTodayDashboard({
   const isCreatingRef = useRef(false);
   const isContinuingRef = useRef(false);
   const hasFocusedRef = useRef(false);
+  const stateRef = useRef(state);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const load = useCallback(async (): Promise<void> => {
     const requestId = requestIdRef.current + 1;
@@ -170,6 +197,9 @@ export function useTodayDashboard({
             startupResult.database,
           ),
           workoutTemplateRepository: createWorkoutTemplateRepository(
+            startupResult.database,
+          ),
+          todayWorkoutPlanRepository: createTodayWorkoutPlanRepository(
             startupResult.database,
           ),
           exerciseRepository: createExerciseRepository(startupResult.database),
@@ -213,6 +243,7 @@ export function useTodayDashboard({
     createWorkoutRuntimeSnapshotRepository,
     createWorkoutSessionRepository,
     createWorkoutTemplateRepository,
+    createTodayWorkoutPlanRepository,
     initializeDatabase,
     now,
   ]);
@@ -311,6 +342,147 @@ export function useTodayDashboard({
               : current,
           );
         }
+      } finally {
+        isCreatingRef.current = false;
+      }
+    },
+    [createId, now, refreshReadyState],
+  );
+
+  const addPlanFromTemplate = useCallback(
+    async (templateId: WorkoutTemplateId): Promise<boolean> => {
+      const repositories = repositoriesRef.current;
+      const currentState = stateRef.current;
+
+      if (
+        !repositories ||
+        isCreatingRef.current ||
+        isContinuingRef.current ||
+        currentState.status !== 'ready'
+      ) {
+        return false;
+      }
+
+      isCreatingRef.current = true;
+      setState((current) =>
+        current.status === 'ready'
+          ? { ...current, isCreatingSession: true, actionError: undefined }
+          : current,
+      );
+
+      try {
+        const currentTime = now();
+        const result = await addTodayPlanFromTemplate(
+          repositories,
+          templateId,
+          {
+            localDate: toLocalDateKey(new Date(currentTime)),
+            now,
+            createId: createTodayPlanId,
+            position: currentState.data.todayPlans.length + 1,
+          },
+        );
+
+        if (!isMountedRef.current) {
+          return false;
+        }
+
+        if (result.status !== 'added') {
+          setState((current) =>
+            current.status === 'ready'
+              ? {
+                  ...current,
+                  isCreatingSession: false,
+                  actionError:
+                    result.status === 'duplicate_template'
+                      ? '今天已经添加过这个训练模板。'
+                      : TODAY_ACTION_ERROR_MESSAGE,
+                }
+              : current,
+          );
+          return false;
+        }
+
+        await refreshReadyState();
+        return true;
+      } catch {
+        if (isMountedRef.current) {
+          setState((current) =>
+            current.status === 'ready'
+              ? {
+                  ...current,
+                  isCreatingSession: false,
+                  actionError: TODAY_ACTION_ERROR_MESSAGE,
+                }
+              : current,
+          );
+        }
+        return false;
+      } finally {
+        isCreatingRef.current = false;
+      }
+    },
+    [createTodayPlanId, now, refreshReadyState],
+  );
+
+  const startPlan = useCallback(
+    async (planId: TodayWorkoutPlanId): Promise<WorkoutSessionId | null> => {
+      const repositories = repositoriesRef.current;
+
+      if (!repositories || isCreatingRef.current || isContinuingRef.current) {
+        return null;
+      }
+
+      isCreatingRef.current = true;
+      setState((current) =>
+        current.status === 'ready'
+          ? { ...current, isCreatingSession: true, actionError: undefined }
+          : current,
+      );
+
+      try {
+        const result = await startTodayPlan(repositories, planId, {
+          now,
+          createId,
+        });
+
+        if (!isMountedRef.current) {
+          return null;
+        }
+
+        await refreshReadyState();
+
+        if (result.status === 'ready') {
+          return result.sessionId;
+        }
+
+        if (result.status === 'completed') {
+          return null;
+        }
+
+        setState((current) =>
+          current.status === 'ready'
+            ? {
+                ...current,
+                isCreatingSession: false,
+                actionError: TODAY_ACTION_ERROR_MESSAGE,
+              }
+            : current,
+        );
+        return null;
+      } catch {
+        if (isMountedRef.current) {
+          setState((current) =>
+            current.status === 'ready'
+              ? {
+                  ...current,
+                  isCreatingSession: false,
+                  actionError: TODAY_ACTION_ERROR_MESSAGE,
+                }
+              : current,
+          );
+        }
+        return null;
       } finally {
         isCreatingRef.current = false;
       }
@@ -436,6 +608,8 @@ export function useTodayDashboard({
     state,
     controls: {
       reload: () => void load(),
+      addTodayPlanFromTemplate: addPlanFromTemplate,
+      startTodayPlan: startPlan,
       createSessionFromTemplate,
       continueSession,
       updateDailyStatus,
@@ -445,6 +619,12 @@ export function useTodayDashboard({
 
 function createDefaultWorkoutSessionId(kind: WorkoutSessionIdKind): string {
   return `workout-${kind}-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+}
+
+function createDefaultTodayWorkoutPlanId(): string {
+  return `today-plan-${Date.now().toString(36)}-${Math.random()
     .toString(36)
     .slice(2, 10)}`;
 }
