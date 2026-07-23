@@ -27,10 +27,7 @@ import {
   type WorkoutSessionScreenControls,
   type WorkoutSessionScreenState,
 } from '@/features/workout-session/application/use-workout-session-screen';
-import type {
-  WorkoutSessionScreenData,
-  WorkoutSessionTimerDisplayStatus,
-} from '@/features/workout-session/application/load-workout-session-screen';
+import type { WorkoutSessionScreenData } from '@/features/workout-session/application/load-workout-session-screen';
 import type {
   WorkoutCompanionRuntimePhase,
   WorkoutRuntimeSnapshot,
@@ -156,7 +153,8 @@ function ReadyState({
 }) {
   const { data } = state;
   const isActive = data.session.status === 'in_progress';
-  const isRuntimeRunning = state.companionRuntime?.phase === 'running';
+  const runtimePhase = state.companionRuntime?.phase;
+  const isRuntimeRunning = runtimePhase === 'running';
   const currentExercise = state.runtime.currentExercise;
   const canEditSet =
     isActive &&
@@ -166,6 +164,35 @@ function ReadyState({
     !currentExercise.isCompleted &&
     !state.isConfirmingSkip &&
     !state.isMutating;
+  const canEnd =
+    isActive &&
+    !state.isMutating &&
+    !state.isConfirmingSkip &&
+    state.endFlow === 'closed';
+
+  if (runtimePhase === 'paused') {
+    return (
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <PausedWorkoutState state={state} controls={controls} canEnd={canEnd} />
+        <EndSessionModal state={state} controls={controls} />
+      </KeyboardAvoidingView>
+    );
+  }
+
+  if (runtimePhase === 'resting') {
+    return (
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <RestingWorkoutState state={state} controls={controls} />
+        <EndSessionModal state={state} controls={controls} />
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -178,12 +205,7 @@ function ReadyState({
       >
         <SessionHeader
           data={data}
-          canEnd={
-            isActive &&
-            !state.isMutating &&
-            !state.isConfirmingSkip &&
-            state.endFlow === 'closed'
-          }
+          canEnd={canEnd}
           onBack={onBack}
           onEnd={controls.requestEndSession}
         />
@@ -208,6 +230,11 @@ function ReadyState({
                 {state.actionError}
               </ThemedText>
             )}
+            <WorkoutNavigationControls
+              state={state}
+              controls={controls}
+              canPause={canEditSet && state.endFlow === 'closed'}
+            />
             <ProgressSummary runtime={state.runtime} />
             <CompletedSets sets={currentExercise.sets} />
             <ExerciseList
@@ -234,18 +261,6 @@ function ReadyState({
           </ThemedText>
         )}
 
-        {data.restTimerStatus && (
-          <RestTimerStatus
-            status={data.restTimerStatus}
-            remainingSeconds={state.companionRuntime?.restRemainingSeconds}
-            exerciseName={currentExercise?.exerciseNameSnapshot}
-            nextSetNumber={state.runtime.currentSetNumber}
-            canFinish={state.companionRuntime?.phase === 'resting'}
-            onFinish={() => {
-              void controls.finishRest();
-            }}
-          />
-        )}
         {state.canRetryCompanionEvent && (
           <PrimaryButton
             label="重试保存"
@@ -381,12 +396,6 @@ function RuntimeStatusPanel({
     state.data.session.status === 'draft' &&
     state.runtime.status === 'idle' &&
     !state.isMutating;
-  const canPause =
-    state.data.session.status === 'in_progress' &&
-    state.companionRuntime?.phase === 'running' &&
-    state.endFlow === 'closed' &&
-    !state.isMutating &&
-    !state.isConfirmingSkip;
   const canResume =
     state.data.session.status === 'in_progress' &&
     state.companionRuntime?.phase === 'paused' &&
@@ -429,14 +438,6 @@ function RuntimeStatusPanel({
           }}
         />
       )}
-      {state.companionRuntime?.phase === 'running' && (
-        <SecondaryButton
-          label="暂停"
-          accessibilityLabel="暂停训练"
-          disabled={!canPause}
-          onPress={controls.pauseWorkout}
-        />
-      )}
       {state.companionRuntime?.phase === 'paused' && (
         <PrimaryButton
           label="继续"
@@ -444,6 +445,231 @@ function RuntimeStatusPanel({
           disabled={!canResume}
           onPress={controls.resumeWorkout}
         />
+      )}
+    </View>
+  );
+}
+
+function WorkoutNavigationControls({
+  state,
+  controls,
+  canPause,
+}: {
+  readonly state: Extract<WorkoutSessionScreenState, { status: 'ready' }>;
+  readonly controls: WorkoutSessionScreenControls;
+  readonly canPause: boolean;
+}) {
+  const currentIndex = state.runtime.currentExerciseIndex;
+  const previousExercise =
+    currentIndex === undefined
+      ? undefined
+      : state.runtime.orderedExercises
+          .slice(0, currentIndex)
+          .reverse()
+          .find((exercise) => exercise.isEnabled);
+  const nextExercise =
+    currentIndex === undefined
+      ? undefined
+      : state.runtime.orderedExercises
+          .slice(currentIndex + 1)
+          .find((exercise) => exercise.isEnabled);
+  const canNavigate =
+    state.data.session.status === 'in_progress' &&
+    state.companionRuntime?.phase === 'running' &&
+    !state.isMutating &&
+    !state.isConfirmingSkip &&
+    state.endFlow === 'closed';
+
+  return (
+    <View style={styles.runtimeControls} accessibilityLabel="训练控制">
+      <Pressable
+        disabled={!canNavigate || !previousExercise}
+        accessibilityRole="button"
+        accessibilityLabel="上一动作"
+        accessibilityState={{ disabled: !canNavigate || !previousExercise }}
+        onPress={() => {
+          if (previousExercise) {
+            void controls.selectExercise(previousExercise.id);
+          }
+        }}
+        style={({ pressed }) => [
+          styles.sideControlButton,
+          (!canNavigate || !previousExercise) && styles.disabled,
+          pressed && styles.pressed,
+        ]}
+      >
+        <ThemedText type="default" style={styles.workoutMutedText}>
+          ‹ 上一动作
+        </ThemedText>
+      </Pressable>
+      <Pressable
+        disabled={!canPause}
+        accessibilityRole="button"
+        accessibilityLabel="暂停训练"
+        accessibilityState={{ disabled: !canPause }}
+        onPress={controls.pauseWorkout}
+        style={({ pressed }) => [
+          styles.pauseControlButton,
+          !canPause && styles.disabled,
+          pressed && styles.pressed,
+        ]}
+      >
+        <ThemedText style={styles.pauseControlText}>Ⅱ</ThemedText>
+      </Pressable>
+      <Pressable
+        disabled={!canNavigate || !nextExercise}
+        accessibilityRole="button"
+        accessibilityLabel="下一动作"
+        accessibilityState={{ disabled: !canNavigate || !nextExercise }}
+        onPress={() => {
+          if (nextExercise) {
+            void controls.selectExercise(nextExercise.id);
+          }
+        }}
+        style={({ pressed }) => [
+          styles.sideControlButton,
+          (!canNavigate || !nextExercise) && styles.disabled,
+          pressed && styles.pressed,
+        ]}
+      >
+        <ThemedText type="default" style={styles.workoutMutedText}>
+          下一动作 ›
+        </ThemedText>
+      </Pressable>
+    </View>
+  );
+}
+
+function PausedWorkoutState({
+  state,
+  controls,
+  canEnd,
+}: {
+  readonly state: Extract<WorkoutSessionScreenState, { status: 'ready' }>;
+  readonly controls: WorkoutSessionScreenControls;
+  readonly canEnd: boolean;
+}) {
+  const currentExercise = state.runtime.currentExercise;
+  const completedReps = state.companionRuntime?.progress.completedReps ?? 0;
+  const targetReps = currentExercise
+    ? getExerciseTargetReps(currentExercise)
+    : 0;
+
+  return (
+    <View
+      style={styles.pausedState}
+      accessibilityLabel="陪练运行状态：训练暂停"
+    >
+      <View style={styles.pausedCenter}>
+        <ThemedText style={styles.workoutEyebrow}>训练已暂停</ThemedText>
+        <ThemedText style={styles.pausedHeadline}>调整一下呼吸。</ThemedText>
+        {currentExercise && (
+          <ThemedText type="default" style={styles.workoutMutedText}>
+            第 {state.runtime.currentSet ?? 1} 组 · {completedReps} /{' '}
+            {targetReps} 次 · {state.setDraft.weight} kg
+          </ThemedText>
+        )}
+      </View>
+      <View style={styles.pausedActions}>
+        <PrimaryButton
+          label="继续"
+          accessibilityLabel="继续训练"
+          disabled={state.isMutating}
+          onPress={controls.resumeWorkout}
+        />
+        <Pressable
+          disabled={!canEnd}
+          accessibilityRole="button"
+          accessibilityLabel="结束本次训练"
+          accessibilityState={{ disabled: !canEnd }}
+          onPress={controls.requestEndSession}
+          style={({ pressed }) => [
+            styles.pausedEndButton,
+            !canEnd && styles.disabled,
+            pressed && styles.pressed,
+          ]}
+        >
+          <ThemedText type="smallBold" style={styles.workoutMutedText}>
+            结束训练
+          </ThemedText>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function RestingWorkoutState({
+  state,
+  controls,
+}: {
+  readonly state: Extract<WorkoutSessionScreenState, { status: 'ready' }>;
+  readonly controls: WorkoutSessionScreenControls;
+}) {
+  const currentExercise = state.runtime.currentExercise;
+  const remainingSeconds = state.companionRuntime?.restRemainingSeconds ?? 0;
+  const nextSetNumber =
+    state.runtime.currentSetNumber ?? state.runtime.currentSet;
+
+  return (
+    <View
+      style={styles.restingState}
+      accessibilityLabel={`陪练运行状态：${formatCompanionRuntimeStatus(
+        state.companionRuntime?.phase,
+        state.runtime.status,
+      )}`}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="跳过休息"
+        disabled={state.isMutating}
+        onPress={() => {
+          void controls.finishRest();
+        }}
+        style={({ pressed }) => [
+          styles.skipRestButton,
+          state.isMutating && styles.disabled,
+          pressed && styles.pressed,
+        ]}
+      >
+        <ThemedText type="smallBold" style={styles.workoutAccentText}>
+          跳过休息
+        </ThemedText>
+      </Pressable>
+      <View style={styles.restingCenter}>
+        <ThemedText style={styles.workoutEyebrow}>休息调整</ThemedText>
+        <ThemedText
+          accessibilityLabel="休息剩余时间"
+          style={styles.restingTimerDisplay}
+        >
+          {formatRemainingSeconds(remainingSeconds)}
+        </ThemedText>
+        <ThemedText type="default" style={styles.workoutMutedText}>
+          距离下一组
+        </ThemedText>
+      </View>
+      {currentExercise && (
+        <View style={styles.nextSetCard}>
+          <View style={styles.nextSetCopy}>
+            <ThemedText type="small" style={styles.workoutMutedText}>
+              下一组
+            </ThemedText>
+            <ThemedText type="subtitle" style={styles.workoutText}>
+              {currentExercise.exerciseNameSnapshot} · 第 {nextSetNumber} 组
+            </ThemedText>
+            <ThemedText type="default" style={styles.workoutMutedText}>
+              {state.setDraft.weight} 公斤 · {currentExercise.targetRepsMin}
+              {currentExercise.targetRepsMin === currentExercise.targetRepsMax
+                ? ''
+                : `-${currentExercise.targetRepsMax}`}{' '}
+              次
+            </ThemedText>
+          </View>
+          <View style={styles.nextSetThumbnail}>
+            <ThemedText style={styles.nextSetThumbnailText}>
+              {currentExercise.exerciseNameSnapshot.slice(0, 1)}
+            </ThemedText>
+          </View>
+        </View>
       )}
     </View>
   );
@@ -909,61 +1135,6 @@ function EndSessionModal({
   );
 }
 
-function RestTimerStatus({
-  status,
-  remainingSeconds,
-  exerciseName,
-  nextSetNumber,
-  canFinish,
-  onFinish,
-}: {
-  readonly status: WorkoutSessionTimerDisplayStatus;
-  readonly remainingSeconds?: number;
-  readonly exerciseName?: string;
-  readonly nextSetNumber?: number;
-  readonly canFinish: boolean;
-  readonly onFinish: () => void;
-}) {
-  return (
-    <View
-      style={[
-        styles.timerStatus,
-        {
-          backgroundColor: '#1E211D',
-          borderColor: 'rgba(202, 255, 0, 0.2)',
-        },
-      ]}
-      accessibilityLabel={`休息计时状态：${formatTimerStatus(status)}`}
-    >
-      <ThemedText style={styles.workoutEyebrow}>休息调整</ThemedText>
-      <ThemedText type="default" style={styles.workoutText}>
-        {formatTimerStatus(status)}
-      </ThemedText>
-      {remainingSeconds !== undefined && (
-        <ThemedText
-          type="title"
-          accessibilityLabel="休息剩余时间"
-          style={styles.timerDisplay}
-        >
-          {formatRemainingSeconds(remainingSeconds)}
-        </ThemedText>
-      )}
-      {exerciseName && nextSetNumber !== undefined && (
-        <ThemedText type="small" style={styles.workoutMutedText}>
-          下一组：{exerciseName} · 第 {nextSetNumber} 组
-        </ThemedText>
-      )}
-      {canFinish && (
-        <SecondaryButton
-          label="结束休息"
-          accessibilityLabel="结束当前休息"
-          onPress={onFinish}
-        />
-      )}
-    </View>
-  );
-}
-
 function PrimaryButton({
   label,
   accessibilityLabel,
@@ -1079,17 +1250,6 @@ function formatCurrentSetState(exercise: SessionExercise): string {
     return '动作已跳过';
   }
   return '当前组待记录';
-}
-
-function formatTimerStatus(status: WorkoutSessionTimerDisplayStatus): string {
-  switch (status) {
-    case 'running':
-      return '休息进行中';
-    case 'paused':
-      return '休息已暂停';
-    case 'completed':
-      return '休息已结束';
-  }
 }
 
 function formatRemainingSeconds(value: number): string {
@@ -1341,6 +1501,118 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  runtimeControls: {
+    minHeight: 96,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  sideControlButton: {
+    minWidth: 112,
+    minHeight: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderRadius: 999,
+    paddingHorizontal: Spacing.three,
+  },
+  pauseControlButton: {
+    width: 88,
+    height: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 44,
+    backgroundColor: '#CAFF00',
+  },
+  pauseControlText: {
+    color: '#151813',
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '800',
+  },
+  pausedState: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: Spacing.five,
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.five,
+  },
+  pausedCenter: {
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  pausedHeadline: {
+    color: '#FFFFFF',
+    fontSize: 52,
+    lineHeight: 58,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  pausedActions: {
+    gap: Spacing.three,
+  },
+  pausedEndButton: {
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+  },
+  restingState: {
+    flex: 1,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.five,
+  },
+  skipRestButton: {
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+  },
+  restingCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+  },
+  restingTimerDisplay: {
+    color: '#FFFFFF',
+    fontSize: 86,
+    lineHeight: 94,
+    fontWeight: '800',
+    letterSpacing: 0,
+  },
+  nextSetCard: {
+    minHeight: 128,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    padding: Spacing.three,
+  },
+  nextSetCopy: {
+    flex: 1,
+    gap: Spacing.one,
+  },
+  nextSetThumbnail: {
+    width: 88,
+    height: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: 'rgba(202, 255, 0, 0.18)',
+  },
+  nextSetThumbnailText: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: '800',
+  },
   primaryButton: {
     minHeight: 52,
     alignItems: 'center',
@@ -1365,19 +1637,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-  },
-  timerStatus: {
-    gap: Spacing.two,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 26,
-    padding: Spacing.four,
-  },
-  timerDisplay: {
-    color: '#FFFFFF',
-    fontSize: 64,
-    lineHeight: 70,
-    fontWeight: '700',
-    letterSpacing: 0,
   },
   feedbackState: {
     flex: 1,

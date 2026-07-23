@@ -154,22 +154,21 @@ describe('WorkoutSessionScreenContent', () => {
     expect(getByLabelText('重量输入').props.editable).toBe(false);
   });
 
-  it.each([
-    ['running', '休息进行中'],
-    ['paused', '休息已暂停'],
-    ['completed', '休息已结束'],
-  ] as const)('shows the existing %s timer status', async (status, label) => {
-    const state = buildReadyState(buildSession(), status);
+  it('shows Figma-style running controls', async () => {
     const { getByLabelText, getByText } = await render(
       <WorkoutSessionScreenContent
-        state={state}
+        state={buildReadyState(buildSession(), undefined, 'running')}
         controls={buildControls()}
         onBack={jest.fn()}
       />,
     );
 
-    expect(getByText(label)).toBeTruthy();
-    expect(getByLabelText(`休息计时状态：${label}`)).toBeTruthy();
+    expect(getByLabelText('当前动作示意图')).toBeTruthy();
+    expect(getByText('次数进度')).toBeTruthy();
+    expect(getByLabelText('训练控制')).toBeTruthy();
+    expect(getByLabelText('上一动作')).toBeTruthy();
+    expect(getByLabelText('暂停训练')).toBeTruthy();
+    expect(getByLabelText('下一动作')).toBeTruthy();
   });
 
   it('connects exercise controls without exposing manual completion', async () => {
@@ -246,6 +245,48 @@ describe('WorkoutSessionScreenContent', () => {
     expect(resumeWorkout).toHaveBeenCalledTimes(1);
   });
 
+  it('connects previous and next exercise controls through selectExercise', async () => {
+    const selectExercise = jest.fn(async () => undefined);
+    const session = buildSession({
+      currentSessionExerciseId: SECOND_EXERCISE_ID,
+      sessionExercises: [
+        buildExercise({
+          id: EXERCISE_ID,
+          sourceExerciseId: 'exercise-bench' as ExerciseId,
+          exerciseNameSnapshot: '杠铃卧推',
+          position: 1,
+        }),
+        buildExercise({
+          id: SECOND_EXERCISE_ID,
+          sourceExerciseId: 'exercise-press' as ExerciseId,
+          exerciseNameSnapshot: '哑铃肩推',
+          position: 2,
+        }),
+        buildExercise({
+          id: 'session-exercise-row' as SessionExerciseId,
+          sourceExerciseId: 'exercise-row' as ExerciseId,
+          exerciseNameSnapshot: '杠铃划船',
+          position: 3,
+        }),
+      ],
+    });
+    const { getByLabelText } = await render(
+      <WorkoutSessionScreenContent
+        state={buildReadyState(session, undefined, 'running')}
+        controls={buildControls({ selectExercise })}
+        onBack={jest.fn()}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('上一动作'));
+    await fireEvent.press(getByLabelText('下一动作'));
+
+    expect(selectExercise).toHaveBeenCalledWith(EXERCISE_ID);
+    expect(selectExercise).toHaveBeenCalledWith(
+      'session-exercise-row' as SessionExerciseId,
+    );
+  });
+
   it.each([
     ['running', '训练中'],
     ['paused', '训练暂停'],
@@ -274,8 +315,9 @@ describe('WorkoutSessionScreenContent', () => {
     },
   );
 
-  it('shows the persisted resting countdown and next set', async () => {
+  it('shows the Figma-style resting countdown, next set and skip action', async () => {
     const base = buildReadyState(buildSession(), 'running');
+    const finishRest = jest.fn(async () => undefined);
     const { getByLabelText, getByText } = await render(
       <WorkoutSessionScreenContent
         state={{
@@ -288,13 +330,19 @@ describe('WorkoutSessionScreenContent', () => {
               }
             : undefined,
         }}
-        controls={buildControls()}
+        controls={buildControls({ finishRest })}
         onBack={jest.fn()}
       />,
     );
 
+    expect(getByLabelText('陪练运行状态：休息中')).toBeTruthy();
+    expect(getByText('休息调整')).toBeTruthy();
     expect(getByLabelText('休息剩余时间')).toHaveTextContent('01:25');
-    expect(getByText('下一组：杠铃卧推 · 第 1 组')).toBeTruthy();
+    expect(getByText('距离下一组')).toBeTruthy();
+    expect(getByText('下一组')).toBeTruthy();
+    expect(getByText('杠铃卧推 · 第 1 组')).toBeTruthy();
+    await fireEvent.press(getByLabelText('跳过休息'));
+    expect(finishRest).toHaveBeenCalledTimes(1);
   });
 
   it('confirms skipping with the approved data-retention copy', async () => {
