@@ -1,5 +1,12 @@
 # Prototype Status
 
+Related document:
+
+For technical implementation details,
+see:
+
+prototype-implementation-status.md
+
 ## 说明
 
 Prototype 定义产品页面、用户体验和交互。

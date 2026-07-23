@@ -1,5 +1,12 @@
 # Prototype Implementation Status
 
+Related document:
+
+For product prototype overview,
+see:
+
+Prototype-Status.md
+
 本文档作为 Codex 开发基线。
 
 ---
