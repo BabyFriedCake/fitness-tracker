@@ -16,6 +16,7 @@ export type WorkoutSessionHistoryItem = {
   readonly durationSeconds?: number;
   readonly completedSetCount: number;
   readonly totalVolume: number;
+  readonly muscleLabels: readonly string[];
 };
 
 export type WorkoutSessionHistorySection = {
@@ -52,6 +53,7 @@ export type WorkoutSessionHistoryCalendarDay = {
   readonly localDate: string;
   readonly dayOfMonth: number;
   readonly hasCompletedWorkout: boolean;
+  readonly muscleLabels: readonly string[];
 };
 
 export type WorkoutSessionHistoryCalendar = {
@@ -194,11 +196,17 @@ export function createWorkoutSessionHistoryCalendar(
   const year = referenceDate.getFullYear();
   const month = referenceDate.getMonth();
   const dayCount = new Date(year, month + 1, 0).getDate();
-  const completedDates = new Set(
-    items
-      .filter((item) => item.status === 'completed')
-      .map((item) => item.localDate),
-  );
+  const completedLabelsByDate = new Map<string, Set<string>>();
+
+  for (const item of items) {
+    if (item.status !== 'completed') {
+      continue;
+    }
+
+    const labels = completedLabelsByDate.get(item.localDate) ?? new Set();
+    item.muscleLabels.forEach((label) => labels.add(label));
+    completedLabelsByDate.set(item.localDate, labels);
+  }
 
   return {
     title: `${year}年${month + 1}月`,
@@ -214,7 +222,8 @@ export function createWorkoutSessionHistoryCalendar(
       return {
         localDate,
         dayOfMonth,
-        hasCompletedWorkout: completedDates.has(localDate),
+        hasCompletedWorkout: completedLabelsByDate.has(localDate),
+        muscleLabels: Array.from(completedLabelsByDate.get(localDate) ?? []),
       };
     }),
   };
@@ -238,6 +247,7 @@ function toWorkoutSessionHistoryItem(
         durationSeconds: summary.durationSeconds,
         completedSetCount: summary.completedSetCount,
         totalVolume: summary.totalVolume,
+        muscleLabels: toHistoryMuscleLabels(session),
       },
     ];
   }
@@ -263,11 +273,52 @@ function toWorkoutSessionHistoryItem(
             total + workoutSet.weight * workoutSet.actualReps,
           0,
         ),
+        muscleLabels: [],
       },
     ];
   }
 
   return [];
+}
+
+function toHistoryMuscleLabels(session: WorkoutSession): readonly string[] {
+  const labels = new Set<string>();
+
+  for (const exercise of session.sessionExercises) {
+    const label = inferMuscleLabelFromExerciseName(
+      exercise.exerciseNameSnapshot,
+    );
+
+    if (label) {
+      labels.add(label);
+    }
+  }
+
+  return Array.from(labels);
+}
+
+function inferMuscleLabelFromExerciseName(name: string): string {
+  if (name.includes('蹲') || name.includes('腿') || name.includes('臀')) {
+    return '腿';
+  }
+
+  if (name.includes('卧推') || name.includes('胸')) {
+    return '胸';
+  }
+
+  if (name.includes('拉') || name.includes('划船') || name.includes('背')) {
+    return '背';
+  }
+
+  if (name.includes('肩') || name.includes('推举')) {
+    return '肩';
+  }
+
+  if (name.includes('卷腹') || name.includes('核心') || name.includes('腹')) {
+    return '核心';
+  }
+
+  return '训练';
 }
 
 function compareHistoryItems(

@@ -1,7 +1,7 @@
 import {
   ActivityIndicator,
   Pressable,
-  SectionList,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -19,14 +19,12 @@ import {
 } from '@/features/workout-session/application/use-workout-session-history';
 import type {
   WorkoutSessionHistoryItem,
-  WorkoutSessionHistoryPeriod,
   WorkoutSessionHistorySection,
 } from '@/features/workout-session/application/workout-session-history';
 import {
   createWorkoutSessionHistoryCalendar,
   createWorkoutSessionHistoryOverview,
   createWorkoutSessionHistorySections,
-  filterWorkoutSessionHistoryItems,
 } from '@/features/workout-session/application/workout-session-history';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -156,96 +154,103 @@ function HistoryList({
   readonly sections: readonly WorkoutSessionHistorySection[];
   readonly onOpenSummary: (sessionId: WorkoutSessionId) => void;
 }) {
-  const [period, setPeriod] = useState<WorkoutSessionHistoryPeriod>('all');
   const items = useMemo(
     () => sections.flatMap((section) => section.items),
     [sections],
   );
-  const filteredItems = useMemo(
-    () => filterWorkoutSessionHistoryItems(items, period, new Date()),
-    [items, period],
+  const [visibleMonth, setVisibleMonth] = useState(() =>
+    getLatestHistoryMonth(items),
   );
-  const filteredSections = useMemo(
-    () => createWorkoutSessionHistorySections(filteredItems),
-    [filteredItems],
+  const [selectedDate, setSelectedDate] = useState(() =>
+    getLatestCompletedLocalDate(items, visibleMonth),
+  );
+  const monthItems = useMemo(
+    () => filterItemsByMonth(items, visibleMonth),
+    [items, visibleMonth],
+  );
+  const selectedItems = useMemo(
+    () =>
+      monthItems.filter(
+        (item) =>
+          item.status === 'completed' && item.localDate === selectedDate,
+      ),
+    [monthItems, selectedDate],
   );
   const overview = useMemo(
-    () => createWorkoutSessionHistoryOverview(filteredItems),
-    [filteredItems],
+    () => createWorkoutSessionHistoryOverview(monthItems),
+    [monthItems],
   );
   const calendar = useMemo(
-    () => createWorkoutSessionHistoryCalendar(items, new Date()),
-    [items],
+    () => createWorkoutSessionHistoryCalendar(items, visibleMonth),
+    [items, visibleMonth],
+  );
+  const selectedSections = useMemo(
+    () => createWorkoutSessionHistorySections(selectedItems),
+    [selectedItems],
   );
 
   return (
-    <SectionList
-      sections={filteredSections.map((section) => ({
-        ...section,
-        data: section.items,
-      }))}
-      keyExtractor={(item) => item.sessionId}
-      renderItem={({ item }) => (
-        <HistoryRow item={item} onOpenSummary={onOpenSummary} />
-      )}
-      renderSectionHeader={({ section }) => (
-        <ThemedText type="smallBold" style={styles.sectionTitle}>
-          {section.title}
-        </ThemedText>
-      )}
-      ItemSeparatorComponent={ItemSeparator}
-      SectionSeparatorComponent={SectionSeparator}
+    <ScrollView
       contentContainerStyle={styles.listContent}
-      ListHeaderComponent={
-        <HistoryOverview
-          period={period}
-          overview={overview}
-          calendar={calendar}
-          onChangePeriod={setPeriod}
-        />
-      }
-      ListEmptyComponent={
+      keyboardShouldPersistTaps="handled"
+      accessibilityLabel="历史训练列表"
+    >
+      <HistoryOverview
+        overview={overview}
+        calendar={calendar}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+        onChangeMonth={(offset) => {
+          const nextMonth = new Date(visibleMonth);
+          nextMonth.setMonth(nextMonth.getMonth() + offset, 1);
+          const nextSelectedDate = getLatestCompletedLocalDate(
+            items,
+            nextMonth,
+          );
+          setVisibleMonth(nextMonth);
+          setSelectedDate(nextSelectedDate);
+        }}
+      />
+      {selectedSections.length > 0 ? (
+        selectedSections.map((section) => (
+          <View key={section.localDate} style={styles.selectedSection}>
+            <ThemedText type="smallBold" style={styles.sectionTitle}>
+              {section.title}
+            </ThemedText>
+            {section.items.map((item, index) => (
+              <View key={item.sessionId}>
+                <HistoryRow item={item} onOpenSummary={onOpenSummary} />
+                {index < section.items.length - 1 && <ItemSeparator />}
+              </View>
+            ))}
+          </View>
+        ))
+      ) : (
         <ThemedView style={styles.noPeriodResults}>
           <ThemedText type="small" themeColor="textSecondary">
-            这个时间范围内没有已记录的训练。
+            这一天没有已完成训练。
           </ThemedText>
         </ThemedView>
-      }
-      accessibilityLabel="历史训练列表"
-    />
+      )}
+    </ScrollView>
   );
 }
 
 function HistoryOverview({
-  period,
   overview,
   calendar,
-  onChangePeriod,
+  selectedDate,
+  onSelectDate,
+  onChangeMonth,
 }: {
-  readonly period: WorkoutSessionHistoryPeriod;
   readonly overview: ReturnType<typeof createWorkoutSessionHistoryOverview>;
   readonly calendar: ReturnType<typeof createWorkoutSessionHistoryCalendar>;
-  readonly onChangePeriod: (period: WorkoutSessionHistoryPeriod) => void;
+  readonly selectedDate: string;
+  readonly onSelectDate: (localDate: string) => void;
+  readonly onChangeMonth: (offset: number) => void;
 }) {
   return (
     <View style={styles.overview}>
-      <View style={styles.periodFilters} accessibilityLabel="历史时间范围">
-        {(
-          [
-            ['week', '本周'],
-            ['month', '本月'],
-            ['three_months', '3个月'],
-            ['all', '全部'],
-          ] as const
-        ).map(([value, label]) => (
-          <PeriodButton
-            key={value}
-            label={label}
-            selected={period === value}
-            onPress={() => onChangePeriod(value)}
-          />
-        ))}
-      </View>
       <View style={styles.summaryBand}>
         <HistoryMetric
           label="完成训练"
@@ -267,44 +272,16 @@ function HistoryOverview({
       <ThemedText type="small" themeColor="textSecondary">
         {formatVolumeTrend(overview.volumeTrend)}
       </ThemedText>
-      <HistoryCalendar calendar={calendar} />
+      <HistoryCalendar
+        calendar={calendar}
+        selectedDate={selectedDate}
+        onSelectDate={onSelectDate}
+        onChangeMonth={onChangeMonth}
+      />
       <ThemedText type="small" themeColor="textSecondary">
         正式统计仅包含已完成训练，已取消记录不计入汇总。
       </ThemedText>
     </View>
-  );
-}
-
-function PeriodButton({
-  label,
-  selected,
-  onPress,
-}: {
-  readonly label: string;
-  readonly selected: boolean;
-  readonly onPress: () => void;
-}) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`查看${label}历史`}
-      accessibilityState={{ selected }}
-      style={({ pressed }) => [
-        styles.periodButton,
-        {
-          backgroundColor: selected
-            ? theme.backgroundSelected
-            : theme.background,
-          borderColor: theme.backgroundSelected,
-        },
-        pressed && styles.pressed,
-      ]}
-    >
-      <ThemedText type="smallBold">{label}</ThemedText>
-    </Pressable>
   );
 }
 
@@ -330,17 +307,45 @@ function HistoryMetric({
 
 function HistoryCalendar({
   calendar,
+  selectedDate,
+  onSelectDate,
+  onChangeMonth,
 }: {
   readonly calendar: ReturnType<typeof createWorkoutSessionHistoryCalendar>;
+  readonly selectedDate: string;
+  readonly onSelectDate: (localDate: string) => void;
+  readonly onChangeMonth: (offset: number) => void;
 }) {
-  const theme = useTheme();
-
   return (
     <View
       style={styles.calendar}
       accessibilityLabel={`${calendar.title}训练日历`}
     >
-      <ThemedText type="smallBold">{calendar.title}</ThemedText>
+      <View style={styles.calendarHeader}>
+        <Pressable
+          onPress={() => onChangeMonth(-1)}
+          accessibilityRole="button"
+          accessibilityLabel="查看上个月历史"
+          style={({ pressed }) => [
+            styles.monthButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <ThemedText type="smallBold">‹</ThemedText>
+        </Pressable>
+        <ThemedText type="smallBold">{calendar.title}</ThemedText>
+        <Pressable
+          onPress={() => onChangeMonth(1)}
+          accessibilityRole="button"
+          accessibilityLabel="查看下个月历史"
+          style={({ pressed }) => [
+            styles.monthButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <ThemedText type="smallBold">›</ThemedText>
+        </Pressable>
+      </View>
       <View style={styles.calendarGrid} importantForAccessibility="no">
         {['日', '一', '二', '三', '四', '五', '六'].map((weekday) => (
           <View key={weekday} style={styles.calendarDay}>
@@ -359,10 +364,17 @@ function HistoryCalendar({
           />
         ))}
         {calendar.days.map((day) => (
-          <View
+          <Pressable
             key={day.localDate}
-            style={styles.calendarDay}
-            accessibilityLabel={`${day.localDate}${day.hasCompletedWorkout ? '有已完成训练' : '无训练'}`}
+            onPress={() => onSelectDate(day.localDate)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedDate === day.localDate }}
+            accessibilityLabel={`${day.localDate}${day.hasCompletedWorkout ? `训练：${day.muscleLabels.join('、')}` : '无训练'}`}
+            style={({ pressed }) => [
+              styles.calendarDay,
+              selectedDate === day.localDate && styles.calendarDaySelected,
+              pressed && styles.pressed,
+            ]}
           >
             <ThemedText
               type={day.hasCompletedWorkout ? 'smallBold' : 'small'}
@@ -371,18 +383,73 @@ function HistoryCalendar({
               {day.dayOfMonth}
             </ThemedText>
             {day.hasCompletedWorkout && (
-              <View
-                style={[
-                  styles.calendarMarker,
-                  { backgroundColor: theme.statusSuccess },
-                ]}
-              />
+              <ThemedText type="small" style={styles.calendarMuscleLabel}>
+                {day.muscleLabels.slice(0, 2).join(' ')}
+              </ThemedText>
             )}
-          </View>
+          </Pressable>
         ))}
       </View>
     </View>
   );
+}
+
+function getLatestHistoryMonth(
+  items: readonly WorkoutSessionHistoryItem[],
+): Date {
+  const latestCompletedDate = getLatestCompletedLocalDate(items, new Date());
+
+  return toMonthDate(latestCompletedDate);
+}
+
+function getLatestCompletedLocalDate(
+  items: readonly WorkoutSessionHistoryItem[],
+  referenceMonth: Date,
+): string {
+  const monthKey = toMonthKey(referenceMonth);
+  const latestItem = items
+    .filter(
+      (item) =>
+        item.status === 'completed' && item.localDate.startsWith(monthKey),
+    )
+    .sort(
+      (first, second) => Date.parse(second.endedAt) - Date.parse(first.endedAt),
+    )[0];
+
+  return latestItem?.localDate ?? toLocalDateKey(referenceMonth);
+}
+
+function filterItemsByMonth(
+  items: readonly WorkoutSessionHistoryItem[],
+  visibleMonth: Date,
+): readonly WorkoutSessionHistoryItem[] {
+  const monthKey = toMonthKey(visibleMonth);
+
+  return items.filter((item) => item.localDate.startsWith(monthKey));
+}
+
+function toMonthDate(localDateOrDate: string | Date): Date {
+  const date =
+    typeof localDateOrDate === 'string'
+      ? new Date(`${localDateOrDate}T00:00:00`)
+      : localDateOrDate;
+
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function toMonthKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+  ].join('-');
+}
+
+function toLocalDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
 }
 
 function HistoryRow({
@@ -466,10 +533,6 @@ function HistoryButton({
   );
 }
 
-function SectionSeparator() {
-  return <View style={styles.sectionSeparator} />;
-}
-
 function ItemSeparator() {
   return <View style={styles.itemSeparator} />;
 }
@@ -544,16 +607,6 @@ const styles = StyleSheet.create({
   header: { gap: Spacing.one },
   listContent: { paddingBottom: Spacing.four },
   overview: { gap: Spacing.three, paddingBottom: Spacing.four },
-  periodFilters: { flexDirection: 'row', gap: Spacing.one },
-  periodButton: {
-    minHeight: 44,
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.one,
-  },
   summaryBand: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -574,24 +627,44 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F6F1',
     padding: Spacing.four,
   },
+  calendarHeader: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  monthButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: '#E8E5DC',
+  },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   calendarDay: {
     width: '14.2857%',
-    height: 46,
+    minHeight: 58,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
+    borderRadius: 12,
+    paddingVertical: Spacing.one,
   },
-  calendarMarker: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
+  calendarDaySelected: {
+    backgroundColor: '#E8E5DC',
+  },
+  calendarMuscleLabel: {
+    color: '#587C00',
+    fontSize: 10,
+    lineHeight: 12,
   },
   noPeriodResults: {
     alignItems: 'center',
     paddingVertical: Spacing.four,
   },
   sectionTitle: { paddingBottom: Spacing.two },
+  selectedSection: { gap: Spacing.two },
   historyRow: {
     minHeight: 104,
     flexDirection: 'row',
@@ -619,7 +692,6 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.three,
   },
-  sectionSeparator: { height: Spacing.three },
   itemSeparator: { height: Spacing.two },
   pressed: { opacity: 0.72 },
   disabled: { opacity: 0.56 },
