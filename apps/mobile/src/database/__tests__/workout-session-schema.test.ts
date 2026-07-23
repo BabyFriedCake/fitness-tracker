@@ -72,8 +72,8 @@ describe('WorkoutSession schema migration', () => {
       'PRAGMA foreign_key_check;',
     );
 
-    expect(result.schemaVersion).toBe(4);
-    expect(result.appliedVersions).toEqual([3, 4]);
+    expect(result.schemaVersion).toBe(5);
+    expect(result.appliedVersions).toEqual([3, 4, 5]);
     expect(session).toEqual(
       expect.objectContaining({
         source_template_id: 'template-push',

@@ -78,18 +78,18 @@ Sprint 5 已完成：
 
 缺：
 
-- DailyStatus 展示
-- 最近训练
-- 本周概览
-- Recommendation 展示
+- Figma 版“添加计划”Modal
+- 今日训练计划列表
+- 今日计划 completed 后禁用开始
+- 本次训练预览/调整页
 
 ## P005 Rest Timer
 
 缺：
 
-- 完整暂停流程
-- 延长时间
-- 跳过休息
+- Figma 版休息页
+- 下一组卡片
+- 跳过休息入口视觉对齐
 
 ## P006 Summary
 
@@ -103,17 +103,18 @@ Sprint 5 已完成：
 
 缺：
 
-- 真实动作数据
-- 图片资源
-- 动作详情
+- Figma 左侧肌群分类栏
+- 右侧器械分类
+- 图片动作卡片布局
+- 自定义动作入口的稳定禁用/暂不支持提示
 
 ## P008 History
 
 缺：
 
-- 日历视图
-- 趋势统计
-- 训练分析
+- Figma 月历交互
+- 日期点击后显示对应日期训练
+- 日期肌群标签
 
 ---
 
@@ -126,7 +127,7 @@ Sprint 5 已完成：
 
 ---
 
-# Sprint 6 开始前要求
+# Sprint 7 开始前要求
 
 1. 保持 WorkoutSession 与 Runtime Domain 不变；Exercise Domain 只增加获批的数据集字段。
 2. 保持 Runtime 边界。
@@ -135,20 +136,22 @@ Sprint 5 已完成：
 
 # Next Sprint Focus
 
-Sprint 6:
+Sprint 7:
 
 Priority:
 
-1. P007 Exercise Library
-2. P012 Exercise Detail
-3. P008 History
-4. P001 Today Experience
+1. S7-00 Figma Product Alignment
+2. P001 Today Plan
+3. P007 Exercise Library visual alignment
+4. P008 History calendar interaction
+5. P004/P005 Workout/Pause/Rest UI alignment
 
 Avoid:
 
 - 修改 Workout Runtime
 - 修改 Event Contract
 - 修改 Session 数据模型
+- 用户自定义动作
 
 
 ## Prototype 与 Sprint 关系

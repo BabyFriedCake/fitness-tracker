@@ -187,22 +187,6 @@ function ReadyState({
           onBack={onBack}
           onEnd={controls.requestEndSession}
         />
-        <ProgressSummary runtime={state.runtime} />
-        <RuntimeStatusPanel state={state} controls={controls} />
-        {state.actionError && (
-          <ThemedText accessibilityRole="alert">{state.actionError}</ThemedText>
-        )}
-        <ExerciseList
-          runtime={state.runtime}
-          controls={controls}
-          canSelect={
-            isActive &&
-            isRuntimeRunning &&
-            !state.isMutating &&
-            !state.isConfirmingSkip
-          }
-        />
-
         {currentExercise ? (
           <>
             <CurrentExerciseSection
@@ -210,11 +194,31 @@ function ReadyState({
               completedReps={state.companionRuntime?.progress.completedReps}
               coachFeedback={state.coachFeedback}
             />
-            <CompletedSets sets={currentExercise.sets} />
             <SetEditor
               state={state}
               controls={controls}
               disabled={!canEditSet}
+            />
+            <RuntimeStatusPanel state={state} controls={controls} />
+            {state.actionError && (
+              <ThemedText
+                accessibilityRole="alert"
+                style={styles.workoutAlertText}
+              >
+                {state.actionError}
+              </ThemedText>
+            )}
+            <ProgressSummary runtime={state.runtime} />
+            <CompletedSets sets={currentExercise.sets} />
+            <ExerciseList
+              runtime={state.runtime}
+              controls={controls}
+              canSelect={
+                isActive &&
+                isRuntimeRunning &&
+                !state.isMutating &&
+                !state.isConfirmingSkip
+              }
             />
             <ExerciseActions
               exercise={currentExercise}
@@ -225,7 +229,7 @@ function ReadyState({
             />
           </>
         ) : (
-          <ThemedText themeColor="textSecondary" style={styles.emptyCopy}>
+          <ThemedText style={[styles.emptyCopy, styles.workoutMutedText]}>
             这次训练没有动作。
           </ThemedText>
         )}
@@ -290,7 +294,9 @@ function SessionHeader({
             pressed && styles.pressed,
           ]}
         >
-          <ThemedText type="smallBold">保存退出</ThemedText>
+          <ThemedText type="smallBold" style={styles.workoutMutedText}>
+            保存退出
+          </ThemedText>
         </Pressable>
         {data.session.status === 'in_progress' && (
           <Pressable
@@ -306,12 +312,18 @@ function SessionHeader({
               pressed && styles.pressed,
             ]}
           >
-            <ThemedText type="smallBold">结束训练</ThemedText>
+            <ThemedText type="smallBold" style={styles.workoutMutedText}>
+              结束训练
+            </ThemedText>
           </Pressable>
         )}
       </View>
       <View style={styles.headerTitle}>
-        <ThemedText type="subtitle" numberOfLines={2}>
+        <ThemedText
+          type="subtitle"
+          numberOfLines={2}
+          style={styles.workoutTitle}
+        >
           {data.session.workoutNameSnapshot}
         </ThemedText>
         <StatusChip status={data.session.status} />
@@ -328,7 +340,9 @@ function StatusChip({ status }: { readonly status: WorkoutSessionStatus }) {
       style={[styles.statusChip, { borderColor: theme.backgroundSelected }]}
       accessibilityLabel={`训练状态：${formatSessionStatus(status)}`}
     >
-      <ThemedText type="smallBold">{formatSessionStatus(status)}</ThemedText>
+      <ThemedText type="smallBold" style={styles.workoutAccentText}>
+        {formatSessionStatus(status)}
+      </ThemedText>
     </View>
   );
 }
@@ -345,10 +359,10 @@ function ProgressSummary({
 
   return (
     <View style={styles.progressRow} accessibilityLabel="训练进度">
-      <ThemedText type="smallBold">
+      <ThemedText type="smallBold" style={styles.workoutText}>
         动作 {exercisePosition} / {runtime.orderedExercises.length}
       </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="small" style={styles.workoutMutedText}>
         已完成 {runtime.completedSets} / {runtime.targetSets} 组
       </ThemedText>
     </View>
@@ -385,8 +399,8 @@ function RuntimeStatusPanel({
       style={[
         styles.runtimePanel,
         {
-          backgroundColor: theme.backgroundElement,
-          borderColor: theme.backgroundSelected,
+          backgroundColor: theme.workoutSurface,
+          borderColor: 'rgba(255, 255, 255, 0.12)',
         },
       ]}
       accessibilityLabel={`陪练运行状态：${formatCompanionRuntimeStatus(
@@ -395,10 +409,10 @@ function RuntimeStatusPanel({
       )}`}
     >
       <View style={styles.runtimeCopy}>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" style={styles.workoutMutedText}>
           陪练状态
         </ThemedText>
-        <ThemedText type="default">
+        <ThemedText type="default" style={styles.workoutText}>
           {formatCompanionRuntimeStatus(
             state.companionRuntime?.phase,
             state.runtime.status,
@@ -473,18 +487,25 @@ function ExerciseList({
               pressed && styles.pressed,
             ]}
           >
-            <ThemedText type="smallBold" style={styles.exercisePosition}>
+            <ThemedText
+              type="smallBold"
+              style={[styles.exercisePosition, styles.workoutMutedText]}
+            >
               {index + 1}
             </ThemedText>
             <View style={styles.exerciseRowCopy}>
-              <ThemedText numberOfLines={2}>
+              <ThemedText numberOfLines={2} style={styles.workoutText}>
                 {exercise.exerciseNameSnapshot}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" style={styles.workoutMutedText}>
                 {formatExerciseState(exercise)}
               </ThemedText>
             </View>
-            {isCurrent && <ThemedText type="smallBold">当前</ThemedText>}
+            {isCurrent && (
+              <ThemedText type="smallBold" style={styles.workoutAccentText}>
+                当前
+              </ThemedText>
+            )}
           </Pressable>
         );
       })}
@@ -507,26 +528,52 @@ function CurrentExerciseSection({
     return null;
   }
 
+  const targetReps = getExerciseTargetReps(exercise);
+  const repProgress = completedReps ?? 0;
+
   return (
     <View style={styles.primarySection}>
-      <ThemedText type="small" themeColor="textSecondary">
-        当前动作
-      </ThemedText>
-      <ThemedText type="subtitle">{exercise.exerciseNameSnapshot}</ThemedText>
-      <ThemedText type="default" themeColor="textSecondary">
-        第 {runtime.currentSet ?? 1} / {exercise.targetSets} 组 · 目标{' '}
-        {exercise.targetRepsMin}–{exercise.targetRepsMax} 次
-      </ThemedText>
-      <ThemedText type="smallBold">
-        {completedReps === undefined
-          ? formatCurrentSetState(exercise)
-          : `已完成 ${completedReps} / ${getExerciseTargetReps(exercise)} 次`}
-      </ThemedText>
-      {coachFeedback && (
-        <ThemedText type="small" accessibilityLiveRegion="polite">
-          {coachFeedback}
+      <View
+        style={styles.exerciseHeroImage}
+        accessible
+        accessibilityLabel="当前动作示意图"
+      >
+        <View style={styles.exerciseHeroGlow} />
+        <ThemedText style={styles.exerciseHeroInitial}>
+          {exercise.exerciseNameSnapshot.slice(0, 1)}
         </ThemedText>
-      )}
+        <ThemedText style={styles.exerciseHeroCaption}>动作示意</ThemedText>
+      </View>
+      <View style={styles.exerciseIdentity}>
+        <ThemedText style={styles.workoutEyebrow}>当前动作</ThemedText>
+        <ThemedText type="subtitle" style={styles.workoutTitle}>
+          {exercise.exerciseNameSnapshot}
+        </ThemedText>
+        <ThemedText style={styles.workoutMutedText}>
+          第 {runtime.currentSet ?? 1} / {exercise.targetSets} 组 · 目标{' '}
+          {exercise.targetRepsMin}–{exercise.targetRepsMax} 次
+        </ThemedText>
+      </View>
+      <View style={styles.repPanel}>
+        <View>
+          <ThemedText style={styles.workoutMutedText}>次数进度</ThemedText>
+          <ThemedText style={styles.repCount}>
+            {completedReps === undefined ? '—' : repProgress}
+            <ThemedText style={styles.repTarget}> / {targetReps}</ThemedText>
+          </ThemedText>
+          <ThemedText style={styles.workoutMutedText}>
+            {completedReps === undefined
+              ? formatCurrentSetState(exercise)
+              : `已完成 ${repProgress} / ${targetReps} 次`}
+          </ThemedText>
+        </View>
+        <View style={styles.coachPanel}>
+          <ThemedText style={styles.coachLabel}>语音教练</ThemedText>
+          <ThemedText style={styles.coachCopy} accessibilityLiveRegion="polite">
+            {coachFeedback ?? formatCurrentSetState(exercise)}
+          </ThemedText>
+        </View>
+      </View>
     </View>
   );
 }
@@ -535,8 +582,10 @@ function CompletedSets({ sets }: { readonly sets: readonly WorkoutSet[] }) {
   if (sets.length === 0) {
     return (
       <View style={styles.section}>
-        <ThemedText type="smallBold">已完成组</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="smallBold" style={styles.workoutText}>
+          已完成组
+        </ThemedText>
+        <ThemedText type="small" style={styles.workoutMutedText}>
           还没有完成的组。
         </ThemedText>
       </View>
@@ -545,15 +594,19 @@ function CompletedSets({ sets }: { readonly sets: readonly WorkoutSet[] }) {
 
   return (
     <View style={styles.section}>
-      <ThemedText type="smallBold">已完成组</ThemedText>
+      <ThemedText type="smallBold" style={styles.workoutText}>
+        已完成组
+      </ThemedText>
       {sets.map((workoutSet) => (
         <View key={workoutSet.id} style={styles.completedSetRow}>
-          <ThemedText type="small">第 {workoutSet.setNumber} 组</ThemedText>
-          <ThemedText type="smallBold">
+          <ThemedText type="small" style={styles.workoutMutedText}>
+            第 {workoutSet.setNumber} 组
+          </ThemedText>
+          <ThemedText type="smallBold" style={styles.workoutText}>
             {formatWeight(workoutSet.weight)} kg × {workoutSet.actualReps} 次
           </ThemedText>
           {workoutSet.isExtraSet && (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" style={styles.workoutMutedText}>
               额外组
             </ThemedText>
           )}
@@ -601,7 +654,6 @@ function NumberEditor({
   readonly disabled: boolean;
   readonly onChange: (value: string) => void;
 }) {
-  const theme = useTheme();
   const adjust = (direction: -1 | 1) => {
     const current = Number(value);
     const next = Math.max(
@@ -613,7 +665,9 @@ function NumberEditor({
 
   return (
     <View style={styles.numberEditor}>
-      <ThemedText type="smallBold">{label}</ThemedText>
+      <ThemedText type="smallBold" style={styles.workoutText}>
+        {label}
+      </ThemedText>
       <View style={styles.stepperRow}>
         <StepperButton
           label={`减少${label}`}
@@ -632,13 +686,13 @@ function NumberEditor({
             style={[
               styles.numberInput,
               {
-                color: theme.text,
-                borderColor: theme.backgroundSelected,
-                backgroundColor: theme.backgroundElement,
+                color: '#FFFFFF',
+                borderColor: 'rgba(255, 255, 255, 0.14)',
+                backgroundColor: 'rgba(255, 255, 255, 0.06)',
               },
             ]}
           />
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" style={styles.workoutMutedText}>
             {unit}
           </ThemedText>
         </View>
@@ -664,8 +718,6 @@ function StepperButton({
   readonly disabled: boolean;
   readonly onPress: () => void;
 }) {
-  const theme = useTheme();
-
   return (
     <Pressable
       onPress={onPress}
@@ -675,12 +727,14 @@ function StepperButton({
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.stepperButton,
-        { borderColor: theme.backgroundSelected },
+        { borderColor: 'rgba(255, 255, 255, 0.14)' },
         disabled && styles.disabled,
         pressed && styles.pressed,
       ]}
     >
-      <ThemedText type="subtitle">{symbol}</ThemedText>
+      <ThemedText type="subtitle" style={styles.workoutText}>
+        {symbol}
+      </ThemedText>
     </Pressable>
   );
 }
@@ -734,8 +788,6 @@ function SkipExerciseConfirmModal({
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
 }) {
-  const theme = useTheme();
-
   return (
     <Modal
       visible={visible}
@@ -748,7 +800,7 @@ function SkipExerciseConfirmModal({
           type="backgroundElement"
           style={[
             styles.modalContent,
-            { borderColor: theme.backgroundSelected },
+            { borderColor: 'rgba(223, 221, 212, 0.88)' },
           ]}
           accessibilityRole="alert"
         >
@@ -760,6 +812,7 @@ function SkipExerciseConfirmModal({
             <SecondaryButton
               label="继续训练"
               accessibilityLabel="取消跳过动作"
+              tone="surface"
               onPress={onCancel}
             />
             <PrimaryButton
@@ -817,6 +870,7 @@ function EndSessionModal({
             <SecondaryButton
               label="继续训练"
               accessibilityLabel="继续本次训练"
+              tone="surface"
               disabled={state.isMutating}
               onPress={controls.continueSession}
             />
@@ -842,6 +896,7 @@ function EndSessionModal({
                 <SecondaryButton
                   label="放弃本次训练"
                   accessibilityLabel="请求放弃本次训练"
+                  tone="surface"
                   disabled={state.isMutating}
                   onPress={controls.requestCancelSession}
                 />
@@ -869,30 +924,32 @@ function RestTimerStatus({
   readonly canFinish: boolean;
   readonly onFinish: () => void;
 }) {
-  const theme = useTheme();
-
   return (
     <View
       style={[
         styles.timerStatus,
         {
-          backgroundColor: theme.backgroundElement,
-          borderColor: theme.backgroundSelected,
+          backgroundColor: '#1E211D',
+          borderColor: 'rgba(202, 255, 0, 0.2)',
         },
       ]}
       accessibilityLabel={`休息计时状态：${formatTimerStatus(status)}`}
     >
-      <ThemedText type="small" themeColor="textSecondary">
-        休息计时
+      <ThemedText style={styles.workoutEyebrow}>休息调整</ThemedText>
+      <ThemedText type="default" style={styles.workoutText}>
+        {formatTimerStatus(status)}
       </ThemedText>
-      <ThemedText type="default">{formatTimerStatus(status)}</ThemedText>
       {remainingSeconds !== undefined && (
-        <ThemedText type="title" accessibilityLabel="休息剩余时间">
+        <ThemedText
+          type="title"
+          accessibilityLabel="休息剩余时间"
+          style={styles.timerDisplay}
+        >
           {formatRemainingSeconds(remainingSeconds)}
         </ThemedText>
       )}
       {exerciseName && nextSetNumber !== undefined && (
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" style={styles.workoutMutedText}>
           下一组：{exerciseName} · 第 {nextSetNumber} 组
         </ThemedText>
       )}
@@ -929,14 +986,14 @@ function PrimaryButton({
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.primaryButton,
-        { backgroundColor: theme.text },
+        { backgroundColor: theme.actionPrimary },
         disabled && styles.disabled,
         pressed && styles.pressed,
       ]}
     >
       <ThemedText
         type="smallBold"
-        style={{ color: theme.background, textAlign: 'center' }}
+        style={{ color: theme.actionOnPrimary, textAlign: 'center' }}
       >
         {label}
       </ThemedText>
@@ -948,14 +1005,17 @@ function SecondaryButton({
   label,
   accessibilityLabel,
   disabled = false,
+  tone = 'workout',
   onPress,
 }: {
   readonly label: string;
   readonly accessibilityLabel: string;
   readonly disabled?: boolean;
+  readonly tone?: 'workout' | 'surface';
   readonly onPress: () => void;
 }) {
   const theme = useTheme();
+  const isWorkoutTone = tone === 'workout';
 
   return (
     <Pressable
@@ -966,12 +1026,22 @@ function SecondaryButton({
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.secondaryButton,
-        { borderColor: theme.backgroundSelected },
+        {
+          borderColor: isWorkoutTone
+            ? 'rgba(255, 255, 255, 0.18)'
+            : theme.backgroundSelected,
+        },
         disabled && styles.disabled,
         pressed && styles.pressed,
       ]}
     >
-      <ThemedText type="smallBold" style={styles.centerText}>
+      <ThemedText
+        type="smallBold"
+        style={[
+          styles.centerText,
+          isWorkoutTone ? styles.workoutMutedText : undefined,
+        ]}
+      >
         {label}
       </ThemedText>
     </Pressable>
@@ -1088,13 +1158,17 @@ function formatWeight(weight: number): string {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: { flex: 1, alignItems: 'center' },
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#151813',
+  },
   safeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth },
   scrollContent: {
-    gap: Spacing.four,
+    gap: Spacing.three,
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
-    paddingBottom: Spacing.four,
+    paddingBottom: Spacing.five,
   },
   header: { gap: Spacing.three },
   headerTitle: { gap: Spacing.two, alignItems: 'flex-start' },
@@ -1108,14 +1182,14 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     paddingHorizontal: Spacing.three,
   },
   statusChip: {
     minHeight: 32,
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     paddingHorizontal: Spacing.two,
   },
   progressRow: {
@@ -1132,28 +1206,100 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 22,
     padding: Spacing.three,
   },
   runtimeCopy: { gap: Spacing.one },
   exerciseList: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.one,
   },
   exerciseRow: {
-    minHeight: 56,
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
   exercisePosition: { width: 24, textAlign: 'center' },
   exerciseRowCopy: { flex: 1 },
-  primarySection: { gap: Spacing.two },
+  primarySection: { gap: Spacing.three },
+  exerciseHeroImage: {
+    height: 330,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: 28,
+    backgroundColor: '#20231E',
+  },
+  exerciseHeroGlow: {
+    position: 'absolute',
+    top: -40,
+    right: -24,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(202, 255, 0, 0.36)',
+  },
+  exerciseHeroInitial: {
+    color: '#FFFFFF',
+    fontSize: 96,
+    lineHeight: 104,
+    fontWeight: '700',
+  },
+  exerciseHeroCaption: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+    letterSpacing: 1.6,
+  },
+  exerciseIdentity: { gap: Spacing.one },
+  repPanel: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+  },
+  repCount: {
+    color: '#FFFFFF',
+    fontSize: 72,
+    lineHeight: 76,
+    fontWeight: '700',
+    letterSpacing: 0,
+  },
+  repTarget: {
+    color: 'rgba(255, 255, 255, 0.36)',
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '700',
+  },
+  coachPanel: {
+    flex: 1,
+    alignSelf: 'center',
+    gap: Spacing.one,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    padding: Spacing.three,
+  },
+  coachLabel: {
+    color: '#CAFF00',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  coachCopy: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '600',
+  },
   section: {
     gap: Spacing.three,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: Spacing.four,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: Spacing.three,
   },
   completedSetRow: {
     minHeight: 44,
@@ -1188,10 +1334,10 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 52,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 18,
     paddingHorizontal: Spacing.three,
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: 30,
+    fontWeight: '700',
     textAlign: 'center',
   },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
@@ -1199,7 +1345,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 18,
     paddingHorizontal: Spacing.three,
   },
   primaryActionBar: {
@@ -1216,15 +1362,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
   timerStatus: {
-    gap: Spacing.one,
+    gap: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
+    borderRadius: 26,
+    padding: Spacing.four,
+  },
+  timerDisplay: {
+    color: '#FFFFFF',
+    fontSize: 64,
+    lineHeight: 70,
+    fontWeight: '700',
+    letterSpacing: 0,
   },
   feedbackState: {
     flex: 1,
@@ -1261,6 +1414,23 @@ const styles = StyleSheet.create({
   },
   centerText: { textAlign: 'center' },
   emptyCopy: { textAlign: 'center', paddingVertical: Spacing.four },
+  workoutText: { color: '#FFFFFF' },
+  workoutTitle: { color: '#FFFFFF' },
+  workoutMutedText: { color: 'rgba(255, 255, 255, 0.58)' },
+  workoutAccentText: { color: '#CAFF00' },
+  workoutEyebrow: {
+    color: '#CAFF00',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    letterSpacing: 1.8,
+  },
+  workoutAlertText: {
+    color: '#FFFFFF',
+    borderRadius: 16,
+    backgroundColor: 'rgba(164, 93, 84, 0.28)',
+    padding: Spacing.three,
+  },
   disabled: { opacity: 0.42 },
   pressed: { opacity: 0.72 },
 });

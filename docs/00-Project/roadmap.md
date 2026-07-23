@@ -315,6 +315,23 @@ Sprint 6 未包含：
 - AI 模型
 - 摄像头识别
 - 自动 Rep Counter 正式接入
+- 用户自定义动作
+
+Sprint 6 合并后 Human Review 确认存在 Figma 交互偏差。
+
+处理方式：
+
+- 不回改 Sprint 6 完成记录。
+- 作为 Sprint 7 前置任务 `S7-00 Figma Product Alignment` 执行。
+
+S7-00 开始前确认：
+
+- Today “训练计划”表示今天添加的计划，不是全部模板列表。
+- 今日计划卡片主体进入本次训练预览/调整页。
+- 今日计划开始按钮进入训练页；完成后显示“已完成”且不可再次开始。
+- Exercise Library 只对齐 Figma 浏览布局，自定义动作留到未来版本。
+- History 需要 Figma 月历交互。
+- Workout 需要 Figma running / paused / resting 状态对齐。
 
 ---
 
@@ -326,8 +343,13 @@ Sprint 6 未包含：
 
 增强训练陪练能力。
 
+前置任务：
+
+- [ ] S7-00 Figma Product Alignment
+
 内容：
 
+- Figma 交互偏差修正
 - Voice Coach
 - Rep Event Contract
 - Auto Rep Counter 接口

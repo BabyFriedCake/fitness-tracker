@@ -26,6 +26,7 @@ const REQUIRED_TABLES = [
   'rest_timer_states',
   'daily_statuses',
   'user_settings',
+  'today_workout_plans',
 ] as const;
 
 const REQUIRED_INDEXES = [
@@ -52,6 +53,9 @@ const REQUIRED_INDEXES = [
   'idx_rest_timer_status',
   'idx_rest_timer_target_end',
   'idx_daily_status_date',
+  'idx_today_workout_plans_local_date',
+  'idx_today_workout_plans_template',
+  'idx_today_workout_plans_status',
 ] as const;
 
 type SqliteNameRow = {
@@ -89,7 +93,7 @@ describe('database migration runner', () => {
     const result = await runMigrations(database);
 
     expect(result.schemaVersion).toBe(LATEST_SCHEMA_VERSION);
-    expect(result.appliedVersions).toEqual([1, 2, 3, 4]);
+    expect(result.appliedVersions).toEqual([1, 2, 3, 4, 5]);
     await expectSqliteObjects('table', REQUIRED_TABLES);
     await expectSqliteObjects('index', REQUIRED_INDEXES);
   });
@@ -104,7 +108,7 @@ describe('database migration runner', () => {
 
     expect(rerunResult.schemaVersion).toBe(LATEST_SCHEMA_VERSION);
     expect(rerunResult.appliedVersions).toEqual([]);
-    expect(migrationRows?.count).toBe(4);
+    expect(migrationRows?.count).toBe(5);
   });
 
   it('rolls back a failed migration without recording success', async () => {
@@ -142,7 +146,7 @@ describe('database migration runner', () => {
 
   it('restores foreign keys when migration setup fails before transaction starts', async () => {
     let foreignKeys = 1;
-    let schemaVersion = 3;
+    let schemaVersion = 4;
     let rollbackCount = 0;
     const execCalls: string[] = [];
     const beginFailureMigrations: readonly Migration[] = [
@@ -163,7 +167,12 @@ describe('database migration runner', () => {
       },
       {
         version: 4,
-        name: '0004_begin_fails',
+        name: '0004_already_applied',
+        sql: '',
+      },
+      {
+        version: 5,
+        name: '0005_begin_fails',
         sql: 'SELECT 1;',
         disableForeignKeysDuringMigration: true,
       },
@@ -226,7 +235,7 @@ describe('database migration runner', () => {
       );
 
     expect(foreignKeyState?.foreign_keys).toBe(1);
-    expect(await getCurrentSchemaVersion(failingBeginDatabase)).toBe(3);
+    expect(await getCurrentSchemaVersion(failingBeginDatabase)).toBe(4);
     expect(rollbackCount).toBe(0);
     expect(execCalls).toEqual([
       'PRAGMA foreign_keys = OFF;',
@@ -261,8 +270,8 @@ describe('database migration runner', () => {
     );
 
     expect(result).toEqual({
-      schemaVersion: 4,
-      appliedVersions: [4],
+      schemaVersion: 5,
+      appliedVersions: [4, 5],
     });
     expect(exercise).toEqual({
       id: 'exercise-existing',
@@ -273,7 +282,7 @@ describe('database migration runner', () => {
     });
 
     await expect(runMigrations(database)).resolves.toEqual({
-      schemaVersion: 4,
+      schemaVersion: 5,
       appliedVersions: [],
     });
   });
@@ -430,9 +439,9 @@ describe('database migration runner', () => {
 
     const result = await runMigrations(database);
 
-    expect(result.schemaVersion).toBe(4);
-    expect(result.appliedVersions).toEqual([2, 3, 4]);
-    expect(await getCurrentSchemaVersion(database)).toBe(4);
+    expect(result.schemaVersion).toBe(5);
+    expect(result.appliedVersions).toEqual([2, 3, 4, 5]);
+    expect(await getCurrentSchemaVersion(database)).toBe(5);
     expect(await getTableCount('workout_templates')).toBe(2);
     expect(await getTableCount('workout_template_exercises')).toBe(2);
 
@@ -470,9 +479,9 @@ describe('database migration runner', () => {
 
     const rerunResult = await runMigrations(database);
 
-    expect(rerunResult.schemaVersion).toBe(4);
+    expect(rerunResult.schemaVersion).toBe(5);
     expect(rerunResult.appliedVersions).toEqual([]);
-    expect(await getTableCount('schema_migrations')).toBe(4);
+    expect(await getTableCount('schema_migrations')).toBe(5);
   });
 
   it('rolls back a failed version 2 upgrade without recording success', async () => {

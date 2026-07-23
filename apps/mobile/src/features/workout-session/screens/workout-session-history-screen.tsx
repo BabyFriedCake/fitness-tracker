@@ -64,7 +64,10 @@ export function WorkoutSessionHistoryScreenContent({
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.content}>
           <View style={styles.header}>
-            <ThemedText type="subtitle">历史</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              训练记录
+            </ThemedText>
+            <ThemedText type="title">训练日历</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               最近完成和取消的训练。
             </ThemedText>
@@ -563,11 +566,18 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     paddingVertical: Spacing.three,
   },
-  calendar: { gap: Spacing.two },
+  calendar: {
+    gap: Spacing.three,
+    borderRadius: 28,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DFDDD4',
+    backgroundColor: '#F7F6F1',
+    padding: Spacing.four,
+  },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   calendarDay: {
     width: '14.2857%',
-    height: 40,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
@@ -583,14 +593,14 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { paddingBottom: Spacing.two },
   historyRow: {
-    minHeight: 76,
+    minHeight: 104,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.three,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
+    borderRadius: 24,
+    padding: Spacing.four,
   },
   rowMain: { flex: 1, gap: Spacing.one },
   rowMetrics: { alignItems: 'flex-end', gap: Spacing.one },

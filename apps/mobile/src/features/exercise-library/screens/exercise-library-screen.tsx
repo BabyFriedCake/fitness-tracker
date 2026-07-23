@@ -114,7 +114,10 @@ export function ExerciseLibraryContent({
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.content}>
           <ThemedView style={styles.header}>
-            <ThemedText type="subtitle">动作库</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              动作库
+            </ThemedText>
+            <ThemedText type="title">胸部动作</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {selectionMode.status === 'selecting'
                 ? '选择一个标准动作返回来源页面。'
@@ -448,6 +451,7 @@ function ExerciseList({
   return (
     <FlatList
       data={exercises}
+      numColumns={2}
       keyExtractor={(exercise) => exercise.id}
       renderItem={({ item }) => (
         <ExerciseRow
@@ -461,6 +465,7 @@ function ExerciseList({
         />
       )}
       contentContainerStyle={styles.listContent}
+      columnWrapperStyle={styles.listColumns}
       ItemSeparatorComponent={ListSeparator}
       initialNumToRender={12}
       maxToRenderPerBatch={12}
@@ -506,15 +511,15 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.four,
     paddingBottom: BottomTabInset + Spacing.three,
   },
   content: {
     flex: 1,
-    gap: Spacing.three,
+    gap: Spacing.four,
   },
   header: {
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.five,
     gap: Spacing.one,
   },
   listContent: {
@@ -530,9 +535,9 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   searchInput: {
-    minHeight: 48,
+    minHeight: 72,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 28,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     fontSize: 16,
@@ -549,10 +554,13 @@ const styles = StyleSheet.create({
   filterChip: {
     minHeight: 44,
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+  },
+  listColumns: {
+    gap: Spacing.three,
   },
   clearButton: {
     minHeight: 44,

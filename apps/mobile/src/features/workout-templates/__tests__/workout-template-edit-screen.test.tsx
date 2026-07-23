@@ -1518,7 +1518,7 @@ describe('WorkoutTemplateEditContent', () => {
       params: {
         mode: 'select',
         context: 'template',
-        returnTo: '/templates/[id]',
+        returnTo: '/templates/[id]/edit',
       },
     } as const;
     const { getByLabelText, getByText } = await render(

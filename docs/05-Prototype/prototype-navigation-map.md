@@ -17,15 +17,11 @@ Today
 
 ↓
 
-Template List
+Add Plan Modal
 
 ↓
 
-Template Detail
-
-↓
-
-Start Workout
+Today Workout Draft Preview
 
 ↓
 
@@ -72,16 +68,18 @@ Completed
 
 - 当前训练 Session
 - 今日训练计划
-- 添加训练
+- 添加计划
 
 
 跳转：
 
 Today
 
-→ Template List
+→ Add Plan Modal
 
-→ Template Detail
+→ Today Workout Draft Preview
+
+→ Workout Session
 
 
 ## Template List
@@ -116,7 +114,8 @@ Template List
 
 操作：
 
-Start Workout
+- 编辑模板
+- 从模板开始训练（非 Today 计划入口时）
 
 
 跳转：
@@ -124,6 +123,25 @@ Start Workout
 Template Detail
 
 → Workout Session
+
+
+## Today Workout Draft Preview
+
+显示：
+
+- 本次训练名称
+- SessionExercise 列表
+- 本次训练目标组数、次数、休息
+
+操作：
+
+- 编辑此次训练
+- 开始训练
+
+边界：
+
+- 修改本次训练只影响 WorkoutSession draft。
+- 不修改 WorkoutTemplate。
 
 
 ## Workout Session

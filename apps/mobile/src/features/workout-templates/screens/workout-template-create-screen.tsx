@@ -144,10 +144,10 @@ function Header({ onCancel }: { readonly onCancel: () => void }) {
   return (
     <ThemedView style={styles.header}>
       <ThemedView style={styles.headerCopy}>
-        <ThemedText type="subtitle">创建训练模板</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          设置名称并从动作库添加标准动作。
+          新建模板
         </ThemedText>
+        <ThemedText type="title">训练模板</ThemedText>
       </ThemedView>
       <Pressable
         onPress={onCancel}
@@ -159,7 +159,7 @@ function Header({ onCancel }: { readonly onCancel: () => void }) {
           pressed && styles.pressed,
         ]}
       >
-        <ThemedText type="smallBold">取消</ThemedText>
+        <ThemedText type="smallBold">← 取消</ThemedText>
       </Pressable>
     </ThemedView>
   );
@@ -277,7 +277,7 @@ function CreateForm({
         </ThemedView>
 
         <ThemedView style={styles.sectionHeader}>
-          <ThemedText type="smallBold">动作</ThemedText>
+          <ThemedText type="subtitle">训练动作</ThemedText>
           <Pressable
             onPress={() =>
               onAddExercise(controls.createExerciseSelectionHref())
@@ -290,7 +290,7 @@ function CreateForm({
               pressed && styles.pressed,
             ]}
           >
-            <ThemedText type="smallBold">添加动作</ThemedText>
+            <ThemedText type="smallBold">+ 从动作库添加</ThemedText>
           </Pressable>
         </ThemedView>
 
@@ -314,9 +314,31 @@ function CreateForm({
                   { borderColor: theme.backgroundSelected },
                 ]}
               >
-                <ThemedText type="smallBold">{index + 1}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  ⋮⋮
+                </ThemedText>
                 <ThemedView style={styles.exerciseCopy}>
                   <ThemedText type="default">{exercise.nameZh}</ThemedText>
+                  <ThemedView style={styles.exerciseConfigGrid}>
+                    <ThemedView style={styles.configPill}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        组数
+                      </ThemedText>
+                      <ThemedText type="default">3</ThemedText>
+                    </ThemedView>
+                    <ThemedView style={styles.configPill}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        次数
+                      </ThemedText>
+                      <ThemedText type="default">8–10</ThemedText>
+                    </ThemedView>
+                    <ThemedView style={styles.configPill}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        休息
+                      </ThemedText>
+                      <ThemedText type="default">90秒</ThemedText>
+                    </ThemedView>
+                  </ThemedView>
                   <ThemedText type="small" themeColor="textSecondary">
                     {formatMuscleGroup(exercise.primaryMuscleGroup)} ·{' '}
                     {formatEquipment(exercise.equipment)} ·{' '}
@@ -461,19 +483,19 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.four,
     paddingBottom: BottomTabInset + Spacing.three,
   },
   content: {
     flex: 1,
-    gap: Spacing.three,
+    gap: Spacing.four,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Spacing.three,
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.five,
   },
   headerCopy: {
     flex: 1,
@@ -489,7 +511,7 @@ const styles = StyleSheet.create({
   textInput: {
     minHeight: 48,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 22,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     fontSize: 16,
@@ -499,7 +521,7 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 88,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 22,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     fontSize: 16,
@@ -521,17 +543,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    borderRadius: Spacing.two,
+    borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: Spacing.three,
+    padding: Spacing.four,
   },
   exerciseCopy: {
     flex: 1,
+    gap: Spacing.three,
+  },
+  exerciseConfigGrid: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  configPill: {
+    flex: 1,
+    minHeight: 80,
+    justifyContent: 'center',
     gap: Spacing.one,
+    borderRadius: 18,
+    backgroundColor: '#EFEEE8',
+    padding: Spacing.three,
   },
   emptyExerciseState: {
     gap: Spacing.one,
-    borderRadius: Spacing.two,
+    borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
   },
@@ -548,7 +583,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
@@ -559,7 +594,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,

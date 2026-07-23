@@ -156,6 +156,45 @@ V1 初始迁移：
 字段均允许为空以保留 Sprint 1-5 数据。Migration 不修改历史 Migration，必须在
 事务内执行，并覆盖从 0003 升级、重复运行和失败回滚测试。
 
+## 3.4 Today Workout Plan Migration
+
+第五个迁移：
+
+```text
+0005_today_workout_plan
+```
+
+目的：
+
+- 为 Today 页面“训练计划”模块新增持久化入口
+- 支持同一天添加多个训练模板卡片
+- 阻止同一天重复添加同一个模板
+- 通过可选 `session_id` 关联真实 WorkoutSession
+- 不修改 WorkoutSession、WorkoutSet 或历史训练事实
+
+创建：
+
+- `today_workout_plans`
+- `idx_today_workout_plans_local_date`
+- `idx_today_workout_plans_template`
+- `idx_today_workout_plans_status`
+
+新增约束：
+
+- `status` 只能是 `planned`、`draft`、`in_progress`、`completed`、`cancelled`
+- `position > 0`
+- `UNIQUE(local_date, source_template_id)`
+- `UNIQUE(session_id)`
+- `source_template_id` 外键引用 `workout_templates(id)`
+- `session_id` 外键引用 `workout_sessions(id)`
+
+迁移策略：
+
+1. 新增表和索引
+2. 不复制或修改既有 WorkoutSession 数据
+3. 不回填历史 TodayPlan
+4. 成功后记录版本 5
+
 ---
 
 ## 4. 执行规则

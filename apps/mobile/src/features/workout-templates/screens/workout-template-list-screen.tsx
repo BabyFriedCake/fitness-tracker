@@ -58,13 +58,13 @@ export function WorkoutTemplateListContent({
         <ThemedView style={styles.content}>
           <ThemedView style={styles.header}>
             <ThemedView style={styles.headerCopy}>
-              <ThemedText type="subtitle">训练模板</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                管理可重复使用的训练计划。
+                训练库
               </ThemedText>
+              <ThemedText type="title">我的模板</ThemedText>
             </ThemedView>
             <PrimaryActionButton
-              label="创建模板"
+              label="+"
               accessibilityLabel="新增训练模板"
               onPress={onCreateTemplate}
             />
@@ -189,7 +189,7 @@ function TemplateCard({
     <Pressable
       onPress={() => onOpenTemplate(template.id)}
       accessibilityRole="button"
-      accessibilityLabel={`编辑训练模板${template.name}，${metrics.join('，')}，${formatTemplateStatus(template.status)}`}
+      accessibilityLabel={`查看训练模板${template.name}，${metrics.join('，')}，${formatTemplateStatus(template.status)}`}
       style={({ pressed }) => [
         styles.templateCard,
         {
@@ -199,27 +199,25 @@ function TemplateCard({
         pressed && styles.pressed,
       ]}
     >
-      <ThemedView style={styles.cardHeader} type="backgroundElement">
-        <ThemedText type="default" style={styles.templateName}>
+      <ThemedView style={styles.cardHeader}>
+        <ThemedText type="subtitle" style={styles.templateName}>
           {template.name}
         </ThemedText>
-        <ThemedView
-          style={[
-            styles.statusChip,
-            {
-              borderColor: theme.backgroundSelected,
-            },
-          ]}
-          type="backgroundElement"
-        >
-          <ThemedText type="smallBold">
-            {formatTemplateStatus(template.status)}
-          </ThemedText>
-        </ThemedView>
+        <ThemedText type="subtitle" themeColor="textSecondary">
+          →
+        </ThemedText>
       </ThemedView>
       <ThemedText type="small" themeColor="textSecondary">
         {metrics.join(' · ')}
       </ThemedText>
+      <ThemedView style={styles.templateActions}>
+        <ThemedText type="small" themeColor="textSecondary">
+          查看详情
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {formatTemplateStatus(template.status)}
+        </ThemedText>
+      </ThemedView>
     </Pressable>
   );
 }
@@ -312,19 +310,19 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.four,
     paddingBottom: BottomTabInset + Spacing.three,
   },
   content: {
     flex: 1,
-    gap: Spacing.three,
+    gap: Spacing.four,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Spacing.three,
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.five,
   },
   headerCopy: {
     flex: 1,
@@ -334,12 +332,12 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.three,
   },
   templateCard: {
-    minHeight: 96,
+    minHeight: 168,
     justifyContent: 'center',
-    gap: Spacing.two,
-    borderRadius: Spacing.three,
+    gap: Spacing.three,
+    borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: Spacing.three,
+    padding: Spacing.four,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -350,6 +348,15 @@ const styles = StyleSheet.create({
   templateName: {
     flex: 1,
   },
+  templateActions: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#DFDDD4',
+    paddingTop: Spacing.three,
+  },
   statusChip: {
     minHeight: 32,
     justifyContent: 'center',
@@ -358,12 +365,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
   },
   primaryButton: {
-    minHeight: 44,
+    width: 82,
+    height: 82,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+    borderRadius: 41,
   },
   primaryButtonText: {
     textAlign: 'center',

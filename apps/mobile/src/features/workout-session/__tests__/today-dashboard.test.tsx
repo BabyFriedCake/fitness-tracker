@@ -259,6 +259,7 @@ describe('Today Dashboard', () => {
         })}
         controls={buildControls({ createSessionFromTemplate })}
         onCreateTemplate={jest.fn()}
+        onOpenTemplate={jest.fn()}
         onOpenWorkoutSession={jest.fn()}
         onOpenHistory={jest.fn()}
       />,
@@ -267,6 +268,36 @@ describe('Today Dashboard', () => {
     expect(getByText('当前没有进行中的训练')).toBeTruthy();
     await fireEvent.press(getByLabelText('开始训练Push，1 个动作 · 4 组'));
     expect(createSessionFromTemplate).toHaveBeenCalledWith(TEMPLATE_ID);
+  });
+
+  it('opens a template plan from the card body without starting a session', async () => {
+    const createSessionFromTemplate = jest.fn(async () => {});
+    const onOpenTemplate = jest.fn();
+    const { getByLabelText } = await render(
+      <TodayDashboardScreenContent
+        state={buildReadyState({
+          sessionEntry: { status: 'none' },
+          templates: [
+            {
+              id: TEMPLATE_ID,
+              name: 'Push',
+              exerciseCount: 1,
+              totalTargetSets: 4,
+            },
+          ],
+        })}
+        controls={buildControls({ createSessionFromTemplate })}
+        onCreateTemplate={jest.fn()}
+        onOpenTemplate={onOpenTemplate}
+        onOpenWorkoutSession={jest.fn()}
+        onOpenHistory={jest.fn()}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('查看训练计划Push，1 个动作 · 4 组'));
+
+    expect(onOpenTemplate).toHaveBeenCalledWith(TEMPLATE_ID);
+    expect(createSessionFromTemplate).not.toHaveBeenCalled();
   });
 
   it.each(['draft', 'in_progress'] as const)(
@@ -288,6 +319,7 @@ describe('Today Dashboard', () => {
           })}
           controls={buildControls({ continueSession })}
           onCreateTemplate={jest.fn()}
+          onOpenTemplate={jest.fn()}
           onOpenWorkoutSession={onOpenWorkoutSession}
           onOpenHistory={jest.fn()}
         />,
@@ -321,6 +353,7 @@ describe('Today Dashboard', () => {
           })}
           controls={buildControls({ continueSession })}
           onCreateTemplate={jest.fn()}
+          onOpenTemplate={jest.fn()}
           onOpenWorkoutSession={jest.fn()}
           onOpenHistory={jest.fn()}
         />,
@@ -345,6 +378,7 @@ describe('Today Dashboard', () => {
         })}
         controls={buildControls()}
         onCreateTemplate={jest.fn()}
+        onOpenTemplate={jest.fn()}
         onOpenWorkoutSession={jest.fn()}
         onOpenHistory={onOpenHistory}
       />,
@@ -382,6 +416,7 @@ describe('Today Dashboard', () => {
         })}
         controls={buildControls({ updateDailyStatus })}
         onCreateTemplate={jest.fn()}
+        onOpenTemplate={jest.fn()}
         onOpenWorkoutSession={jest.fn()}
         onOpenHistory={onOpenHistory}
       />,

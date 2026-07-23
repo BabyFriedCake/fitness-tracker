@@ -2,6 +2,7 @@ import { INITIAL_SCHEMA_SQL } from '@/database/migrations/0001-initial-schema';
 import { WORKOUT_TEMPLATE_CONSTRAINTS_SQL } from '@/database/migrations/0002-workout-template-constraints';
 import { WORKOUT_SESSION_SCHEMA_SQL } from '@/database/migrations/0003-workout-session-schema';
 import { EXERCISE_DATASET_METADATA_SQL } from '@/database/migrations/0004-exercise-dataset-metadata';
+import { TODAY_WORKOUT_PLAN_SQL } from '@/database/migrations/0005-today-workout-plan';
 
 export type Migration = {
   readonly version: number;
@@ -32,5 +33,10 @@ export const MIGRATIONS = [
     version: 4,
     name: '0004_exercise_dataset_metadata',
     sql: EXERCISE_DATASET_METADATA_SQL,
+  },
+  {
+    version: 5,
+    name: '0005_today_workout_plan',
+    sql: TODAY_WORKOUT_PLAN_SQL,
   },
 ] as const satisfies readonly Migration[];

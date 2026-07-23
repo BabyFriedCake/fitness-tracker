@@ -182,10 +182,10 @@ function Header({
   return (
     <ThemedView style={styles.header}>
       <ThemedView style={styles.headerCopy}>
-        <ThemedText type="subtitle">编辑训练模板</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          调整模板信息、动作和基础目标参数。
+          编辑模板
         </ThemedText>
+        <ThemedText type="title">训练模板</ThemedText>
       </ThemedView>
       <Pressable
         disabled={isBusy}
@@ -202,7 +202,7 @@ function Header({
           pressed && !isBusy && styles.pressed,
         ]}
       >
-        <ThemedText type="smallBold">取消</ThemedText>
+        <ThemedText type="smallBold">← 取消</ThemedText>
       </Pressable>
     </ThemedView>
   );
@@ -348,7 +348,7 @@ function EditForm({
         </ThemedView>
 
         <ThemedView style={styles.sectionHeader}>
-          <ThemedText type="smallBold">动作</ThemedText>
+          <ThemedText type="subtitle">训练动作</ThemedText>
           <Pressable
             disabled={isFormDisabled}
             onPress={() =>
@@ -366,7 +366,7 @@ function EditForm({
               pressed && !isFormDisabled && styles.pressed,
             ]}
           >
-            <ThemedText type="smallBold">添加动作</ThemedText>
+            <ThemedText type="smallBold">+ 从动作库添加</ThemedText>
           </Pressable>
         </ThemedView>
 
@@ -521,8 +521,11 @@ function ExerciseEditorList({
         >
           <ThemedView style={styles.exerciseHeader}>
             <ThemedView style={styles.exerciseCopy}>
-              <ThemedText type="smallBold">
-                {index + 1}. {exercise.exercise?.nameZh ?? '动作信息缺失'}
+              <ThemedText type="small" themeColor="textSecondary">
+                ⋮⋮
+              </ThemedText>
+              <ThemedText type="default">
+                {exercise.exercise?.nameZh ?? '动作信息缺失'}
               </ThemedText>
               {exercise.exercise && (
                 <ThemedText type="small" themeColor="textSecondary">
@@ -571,7 +574,7 @@ function ExerciseEditorList({
               }
             />
             <ConfigInput
-              label="最小次数"
+              label="最小"
               value={String(exercise.targetRepsMin)}
               disabled={disabled}
               accessibilityLabel={`修改${exercise.exercise?.nameZh ?? exercise.exerciseId}最小次数`}
@@ -584,7 +587,7 @@ function ExerciseEditorList({
               }
             />
             <ConfigInput
-              label="最大次数"
+              label="最大"
               value={String(exercise.targetRepsMax)}
               disabled={disabled}
               accessibilityLabel={`修改${exercise.exercise?.nameZh ?? exercise.exerciseId}最大次数`}
@@ -597,7 +600,7 @@ function ExerciseEditorList({
               }
             />
             <ConfigInput
-              label="休息秒"
+              label="休息"
               value={String(exercise.restSeconds)}
               disabled={disabled}
               accessibilityLabel={`修改${exercise.exercise?.nameZh ?? exercise.exerciseId}休息时间`}
@@ -856,19 +859,19 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.four,
     paddingBottom: BottomTabInset + Spacing.three,
   },
   content: {
     flex: 1,
-    gap: Spacing.three,
+    gap: Spacing.four,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Spacing.three,
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.five,
   },
   headerCopy: {
     flex: 1,
@@ -884,7 +887,7 @@ const styles = StyleSheet.create({
   textInput: {
     minHeight: 48,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 22,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     fontSize: 16,
@@ -894,7 +897,7 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 88,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 22,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     fontSize: 16,
@@ -910,16 +913,16 @@ const styles = StyleSheet.create({
   },
   banner: {
     gap: Spacing.one,
-    borderRadius: Spacing.two,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
   },
   exerciseList: {
-    gap: Spacing.two,
+    gap: Spacing.three,
   },
   exerciseCard: {
-    gap: Spacing.two,
-    borderRadius: Spacing.two,
+    gap: Spacing.three,
+    borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
   },
@@ -931,11 +934,16 @@ const styles = StyleSheet.create({
   },
   exerciseCopy: {
     flex: 1,
-    gap: Spacing.one,
+    gap: Spacing.three,
   },
   exerciseActions: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: Spacing.one,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#DFDDD4',
+    paddingTop: Spacing.two,
   },
   configGrid: {
     flexDirection: 'row',
@@ -943,23 +951,26 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   configField: {
-    width: '47%',
+    width: '23%',
     minWidth: 128,
     gap: Spacing.one,
+    borderRadius: 18,
+    backgroundColor: '#EFEEE8',
+    padding: Spacing.two,
   },
   configInput: {
-    minHeight: 44,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
+    minHeight: 40,
+    borderWidth: 0,
+    borderRadius: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     fontSize: 16,
     lineHeight: 22,
     fontWeight: 500,
   },
   emptyExerciseState: {
     gap: Spacing.one,
-    borderRadius: Spacing.two,
+    borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
   },
@@ -979,7 +990,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
@@ -990,7 +1001,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
@@ -999,7 +1010,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,

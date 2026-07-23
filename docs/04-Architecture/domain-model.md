@@ -66,6 +66,7 @@ TemplateExercise  SessionExercise
 DailyStatus
 UserSetting
 WorkoutNote
+TodayWorkoutPlan
 ```
 
 ---
@@ -97,6 +98,7 @@ Fitness Tracker V1 分为五个领域：
 
 核心对象：
 
+- TodayWorkoutPlan
 - WorkoutSession
 - SessionExercise
 - WorkoutSet
@@ -418,6 +420,62 @@ In Progress → Cancelled
 7. 同一时间 V1 默认只允许一个进行中的 Session。
 8. App 启动时发现进行中的 Session，必须提供恢复入口。
 9. Session 名称应保存快照，避免模板改名影响历史。
+
+---
+
+## 7A. TodayWorkoutPlan
+
+### 7A.1 定义
+
+TodayWorkoutPlan 表示用户在某个本地自然日选择准备执行的训练模板入口。
+
+它用于 Today 页面“训练计划”模块。
+
+TodayWorkoutPlan 不是历史训练事实。真实训练事实仍由 WorkoutSession、
+SessionExercise 和 WorkoutSet 表示。
+
+### 7A.2 核心属性
+
+- 唯一标识
+- 本地日期
+- 来源训练模板
+- 关联 WorkoutSession（可选）
+- 训练名称快照
+- 当日显示顺序
+- 状态
+- 创建时间
+- 更新时间
+
+### 7A.3 状态
+
+```text
+planned
+draft
+in_progress
+completed
+cancelled
+```
+
+状态含义：
+
+- planned：今天已选择模板，但尚未创建 WorkoutSession。
+- draft：已关联 draft WorkoutSession。
+- in_progress：已关联 in_progress WorkoutSession。
+- completed：已关联 completed WorkoutSession。
+- cancelled：已关联 cancelled WorkoutSession。
+
+### 7A.4 业务规则
+
+1. Today 页面只有一个“训练计划”模块，但模块下可包含多个训练模板卡片。
+2. 同一个 active WorkoutTemplate 在同一个本地日期只能添加一次。
+3. TodayWorkoutPlan 保存模板名称快照，用于当天计划显示。
+4. TodayWorkoutPlan 不修改 WorkoutTemplate。
+5. TodayWorkoutPlan 可以关联一个 WorkoutSession。
+6. TodayWorkoutPlan 的展示状态必须优先以关联 WorkoutSession 的状态为事实来源。
+7. completed TodayWorkoutPlan 不得再次从同一卡片开始训练。
+8. 删除或移除 TodayWorkoutPlan 不进入当前版本。
+9. 修改本次训练只修改 WorkoutSession / SessionExercise，不修改 WorkoutTemplate。
+10. WorkoutSession 完成事实不得因 TodayWorkoutPlan 状态同步失败而回滚。
 
 ---
 

@@ -38,6 +38,12 @@ export function TodayDashboardScreen() {
       onCreateTemplate={() => {
         router.push('/templates/new');
       }}
+      onOpenTemplate={(templateId) => {
+        router.push({
+          pathname: '/templates/[id]',
+          params: { id: templateId },
+        });
+      }}
       onOpenWorkoutSession={(sessionId) => {
         router.push({
           pathname: '/workout-sessions/[id]',
@@ -55,6 +61,7 @@ export type TodayDashboardScreenContentProps = {
   readonly state: TodayDashboardScreenState;
   readonly controls: TodayDashboardScreenControls;
   readonly onCreateTemplate: () => void;
+  readonly onOpenTemplate: (templateId: WorkoutTemplateId) => void;
   readonly onOpenWorkoutSession: (sessionId: WorkoutSessionId) => void;
   readonly onOpenHistory: () => void;
 };
@@ -63,6 +70,7 @@ export function TodayDashboardScreenContent({
   state,
   controls,
   onCreateTemplate,
+  onOpenTemplate,
   onOpenWorkoutSession,
   onOpenHistory,
 }: TodayDashboardScreenContentProps) {
@@ -71,7 +79,10 @@ export function TodayDashboardScreenContent({
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.content}>
           <View style={styles.header}>
-            <ThemedText type="subtitle">今天</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              7 月 23 日 · 星期四
+            </ThemedText>
+            <ThemedText type="title">专注每一次动作。</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               选择模板开始训练，或继续已保存的训练。
             </ThemedText>
@@ -90,6 +101,7 @@ export function TodayDashboardScreenContent({
                 state={state}
                 controls={controls}
                 onCreateTemplate={onCreateTemplate}
+                onOpenTemplate={onOpenTemplate}
                 onOpenWorkoutSession={onOpenWorkoutSession}
                 onOpenHistory={onOpenHistory}
               />
@@ -142,12 +154,14 @@ function ReadyState({
   state,
   controls,
   onCreateTemplate,
+  onOpenTemplate,
   onOpenWorkoutSession,
   onOpenHistory,
 }: {
   readonly state: Extract<TodayDashboardScreenState, { status: 'ready' }>;
   readonly controls: TodayDashboardScreenControls;
   readonly onCreateTemplate: () => void;
+  readonly onOpenTemplate: (templateId: WorkoutTemplateId) => void;
   readonly onOpenWorkoutSession: (sessionId: WorkoutSessionId) => void;
   readonly onOpenHistory: () => void;
 }) {
@@ -186,6 +200,7 @@ function ReadyState({
           disabled={hasBlockingSession || state.isCreatingSession}
           isCreating={state.isCreatingSession}
           onCreateSession={controls.createSessionFromTemplate}
+          onOpenTemplate={onOpenTemplate}
         />
       )}
 
@@ -357,13 +372,19 @@ function SessionEntryCard({
         style={[
           styles.sessionCard,
           {
-            backgroundColor: theme.backgroundElement,
-            borderColor: theme.backgroundSelected,
+            backgroundColor: theme.workoutSurface,
+            borderColor: 'rgba(255, 255, 255, 0.12)',
           },
         ]}
       >
-        <ThemedText type="default">当前没有进行中的训练</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText style={styles.sessionBadge}>接下来</ThemedText>
+        <ThemedText type="subtitle" style={styles.sessionHeroTitle}>
+          暂无进行中的训练
+        </ThemedText>
+        <ThemedText style={styles.sessionHeroMeta}>
+          当前没有进行中的训练
+        </ThemedText>
+        <ThemedText style={styles.sessionHeroMeta}>
           选择一个训练模板，系统会创建今天的训练草稿。
         </ThemedText>
       </ThemedView>
@@ -380,17 +401,23 @@ function SessionEntryCard({
       style={[
         styles.sessionCard,
         {
-          backgroundColor: theme.backgroundElement,
-          borderColor: theme.backgroundSelected,
+          backgroundColor: theme.workoutSurface,
+          borderColor: 'rgba(255, 255, 255, 0.12)',
         },
       ]}
     >
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText style={styles.sessionBadge}>
         {formatSessionStatus(entry.status)}
       </ThemedText>
-      <ThemedText type="default">{entry.workoutName}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        已完成 {progressLabel}
+      <ThemedText type="subtitle" style={styles.sessionHeroTitle}>
+        第{' '}
+        {Math.max(1, entry.completedSetCount + 1)
+          .toString()
+          .padStart(2, '0')}{' '}
+        组正在进行
+      </ThemedText>
+      <ThemedText style={styles.sessionHeroMeta}>
+        {entry.workoutName} · 已完成 {progressLabel}
       </ThemedText>
       <PrimaryButton
         label={isContinuing ? '正在恢复' : getSessionActionLabel(entry.status)}
@@ -431,15 +458,17 @@ function TemplateStartList({
   disabled,
   isCreating,
   onCreateSession,
+  onOpenTemplate,
 }: {
   readonly templates: readonly TodayDashboardTemplateItem[];
   readonly disabled: boolean;
   readonly isCreating: boolean;
   readonly onCreateSession: (templateId: WorkoutTemplateId) => Promise<void>;
+  readonly onOpenTemplate: (templateId: WorkoutTemplateId) => void;
 }) {
   return (
     <View style={styles.templateSection}>
-      <ThemedText type="default">选择今日训练</ThemedText>
+      <ThemedText type="subtitle">训练计划</ThemedText>
       <View accessibilityLabel="今日训练模板列表">
         {templates.map((template, index) => (
           <View key={template.id}>
@@ -448,6 +477,7 @@ function TemplateStartList({
               disabled={disabled}
               isCreating={isCreating}
               onCreateSession={onCreateSession}
+              onOpenTemplate={onOpenTemplate}
             />
             {index < templates.length - 1 && <ListSeparator />}
           </View>
@@ -462,40 +492,65 @@ function TemplateStartCard({
   disabled,
   isCreating,
   onCreateSession,
+  onOpenTemplate,
 }: {
   readonly template: TodayDashboardTemplateItem;
   readonly disabled: boolean;
   readonly isCreating: boolean;
   readonly onCreateSession: (templateId: WorkoutTemplateId) => Promise<void>;
+  readonly onOpenTemplate: (templateId: WorkoutTemplateId) => void;
 }) {
   const theme = useTheme();
   const metrics = `${template.exerciseCount} 个动作 · ${template.totalTargetSets} 组`;
 
   return (
-    <Pressable
-      onPress={() => void onCreateSession(template.id)}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={`开始训练${template.name}，${metrics}`}
-      accessibilityState={{ disabled }}
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.templateCard,
         {
           backgroundColor: theme.backgroundElement,
           borderColor: theme.backgroundSelected,
         },
-        pressed && styles.pressed,
-        disabled && styles.disabled,
       ]}
     >
-      <View style={styles.templateCopy}>
-        <ThemedText type="default">{template.name}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {metrics}
+      <Pressable
+        onPress={() => onOpenTemplate(template.id)}
+        accessibilityRole="button"
+        accessibilityLabel={`查看训练计划${template.name}，${metrics}`}
+        style={({ pressed }) => [
+          styles.templatePreview,
+          pressed && styles.pressed,
+        ]}
+      >
+        <View style={styles.templateIcon}>
+          <ThemedText type="smallBold" themeColor="statusSuccess">
+            训练
+          </ThemedText>
+        </View>
+        <View style={styles.templateCopy}>
+          <ThemedText type="default">{template.name}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {metrics}
+          </ThemedText>
+        </View>
+      </Pressable>
+      <Pressable
+        onPress={() => void onCreateSession(template.id)}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={`开始训练${template.name}，${metrics}`}
+        accessibilityState={{ disabled }}
+        style={({ pressed }) => [
+          styles.templateStartButton,
+          pressed && !disabled && styles.pressed,
+          disabled && styles.disabled,
+        ]}
+      >
+        <ThemedText type="smallBold" style={styles.templateStartText}>
+          {isCreating ? '…' : '▶'}
         </ThemedText>
-      </View>
-      <ThemedText type="smallBold">{isCreating ? '创建中' : '开始'}</ThemedText>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
@@ -653,23 +708,70 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   sessionCard: {
-    gap: Spacing.two,
+    minHeight: 260,
+    justifyContent: 'space-between',
+    gap: Spacing.three,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
+    borderRadius: 28,
+    padding: Spacing.four,
+  },
+  sessionBadge: {
+    alignSelf: 'flex-start',
+    overflow: 'hidden',
+    borderRadius: 999,
+    backgroundColor: '#CAFF00',
+    color: '#1B2016',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  sessionHeroTitle: {
+    color: '#FFFFFF',
+  },
+  sessionHeroMeta: {
+    color: 'rgba(255, 255, 255, 0.62)',
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '600',
   },
   templateSection: { gap: Spacing.three },
   templateCard: {
-    minHeight: 72,
+    minHeight: 104,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.three,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 28,
     padding: Spacing.three,
   },
+  templatePreview: {
+    minHeight: 76,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
   templateCopy: { flex: 1, gap: Spacing.one },
+  templateIcon: {
+    width: 58,
+    height: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: '#E8F6B8',
+  },
+  templateStartButton: {
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 26,
+    backgroundColor: '#1B2016',
+  },
+  templateStartText: { color: '#CAFF00' },
   primaryButton: {
     minHeight: 52,
     alignItems: 'center',
