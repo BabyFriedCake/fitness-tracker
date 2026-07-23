@@ -18,6 +18,17 @@ export type WorkoutCompanionEventSource = {
   unsubscribe(): void;
 };
 
+export type MockAutoRepCounterSourceInput = {
+  readonly sessionId: WorkoutSessionId;
+  readonly sessionExerciseId: SessionExerciseId;
+  readonly initialRepNumber?: number;
+  readonly now?: () => number;
+};
+
+export type MockAutoRepCounterSource = WorkoutCompanionEventSource & {
+  readonly emitNextRep: () => WorkoutCompanionRepCompletedEvent | null;
+};
+
 export type WorkoutCompanionEventValidationResult =
   | {
       readonly status: 'valid';
@@ -40,6 +51,41 @@ export const NOOP_WORKOUT_COMPANION_EVENT_SOURCE: WorkoutCompanionEventSource =
     subscribe: () => undefined,
     unsubscribe: () => undefined,
   };
+
+export function createMockAutoRepCounterSource({
+  sessionId,
+  sessionExerciseId,
+  initialRepNumber = 0,
+  now = () => Date.now(),
+}: MockAutoRepCounterSourceInput): MockAutoRepCounterSource {
+  let callback: ((event: unknown) => void) | undefined;
+  let nextRepNumber = initialRepNumber + 1;
+
+  return {
+    subscribe: (nextCallback) => {
+      callback = nextCallback;
+    },
+    unsubscribe: () => {
+      callback = undefined;
+    },
+    emitNextRep: () => {
+      if (!callback) {
+        return null;
+      }
+
+      const event = Object.freeze({
+        sessionId,
+        sessionExerciseId,
+        repNumber: nextRepNumber,
+        timestamp: now(),
+        source: 'companion_event_source' as const,
+      });
+      nextRepNumber += 1;
+      callback(event);
+      return event;
+    },
+  };
+}
 
 export function validateWorkoutCompanionRepCompletedEvent(
   value: unknown,

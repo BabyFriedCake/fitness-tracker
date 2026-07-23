@@ -6,7 +6,10 @@ import type {
   SessionExerciseId,
   WorkoutSessionId,
 } from '@/domain/workout-session';
-import { validateWorkoutCompanionRepCompletedEvent } from '@/features/workout-session/application/workout-companion-event-source';
+import {
+  createMockAutoRepCounterSource,
+  validateWorkoutCompanionRepCompletedEvent,
+} from '@/features/workout-session/application/workout-companion-event-source';
 import {
   createWorkoutCompanionRuntimeState,
   onWorkoutCompanionRepCompleted,
@@ -57,6 +60,77 @@ describe('WorkoutCompanionEventSource validation', () => {
         pauseWorkoutCompanionRuntime(createRuntime()),
       ),
     ).toEqual({ status: 'invalid', reason: 'runtime_not_running' });
+  });
+});
+
+describe('MockAutoRepCounterSource', () => {
+  it('emits existing companion RepCompleted events in order', () => {
+    const received: unknown[] = [];
+    const source = createMockAutoRepCounterSource({
+      sessionId: SESSION_ID,
+      sessionExerciseId: EXERCISE_ID,
+      now: () => Date.parse('2026-07-22T01:00:00.000Z'),
+    });
+
+    source.subscribe((event) => received.push(event));
+    const first = source.emitNextRep();
+    const second = source.emitNextRep();
+
+    expect(first).toEqual({
+      sessionId: SESSION_ID,
+      sessionExerciseId: EXERCISE_ID,
+      repNumber: 1,
+      timestamp: Date.parse('2026-07-22T01:00:00.000Z'),
+      source: 'companion_event_source',
+    });
+    expect(second).toEqual({
+      sessionId: SESSION_ID,
+      sessionExerciseId: EXERCISE_ID,
+      repNumber: 2,
+      timestamp: Date.parse('2026-07-22T01:00:00.000Z'),
+      source: 'companion_event_source',
+    });
+    expect(received).toEqual([first, second]);
+  });
+
+  it('does not emit while unsubscribed and allows repeated unsubscribe', () => {
+    const received: unknown[] = [];
+    const source = createMockAutoRepCounterSource({
+      sessionId: SESSION_ID,
+      sessionExerciseId: EXERCISE_ID,
+      now: () => Date.parse('2026-07-22T01:00:00.000Z'),
+    });
+
+    expect(source.emitNextRep()).toBeNull();
+
+    source.subscribe((event) => received.push(event));
+    expect(source.emitNextRep()?.repNumber).toBe(1);
+    source.unsubscribe();
+    source.unsubscribe();
+    expect(source.emitNextRep()).toBeNull();
+
+    expect(received).toHaveLength(1);
+  });
+
+  it('emits events accepted by the existing runtime validation boundary', () => {
+    const source = createMockAutoRepCounterSource({
+      sessionId: SESSION_ID,
+      sessionExerciseId: EXERCISE_ID,
+      initialRepNumber: 0,
+      now: () => Date.parse('2026-07-22T01:00:00.000Z'),
+    });
+    const runtime = createRuntime();
+    let event: unknown;
+
+    source.subscribe((nextEvent) => {
+      event = nextEvent;
+    });
+    source.emitNextRep();
+
+    expect(validateWorkoutCompanionRepCompletedEvent(event, runtime)).toEqual({
+      status: 'valid',
+      event,
+    });
   });
 });
 
