@@ -2,37 +2,69 @@
 
 ## 目标
 
-定义训练陪伴系统架构。
+扩展 Sprint 5 Workout Runtime，支持未来陪练能力。
 
-## 数据流
+---
+
+# Architecture
 
 ```
-External Input
-      |
-      v
-Workout Companion Event Source
-      |
-      v
+External Event Source
+
+↓
+
+Workout Companion Event Contract
+
+↓
+
 Workout Runtime
-      |
-      +---- Voice Coach
-      |
-      +---- Auto Rep Counter
-      |
-      v
-Workout History
+
+↓
+
+UI / Voice / Analytics
 ```
 
-## 原则
+---
 
-- Runtime 不直接依赖具体输入设备。
-- Camera、Voice、Timer Simulation 作为 Event Source。
-- 所有外部能力通过 Contract 接入。
+# Event Source
 
-## 后续扩展
+包括：
+
+- Timer
+- Voice
+- Camera
+- Rep Counter
+
+具体实现不属于 Runtime。
+
+---
+
+# 原则
+
+## Runtime First
+
+Runtime 管理训练状态。
+
+UI 不直接修改训练进度。
+
+## Event Driven
+
+所有外部能力通过 Event Contract 接入。
+
+## Device Independent
+
+Runtime 不依赖：
+
+- Camera
+- Voice Engine
+- AI Model
+
+---
+
+# Future Extension
 
 支持：
 
-- Camera Pose Provider
 - Voice Engine
+- Camera Pose Provider
 - AI Coach Service

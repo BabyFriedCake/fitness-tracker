@@ -1,10 +1,12 @@
 # Roadmap
 
-版本：v1.0  
-状态：开发中（Active）  
+版本：v1.1
+状态：开发中（Active）
 负责人：Product Owner
 
-## Project Vision
+---
+
+# Project Vision
 
 打造面向健身房力量训练用户的个人训练助手。
 
@@ -15,16 +17,22 @@
 - 提供实时训练反馈
 - 帮助用户长期管理训练计划
 
+产品方向：
+
+从「训练记录工具」逐步升级为「训练陪练助手」。
+
 ---
 
-## 里程碑 0：项目基础（✅ 已完成）
+# 里程碑 0：项目基础（✅ 已完成）
+
+完成：
 
 - [x] 产品愿景（Vision）
 - [x] 项目宪章（Constitution）
 - [x] 产品需求文档（PRD）
 - [x] 系统架构（Architecture）
 - [x] 领域模型（Domain Model）
-- [x] 原型（P001–P010）
+- [x] 原型（P001--P010）
 - [x] 数据库设计（Database Design）
 - [x] Design System
 - [x] 开发指南（Development Guide）
@@ -151,36 +159,31 @@ Exit Review：PASS WITH WARNINGS
 
 # Sprint 5（✅ 已完成）
 
-## Workout Assistant
+## Workout Companion Runtime
 
 目标：
 
 从"训练记录工具"升级为"训练陪练助手"。
 
-重点：
+完成：
 
-让用户在健身房训练时，不需要频繁操作手机。
-
-当前进度：
-
-- [x] S5-01 Workout Runtime Engine
-- [x] S5-02 Workout Feedback Events
-- [x] S5-03 Workout Voice Feedback
-- [x] S5-04 Workout Runtime UI Integration
-- [x] S5-05 Workout Runtime Persistence
-- [x] S5-06 Workout Companion Runtime Flow
-- [x] S5-07-R0 Workout Companion Specification Alignment
-- [x] S5-07 Workout Companion UI Runtime Binding
-- [x] S5-07-R1 Workout Companion Runtime Recovery Fix
-- [x] S5-08 Sprint 5 Exit Review
+- [x] Workout Runtime Engine
+- [x] Workout Feedback Events
+- [x] Workout Voice Feedback Contract
+- [x] Workout Runtime UI Integration
+- [x] Workout Runtime Persistence
+- [x] Workout Companion Runtime Flow
+- [x] Workout Companion UI Runtime Binding
+- [x] Runtime Recovery Fix
+- [x] Sprint 5 Exit Review
 
 完成时间：2026-07-23
 
 Exit Review：PASS WITH WARNINGS
 
-Tag：待创建
+Tag：sprint-5-workout-companion-runtime
 
-Release：待创建
+Release：Sprint 5 发布：训练运行时与陪练事件架构
 
 ## S5-01 Workout Runtime Engine（✅ 已完成）
 
@@ -272,86 +275,120 @@ Release：待创建
 验证：
 
 - 34 suites / 442 tests PASS
-- format:check / lint / typecheck / test / git diff --check PASS
-- 详见 `docs/09-Release/Sprint-5-Exit-Report.md`
 
-## Unscheduled Follow-up
+说明：
 
-Workout Assistant Settings 尚未分配正式 Task 编号：
+Sprint 5 完成训练陪练运行时基础能力。
 
-- 语音开关
-- 播报频率
-- 倒计时提醒
-- 默认休息时间
+不包含：
+
+- Camera Pose Detection
+- AI 自动分析
+- 正式 Auto Rep Counter
 
 ---
 
 # Sprint 6（📋 计划）
 
-## Exercise Library & History
+## Product Experience Completion
 
 目标：
 
-增强长期使用能力。
+完善已有 Prototype 与实际产品体验之间的差距。
 
-内容：
+重点：
 
 ## Exercise Library Upgrade
 
-接入真实动作库：
+内容：
 
-- 开源动作数据
+- 接入真实动作数据集
 - 数据清洗
 - 字段映射
 - 图片资源
 - 动作说明
+- 动作详情体验增强
+
+---
 
 ## History Enhancement
 
-实现：
+内容：
 
 - 完整训练历史
 - 训练详情
-- 数据查看
+- 日历视图
+- 数据统计
+- 趋势分析
 
-## Statistics
+---
 
-实现：
+## Today Experience
 
-- 总训练次数
-- 总训练量
-- 动作趋势
+内容：
+
+- DailyStatus
+- 最近训练
+- 本周概览
+- 确定性 Recommendation
+
+---
+
+## Design System Integration
+
+内容：
+
+- 页面交互统一
+- UI 状态完善
+- 真机体验优化
+
+---
+
+不包含：
+
+- AI 模型
+- 摄像头识别
+- 自动 Rep Counter 正式接入
 
 ---
 
 # Sprint 7（📋 计划）
 
-## Personalization
+## Workout Companion Expansion
 
 目标：
 
-让 App 根据用户训练习惯提供帮助。
+增强训练陪练能力。
 
 内容：
 
-- 重量建议
-- 渐进超负荷
-- 训练调整
-- 周期计划优化
+- Voice Coach
+- Rep Event Contract
+- Auto Rep Counter 接口
+- Runtime Feedback
+- Companion Settings
+
+目标：
+
+让用户训练过程中减少手机操作，获得实时反馈。
 
 ---
 
 # Sprint 8（📋 计划）
 
-## Product Polish
+## AI Coach
+
+目标：
+
+提供智能训练辅助。
 
 内容：
 
-- UI 优化
-- 动作图片
-- 动作动画
-- 用户体验优化
-- 发布准备
+- 训练建议
+- 历史分析
+- 动作建议
+- Recommendation
+- Coach Service
 
 ---
 

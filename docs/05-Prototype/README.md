@@ -3,7 +3,13 @@
 Version: v1.0
 Status: Review Baseline
 
-本目录是 V1 页面行为的唯一事实来源。
+本目录是产品页面和交互行为的主要事实来源。
+
+页面规则必须符合：
+
+- PRD 产品需求
+- Architecture 架构约束
+- Design System UI规范
 
 核心流程：
 
@@ -20,4 +26,9 @@ P010 Onboarding
 ```
 
 页面：
+V1 Core:
 P001 Today、P002 Workout Template、P003 Start Workout、P004 Workout、P005 Rest Timer、P006 Workout Summary、P007 Exercise Library、P008 History、P009 Settings、P010 Onboarding。
+Future Extension:
+P011 Voice Coach
+P012 Exercise Detail
+P013 AI Coach

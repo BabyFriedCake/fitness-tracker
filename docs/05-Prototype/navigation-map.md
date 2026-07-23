@@ -1,19 +1,71 @@
 # Navigation Map
 
-Bottom Tabs:
+## First Launch
 
--   Today
--   Training Plans
--   Exercise Library
--   History
--   Settings
+P010 Onboarding
 
-Flow:
+↓
 
-Today → Template Preview → Workout Session
+Today
 
-Training Plans → Template List → Template Detail → Start Workout
+## Main Tabs
 
-Exercise Library → Exercise Detail
+- Today
+- Training Plans
+- Exercise Library
+- History
+- Settings
 
-History → Session Detail
+## Workout Flow
+
+Today
+
+↓
+
+Template List
+
+↓
+
+Template Detail
+
+↓
+
+Start Workout
+
+↓
+
+Workout Session
+
+↓
+
+Rest Timer
+
+↓
+
+Workout Summary
+
+↓
+
+History
+
+## Exercise Flow
+
+Exercise Library
+
+↓
+
+Exercise Detail
+
+## Future
+
+Voice Coach
+
+↓
+
+Workout Session Extension
+
+AI Coach
+
+↓
+
+Today Extension

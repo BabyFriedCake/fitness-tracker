@@ -18,3 +18,17 @@ Status: Approved
 2. 历史允许纠错，并标记为已修改。
 3. 哑铃记录单只重量。
 4. 有氧数据模型预留，首版界面暂不实现。
+
+## Sprint 6 Extension
+
+Sprint 6 可能增加：
+
+- Exercise media metadata
+- Exercise detail content
+- Exercise source mapping
+
+原则：
+
+新增字段必须通过 migration。
+
+禁止直接修改已有 schema。

@@ -1,79 +1,113 @@
 # Functional Requirements
 
-## FR-001 动作库
+版本：2.1
+
+## FR-001 Action Library
 
 目标：
 
-提供完整动作数据能力。
+提供完整动作库能力。
 
 需求：
 
 - 动作搜索
-- 肌群分类
-- 器械分类
+- 分类筛选
+- 肌群筛选
+- 器械筛选
 - 动作详情
-- 动作说明
+- 图片和说明资源
 
-数据来源：
-
-允许接入开源动作数据，但必须检查许可证。
+动作数据必须通过稳定 ID 关联。
 
 ---
 
-## FR-002 Voice Coach
+## FR-002 Workout Companion
 
 目标：
 
-训练过程中提供语音反馈。
+提供训练陪练能力。
 
-需求：
+数据流：
 
-- 开始提示
+External Event Source
+
+↓
+
+Workout Companion Event Contract
+
+↓
+
+Workout Runtime
+
+↓
+
+UI / Voice / Analytics
+
+
+原则：
+
+Runtime 不依赖具体输入设备。
+
+---
+
+## FR-003 Voice Coach
+
+目标：
+
+提供类似 Keep 的训练语音反馈。
+
+包括：
+
+- 开始训练提示
+- 次数反馈
 - 组完成提示
-- 休息提示
-- Runtime 状态提示
+- 休息提醒
+- 训练总结
+
+当前阶段：
+
+仅定义能力和接口，不实现完整语音引擎。
 
 ---
 
-## FR-003 Auto Rep Counter
+## FR-004 Auto Rep Counter
 
 目标：
 
-自动识别训练次数。
+支持自动次数识别。
 
-设计：
-
-当前阶段只定义 Event Contract。
-
-未来接入：
+未来输入：
 
 - Camera
 - Pose Detection
-- Rep Recognition
+- Voice
 
----
+输出：
 
-## FR-004 AI Coach
+RepCompleted Event
 
-目标：
+限制：
 
-提供训练辅助。
-
-范围：
-
-- 历史分析
-- 训练建议
-- 动作建议
-
-V1 不自动修改训练计划。
+识别模块不能直接修改 Runtime。
 
 ---
 
 ## FR-005 History Enhancement
 
-增强历史能力：
+增强：
 
-- 日历视图
-- 训练统计
-- 趋势分析
-- PR 展示
+- 训练详情
+- 日历
+- 趋势
+- 统计
+
+---
+
+## FR-006 AI Coach
+
+未来支持：
+
+- 训练建议
+- 历史分析
+- 动作建议
+- 个性化反馈

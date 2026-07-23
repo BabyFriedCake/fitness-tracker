@@ -1,26 +1,144 @@
 # Prototype Implementation Status
 
-## 说明
-
-Prototype 编号代表产品页面，不代表 Sprint 顺序。
-
-Sprint 是工程开发阶段。
+本文档作为 Codex 开发基线。
 
 ---
 
-| Prototype | 页面 | 当前状态 |
-|---|---|---|
-|P001|Today|已存在，需要体验优化|
-|P002|Workout Template|已实现基础能力|
-|P003|Start Workout|已实现|
-|P004|Workout|已实现 Runtime 基础流程|
-|P005|Rest Timer|已实现，需完善真实倒计时体验|
-|P006|Workout Summary|已实现基础版本|
-|P007|Exercise Library|已有基础能力，需要增强数据和详情|
-|P008|History|已有记录展示，需要日历和统计|
-|P009|Settings|页面存在，需要后续功能|
-|P010|Onboarding|需要确认实现状态|
+# 项目结构关系
+
+Prototype:
+
+- 定义页面
+- 定义用户体验
+- 定义交互目标
+
+Sprint:
+
+- 定义工程交付阶段
+- 定义实现范围
+
+关系：
+
+Prototype → Use Case → Domain → Repository → UI
+
+不是 Sprint 一一对应 Prototype。
 
 ---
 
-后续新增页面编号必须从 P011 开始。
+# Sprint 完成状态
+
+## Completed
+
+### Sprint 1
+
+工程基础
+
+### Sprint 2
+
+Exercise Domain
+
+### Sprint 3
+
+Workout Template
+
+### Sprint 4
+
+Workout Flow
+
+### Sprint 5
+
+Workout Companion Runtime
+
+Sprint 5 已完成：
+
+- Workout Runtime Engine
+- Companion Event Source Contract
+- Runtime UI Binding
+- Snapshot Persistence
+- Recovery Flow
+- Runtime Event Architecture
+
+验证：
+
+- 34 suites
+- 442 tests PASS
+
+---
+
+# Partial
+
+## P001 Today
+
+缺：
+
+- DailyStatus 展示
+- 最近训练
+- 本周概览
+- Recommendation 展示
+
+## P005 Rest Timer
+
+缺：
+
+- 完整暂停流程
+- 延长时间
+- 跳过休息
+
+## P006 Summary
+
+缺：
+
+- PR
+- 备注
+- 训练详情分析
+
+## P007 Exercise Library
+
+缺：
+
+- 真实动作数据
+- 图片资源
+- 动作详情
+
+## P008 History
+
+缺：
+
+- 日历视图
+- 趋势统计
+- 训练分析
+
+---
+
+# Not Started
+
+- Settings
+- Onboarding
+- Voice Coach 产品能力
+- AI Coach
+
+---
+
+# Sprint 6 开始前要求
+
+1. 保持现有 Domain 不变。
+2. 保持 Runtime 边界。
+3. 不绕过 Event Contract 修改训练状态。
+4. 优先完成已有 Prototype 与代码实现差距。
+
+# Next Sprint Focus
+
+Sprint 6:
+
+Priority:
+
+1. P007 Exercise Library
+2. P012 Exercise Detail
+3. P008 History
+4. P001 Today Experience
+
+Avoid:
+
+- 修改 Workout Runtime
+- 修改 Event Contract
+- 修改 Session 数据模型

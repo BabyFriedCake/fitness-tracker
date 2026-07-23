@@ -27,3 +27,12 @@ Last Updated: 2026-07-14
 - 数据优先
 - 少动画
 - 适合单手操作
+
+## Future Experience
+
+包含：
+
+- Voice Coach 状态展示
+- AI Coach Card
+- Exercise Detail Layout
+- History Analytics
