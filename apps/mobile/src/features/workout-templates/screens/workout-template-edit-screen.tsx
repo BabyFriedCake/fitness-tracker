@@ -11,7 +11,7 @@ import { useNavigation, useRouter, type Href } from 'expo-router';
 import {
   usePreventRemove,
   type NavigationAction,
-} from 'expo-router/react-navigation';
+} from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
