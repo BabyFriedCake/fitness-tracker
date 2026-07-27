@@ -223,7 +223,14 @@ function parseReturnParams(
     return {};
   }
 
-  return Object.fromEntries(new URLSearchParams(rawValue).entries());
+  const params = new URLSearchParams(rawValue);
+  const result: Record<string, string> = {};
+
+  for (const [key, paramValue] of params) {
+    result[key] = paramValue;
+  }
+
+  return result;
 }
 
 function firstParamValue(
