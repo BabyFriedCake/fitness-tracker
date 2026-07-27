@@ -33,8 +33,8 @@ jest.mock('expo-router', () => {
   };
 });
 
-jest.mock('expo-router/react-navigation', () => {
-  const actual = jest.requireActual('expo-router/react-navigation');
+jest.mock('@react-navigation/native', () => {
+  const actual = jest.requireActual('@react-navigation/native');
 
   return {
     ...actual,

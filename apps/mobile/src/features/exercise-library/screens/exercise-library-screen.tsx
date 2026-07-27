@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCE9AD',
   },
   exerciseImage: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
   },
   exerciseImageInitial: {
     color: 'rgba(27, 32, 22, 0.28)',

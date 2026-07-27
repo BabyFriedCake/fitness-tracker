@@ -1,6 +1,6 @@
 # S7-06 Sprint 7 Exit Review
 
-状态：Planned
+状态：Done
 
 ## Goal
 

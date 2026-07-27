@@ -80,7 +80,8 @@ export function CustomTabList({
   ...props
 }: TabListProps & { readonly compact?: boolean }) {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const theme = scheme ?? 'light';
+  const colors = Colors[theme];
 
   return (
     <View {...props} style={styles.tabListContainer}>

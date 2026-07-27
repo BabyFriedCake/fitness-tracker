@@ -1,6 +1,6 @@
 # Sprint 7 - Workout Companion Expansion
 
-状态：Planned
+状态：Done
 
 ## 目标
 
@@ -22,7 +22,7 @@
 - [x] `S7-03-companion-event-source-selection.md`
 - [x] `S7-04-mock-auto-rep-runtime-binding.md`
 - [x] `S7-05-companion-settings-prototype.md`
-- [ ] `S7-06-sprint-exit-review.md`
+- [x] `S7-06-sprint-exit-review.md`
 
 后续任务必须继续保持 Event Source Architecture，不得实现 Camera、Pose
 Detection、Voice Recognition 或 AI 推理。

@@ -335,9 +335,17 @@ S7-00 开始前确认：
 
 ---
 
-# Sprint 7（🚧 进行中）
+# Sprint 7（✅ 已完成）
 
 ## Workout Companion Expansion
+
+完成时间：2026-07-27
+
+Exit Review：PASS WITH WARNINGS
+
+Tag：待创建
+
+Release：待创建
 
 目标：
 
@@ -351,10 +359,10 @@ S7-00 开始前确认：
 
 进行中 / 待执行：
 
-- [ ] S7-03 Companion Event Source Selection
+- [x] S7-03 Companion Event Source Selection
 - [x] S7-04 Mock Auto Rep Runtime Binding
 - [x] S7-05 Companion Settings Prototype
-- [ ] S7-06 Sprint 7 Exit Review
+- [x] S7-06 Sprint 7 Exit Review
 
 目标：
 
@@ -376,6 +384,16 @@ Sprint 7 退出条件：
 - 用户可以关闭语音教练，关闭后不调用 voice adapter。
 - 所有训练事实仍通过 Application → Domain → Repository → Database。
 - 完整 validation 通过，并生成 Sprint 7 Exit Review。
+
+Sprint 7 完成后 Human Review 确认仍有非阻塞 warning：
+
+- `use-workout-session-screen.ts` 保留 5 条 hook dependency warning。
+- GitHub-hosted CI 未在本次收口中重新验证。
+
+处理方式：
+
+- 不回改 Sprint 7 完成记录。
+- 作为后续 Sprint 或独立技术债处理。
 
 ---
 
