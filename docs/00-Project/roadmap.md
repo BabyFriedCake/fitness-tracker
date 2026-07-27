@@ -343,9 +343,9 @@ S7-00 开始前确认：
 
 Exit Review：PASS WITH WARNINGS
 
-Tag：待创建
+Tag：sprint-7
 
-Release：待创建
+Release：Sprint 7 发布：训练陪练扩展
 
 目标：
 
