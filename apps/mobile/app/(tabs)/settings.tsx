@@ -1,6 +1,5 @@
-import { PlaceholderScreen } from '@/components/placeholder-screen';
-import { getTopLevelRoute } from '@/constants/routes';
+import { WorkoutCompanionSettingsScreen } from '@/features/workout-session/screens/workout-companion-settings-screen';
 
 export default function SettingsRoute() {
-  return <PlaceholderScreen route={getTopLevelRoute('settings')} />;
+  return <WorkoutCompanionSettingsScreen />;
 }

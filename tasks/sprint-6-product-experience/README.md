@@ -28,3 +28,11 @@
 - AI Coach
 - 云服务、账号和远程运行时数据
 - 修改 Sprint 5 Runtime 状态机或 Snapshot Validation contract
+
+## Post-merge Human Review Follow-up
+
+Sprint 6 合并到 `main` 后，Human Review 根据 Figma 原型确认仍需修正产品体验偏差。
+
+该修正不改变 Sprint 6 已完成结论，已迁移为 Sprint 7 前置任务：
+
+- `tasks/sprint-7-workout-companion-expansion/S7-00-figma-product-alignment.md`

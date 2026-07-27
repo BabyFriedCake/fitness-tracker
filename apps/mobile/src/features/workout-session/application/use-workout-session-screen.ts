@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
@@ -30,8 +30,11 @@ import {
   skipSessionExercise,
 } from './workout-session-execution';
 import {
+  createMockAutoRepCounterSource,
   NOOP_WORKOUT_COMPANION_EVENT_SOURCE,
+  isMockAutoRepCounterSource,
   validateWorkoutCompanionRepCompletedEvent,
+  type WorkoutCompanionEventSourceMode,
   type WorkoutCompanionEventSource,
 } from './workout-companion-event-source';
 import {
@@ -106,6 +109,8 @@ export type WorkoutSessionScreenState =
       readonly endFlow: 'closed' | 'options' | 'confirm_cancel';
       readonly navigationIntent?: 'summary' | 'today';
       readonly coachFeedback?: string;
+      readonly isVoiceFeedbackEnabled: boolean;
+      readonly isMockCompanionEventSource: boolean;
       readonly canRetryCompanionEvent?: boolean;
       readonly actionError?: string;
     };
@@ -132,6 +137,8 @@ export type WorkoutSessionScreenControls = {
   readonly confirmCancelSession: () => Promise<void>;
   readonly confirmCompleteSession: () => Promise<void>;
   readonly clearNavigationIntent: () => void;
+  readonly toggleVoiceFeedback: () => void;
+  readonly emitMockCompanionRep: () => void;
 };
 
 export type WorkoutSessionScreenModel = {
@@ -183,6 +190,7 @@ export type UseWorkoutSessionScreenDependencies = {
   readonly createWorkoutSetId?: () => string;
   readonly createRestTimerId?: () => string;
   readonly workoutCompanionEventSource?: WorkoutCompanionEventSource;
+  readonly workoutCompanionEventSourceMode?: WorkoutCompanionEventSourceMode;
   readonly voiceFeedbackEnabled?: boolean;
   readonly voiceAdapter?: WorkoutVoiceFeedbackAdapter;
 };
@@ -216,6 +224,7 @@ export function useWorkoutSessionScreen(
     createWorkoutSetId = createDefaultWorkoutSetId,
     createRestTimerId = createDefaultRestTimerId,
     workoutCompanionEventSource = NOOP_WORKOUT_COMPANION_EVENT_SOURCE,
+    workoutCompanionEventSourceMode = 'off',
     voiceFeedbackEnabled = true,
     voiceAdapter = NOOP_VOICE_ADAPTER,
   }: UseWorkoutSessionScreenDependencies = {},
@@ -245,6 +254,7 @@ export function useWorkoutSessionScreen(
     createWorkoutSetId,
     createRestTimerId,
     workoutCompanionEventSource,
+    workoutCompanionEventSourceMode,
     voiceFeedbackEnabled,
     voiceAdapter,
   });
@@ -252,6 +262,72 @@ export function useWorkoutSessionScreen(
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  const commitState = useCallback((next: WorkoutSessionScreenState): void => {
+    stateRef.current = next;
+    setState(next);
+  }, []);
+
+  const readySessionId =
+    state.status === 'ready' ? state.data.session.id : undefined;
+  const readyExerciseId =
+    state.status === 'ready' ? state.runtime.currentExercise?.id : undefined;
+
+  const activeWorkoutCompanionEventSource = useMemo(() => {
+    if (workoutCompanionEventSource !== NOOP_WORKOUT_COMPANION_EVENT_SOURCE) {
+      return workoutCompanionEventSource;
+    }
+
+    if (workoutCompanionEventSourceMode !== 'mock_auto_rep') {
+      return NOOP_WORKOUT_COMPANION_EVENT_SOURCE;
+    }
+
+    if (
+      state.status !== 'ready' ||
+      !state.runtime.currentExercise ||
+      !state.companionRuntime
+    ) {
+      return NOOP_WORKOUT_COMPANION_EVENT_SOURCE;
+    }
+
+    return createMockAutoRepCounterSource({
+      sessionId: state.data.session.id,
+      sessionExerciseId: state.runtime.currentExercise.id,
+      initialRepNumber: state.companionRuntime.progress.completedReps,
+      now: () => Date.now(),
+    });
+  }, [
+    readySessionId,
+    readyExerciseId,
+    workoutCompanionEventSource,
+    workoutCompanionEventSourceMode,
+  ]);
+
+  useEffect(() => {
+    const current = stateRef.current;
+
+    if (current.status !== 'ready') {
+      return;
+    }
+
+    const nextIsVoiceFeedbackEnabled = voiceFeedbackEnabled;
+    const nextIsMockCompanionEventSource = isMockAutoRepCounterSource(
+      activeWorkoutCompanionEventSource,
+    );
+
+    if (
+      current.isVoiceFeedbackEnabled === nextIsVoiceFeedbackEnabled &&
+      current.isMockCompanionEventSource === nextIsMockCompanionEventSource
+    ) {
+      return;
+    }
+
+    commitState({
+      ...current,
+      isVoiceFeedbackEnabled: nextIsVoiceFeedbackEnabled,
+      isMockCompanionEventSource: nextIsMockCompanionEventSource,
+    });
+  }, [activeWorkoutCompanionEventSource, commitState, voiceFeedbackEnabled]);
 
   useEffect(() => {
     dependenciesRef.current = {
@@ -262,7 +338,8 @@ export function useWorkoutSessionScreen(
       now,
       createWorkoutSetId,
       createRestTimerId,
-      workoutCompanionEventSource,
+      workoutCompanionEventSource: activeWorkoutCompanionEventSource,
+      workoutCompanionEventSourceMode,
       voiceFeedbackEnabled,
       voiceAdapter,
     };
@@ -274,15 +351,11 @@ export function useWorkoutSessionScreen(
     createRestTimerId,
     initializeDatabase,
     now,
-    workoutCompanionEventSource,
+    activeWorkoutCompanionEventSource,
+    workoutCompanionEventSourceMode,
     voiceAdapter,
     voiceFeedbackEnabled,
   ]);
-
-  const commitState = useCallback((next: WorkoutSessionScreenState): void => {
-    stateRef.current = next;
-    setState(next);
-  }, []);
 
   const runtimeSnapshotSyncKey = createRuntimeSnapshotSyncKey(state);
 
@@ -459,6 +532,15 @@ export function useWorkoutSessionScreen(
           coachFeedback: shouldPreserveDraft
             ? current.coachFeedback
             : undefined,
+          isVoiceFeedbackEnabled: shouldPreserveDraft
+            ? current.isVoiceFeedbackEnabled
+            : dependenciesRef.current.voiceFeedbackEnabled,
+          isMockCompanionEventSource:
+            isMockAutoRepCounterSource(
+              dependenciesRef.current.workoutCompanionEventSource,
+            ) ||
+            dependenciesRef.current.workoutCompanionEventSourceMode ===
+              'mock_auto_rep',
           canRetryCompanionEvent: shouldPreserveDraft
             ? current.canRetryCompanionEvent
             : false,
@@ -849,7 +931,11 @@ export function useWorkoutSessionScreen(
           );
         }
 
-        speakWorkoutVoiceFeedbackEvents(voiceEvents, dependenciesRef.current);
+        speakWorkoutVoiceFeedbackEvents(
+          voiceEvents,
+          current,
+          dependenciesRef.current,
+        );
       }
 
       if (!isMountedRef.current) {
@@ -1186,7 +1272,11 @@ export function useWorkoutSessionScreen(
         return;
       }
 
-      speakWorkoutVoiceFeedbackEvents(result.events, dependenciesRef.current);
+      speakWorkoutVoiceFeedbackEvents(
+        result.events,
+        current,
+        dependenciesRef.current,
+      );
 
       if (result.status === 'ignored') {
         isMutatingRef.current = false;
@@ -1272,6 +1362,7 @@ export function useWorkoutSessionScreen(
           );
           speakWorkoutVoiceFeedbackEvents(
             [exerciseResult.event],
+            current,
             dependenciesRef.current,
           );
           nextSession = exerciseResult.session;
@@ -1362,7 +1453,7 @@ export function useWorkoutSessionScreen(
       return;
     }
 
-    const source = workoutCompanionEventSource;
+    const source = activeWorkoutCompanionEventSource;
     const subscriptionId = companionSubscriptionRef.current + 1;
     companionSubscriptionRef.current = subscriptionId;
     source.subscribe((event) => {
@@ -1385,7 +1476,7 @@ export function useWorkoutSessionScreen(
     companionRuntimeInstance,
     companionSessionId,
     processCompanionEvent,
-    workoutCompanionEventSource,
+    activeWorkoutCompanionEventSource,
   ]);
 
   const retryCompanionEvent = useCallback((): void => {
@@ -1484,6 +1575,7 @@ export function useWorkoutSessionScreen(
             );
             speakWorkoutVoiceFeedbackEvents(
               [exerciseResult.event],
+              current,
               dependenciesRef.current,
             );
 
@@ -1823,6 +1915,27 @@ export function useWorkoutSessionScreen(
     }
   }, [commitState]);
 
+  const toggleVoiceFeedback = useCallback((): void => {
+    const current = stateRef.current;
+
+    if (current.status !== 'ready') {
+      return;
+    }
+
+    commitState({
+      ...current,
+      isVoiceFeedbackEnabled: !current.isVoiceFeedbackEnabled,
+    });
+  }, [commitState]);
+
+  const emitMockCompanionRep = useCallback((): void => {
+    const currentSource = dependenciesRef.current.workoutCompanionEventSource;
+
+    if (isMockAutoRepCounterSource(currentSource)) {
+      currentSource.emitNextRep();
+    }
+  }, []);
+
   return {
     state,
     controls: {
@@ -1849,6 +1962,8 @@ export function useWorkoutSessionScreen(
       confirmCancelSession,
       confirmCompleteSession,
       clearNavigationIntent,
+      toggleVoiceFeedback,
+      emitMockCompanionRep,
     },
   };
 }
@@ -1923,14 +2038,14 @@ function parseWorkoutSetDraft(
 
 function speakWorkoutVoiceFeedbackEvents(
   events: readonly WorkoutVoiceFeedbackEvent[],
+  state: Extract<WorkoutSessionScreenState, { readonly status: 'ready' }>,
   dependencies: {
-    readonly voiceFeedbackEnabled: boolean;
     readonly voiceAdapter: WorkoutVoiceFeedbackAdapter;
   },
 ): void {
   events.forEach((event) => {
     void speakWorkoutVoiceFeedbackEvent(event, {
-      isEnabled: dependencies.voiceFeedbackEnabled,
+      isEnabled: state.isVoiceFeedbackEnabled,
       voiceAdapter: dependencies.voiceAdapter,
     }).catch(() => undefined);
   });

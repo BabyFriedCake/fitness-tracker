@@ -78,18 +78,29 @@ P003 → Workout Session → Companion Event → Runtime Progress
 ## 9. Wireframe
 
 ```text
-Push                         动作 1 / 5
-[动作图片]
-杠铃卧推 · 胸 · 杠铃
-第 1 / 4 组
-重量 [-2.5] 80.0 kg [+2.5]
+进行中的训练
+下肢力量训练
 
+[当前动作图片]
+杠铃 · 复合动作
+杠铃深蹲
+第 02 组 · 85 公斤 · 目标 8-10 次
+
+次数进度
 8 / 10
-训练中
-第 8 次，很好，再坚持 2 次
 
-[暂停训练]
-已完成 0 / 18 组
+[上一动作] [暂停/继续] [下一动作]
+[结束训练]
+```
+
+Paused：
+
+```text
+训练已暂停
+调整一下呼吸。
+第 02 组 · 8 / 10 次 · 85 公斤
+[继续]
+[结束训练]
 ```
 
 ## 10. Component Inventory
@@ -102,6 +113,8 @@ Push                         动作 1 / 5
 - Runtime Status
 - Coach Feedback
 - Pause / Resume Control
+- Previous Exercise Button
+- Next Exercise Button
 - Secondary Session Controls
 - Rest Timer State
 - Error Banner
@@ -125,7 +138,8 @@ Exercise Library ID 代替。
 ## 12. Visibility Rules
 
 - `running` 展示当前 Rep 和暂停。
-- `paused` 展示已暂停和继续。
+- `running` 展示上一动作、暂停、下一动作控制。
+- `paused` 展示全屏暂停状态和继续。
 - `set_completion_pending` 展示“正在确认本组完成”，禁止训练操作。
 - `resting` 展示休息倒计时和下一组信息。
 - `exercise_completion_pending` 展示“正在保存训练结果”，禁止训练操作。
@@ -142,6 +156,8 @@ Exercise Library ID 代替。
 - 动作目标组全部持久化 → `exercise_completion_pending` → 下一动作或总结。
 - 暂停 → 停止接收可推进的 Rep，保存 Snapshot。
 - 继续 → 恢复当前动作、组和 Rep 进度。
+- 上一动作 → 只在存在上一动作时可用；不得删除或修改已完成 WorkoutSet。
+- 下一动作 → 通过现有跳过/完成推进规则进入下一动作；保留已有 WorkoutSet。
 - 跳过动作 → 保留已完成 WorkoutSet，通过现有 Application Flow 推进。
 - 结束训练 → 使用现有保存并结束、继续训练或放弃确认流程。
 
@@ -204,6 +220,8 @@ Analytics 不得未经明确隐私方案上传完整训练明细。
 
 - Companion Event Source 是 Rep 输入边界。
 - UI 只展示 Runtime，不提供手动 Rep 或“完成本组”入口。
+- 上一/下一动作是训练导航控制，不是历史事实修改入口。
+- 暂停页面必须阻止 Rep 推进，并允许继续回到原 Runtime 位置。
 - 重量仍是用户可编辑的实际训练草稿，不得由 Companion Event 填充。
 - WorkoutSet 仍是真实训练事实，并在每组完成时立即保存。
 - 具体识别引擎不属于 UI Runtime Binding。
@@ -211,6 +229,9 @@ Analytics 不得未经明确隐私方案上传完整训练明细。
 ## 21. Acceptance Criteria
 
 - [ ] 正确展示当前动作、组和 Rep 进度。
+- [ ] 展示当前动作图片或稳定占位。
+- [ ] running 展示暂停、上一动作、下一动作控制。
+- [ ] paused 展示全屏暂停状态，继续后恢复原进度。
 - [ ] 合法 Companion Event 按顺序推进 Runtime。
 - [ ] 页面不提供手动计数或手动完成组。
 - [ ] 持久化使用当前已验证的实际重量，不使用默认或伪造重量。

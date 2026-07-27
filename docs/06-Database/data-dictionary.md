@@ -90,6 +90,14 @@ Last Updated: 2026-07-17
 - completed：已完成并进入统计
 - cancelled：已取消，默认不进入统计
 
+### today workout plan status
+
+- planned：今天已选择模板，但尚未创建 WorkoutSession
+- draft：已关联 draft WorkoutSession
+- in_progress：已关联 in_progress WorkoutSession
+- completed：已关联 completed WorkoutSession
+- cancelled：已关联 cancelled WorkoutSession
+
 ### daily_status
 
 - normal：正常
@@ -164,6 +172,44 @@ target_reps_max = 10
 Session 创建时复制的模板名称。
 
 模板以后改名，历史仍显示原名称。
+
+### today_workout_plans.local_date
+
+Today 计划所属用户本地自然日。
+
+格式：
+
+```text
+YYYY-MM-DD
+```
+
+### today_workout_plans.source_template_id
+
+用户当天选择的来源 WorkoutTemplate。
+
+同一个 local_date 下同一个 source_template_id 只能出现一次。
+
+### today_workout_plans.session_id
+
+TodayPlan 关联的 WorkoutSession。
+
+为空表示已添加计划但尚未创建训练草稿。
+
+非空时必须唯一，避免多个 TodayPlan 指向同一次真实训练。
+
+### today_workout_plans.title_snapshot
+
+添加 TodayPlan 时复制的模板名称。
+
+模板后续改名不影响当天计划显示。
+
+### today_workout_plans.position
+
+Today 训练计划模块内的显示顺序，从 1 开始。
+
+### today_workout_plans.status
+
+用于查询和缓存。展示和业务判断必须优先读取关联 WorkoutSession 的状态。
 
 ### workout_sessions.started_at / ended_at
 

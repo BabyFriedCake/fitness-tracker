@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -40,6 +40,14 @@ export function ExerciseRow({ exercise, onPress, action }: ExerciseRowProps) {
         },
       ]}
     >
+      <View style={styles.imagePlaceholder}>
+        <ThemedText type="smallBold" style={styles.imageBadge}>
+          讲解
+        </ThemedText>
+        <ThemedText type="title" style={styles.imageInitial}>
+          {exercise.nameZh.slice(0, 1)}
+        </ThemedText>
+      </View>
       <Pressable
         disabled={!onPress}
         onPress={() => onPress?.(exercise)}
@@ -96,19 +104,43 @@ export function ExerciseRow({ exercise, onPress, action }: ExerciseRowProps) {
 
 const styles = StyleSheet.create({
   container: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flex: 1,
+    minHeight: 280,
+    flexDirection: 'column',
+    alignItems: 'stretch',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
-    gap: Spacing.one,
+    gap: Spacing.three,
+  },
+  imagePlaceholder: {
+    height: 170,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+    borderRadius: 24,
+    backgroundColor: '#DCE9AD',
+    padding: Spacing.three,
   },
   textContent: {
-    flex: 1,
     gap: Spacing.one,
+  },
+  imageBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    overflow: 'hidden',
+    borderTopLeftRadius: 24,
+    borderBottomRightRadius: 12,
+    backgroundColor: '#1677EF',
+    color: '#FFFFFF',
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+  },
+  imageInitial: {
+    color: 'rgba(27, 32, 22, 0.28)',
+    fontSize: 96,
+    lineHeight: 104,
   },
   attributes: {
     flexShrink: 1,
@@ -116,9 +148,10 @@ const styles = StyleSheet.create({
   actionButton: {
     minHeight: 44,
     minWidth: 72,
+    alignSelf: 'flex-start',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,

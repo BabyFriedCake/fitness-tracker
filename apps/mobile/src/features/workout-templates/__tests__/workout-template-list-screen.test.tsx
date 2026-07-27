@@ -125,7 +125,7 @@ describe('Workout Template list screen', () => {
     expect(getByText('2 个动作 · 7 组')).toBeTruthy();
     expect(getByText('可使用')).toBeTruthy();
     expect(
-      getByLabelText('编辑训练模板Push，2 个动作，7 组，可使用'),
+      getByLabelText('查看训练模板Push，2 个动作，7 组，可使用'),
     ).toBeTruthy();
   });
 
@@ -159,7 +159,7 @@ describe('Workout Template list screen', () => {
     expect(getByLabelText('新增训练模板')).toBeTruthy();
   });
 
-  it('opens the selected template edit entry', async () => {
+  it('opens the selected template detail entry', async () => {
     const onOpenTemplate = jest.fn();
     const template = {
       id: 'template-push' as WorkoutTemplateId,
@@ -181,7 +181,7 @@ describe('Workout Template list screen', () => {
     );
 
     await fireEvent.press(
-      getByLabelText('编辑训练模板Push，1 个动作，3 组，可使用'),
+      getByLabelText('查看训练模板Push，1 个动作，3 组，可使用'),
     );
 
     expect(onOpenTemplate).toHaveBeenCalledWith('template-push');

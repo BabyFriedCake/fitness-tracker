@@ -508,7 +508,7 @@ export function useWorkoutTemplateEdit(
     }
 
     return createTemplateExerciseSelectionHref({
-      returnTo: '/templates/[id]',
+      returnTo: '/templates/[id]/edit',
       alreadySelectedExerciseIds: currentDraft.exercises.map(
         (exercise) => exercise.exerciseId,
       ),

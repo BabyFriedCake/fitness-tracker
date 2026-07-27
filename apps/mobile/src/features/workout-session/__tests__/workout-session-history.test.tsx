@@ -152,6 +152,7 @@ describe('WorkoutSession history entry', () => {
         localDate: '2026-07-20',
         dayOfMonth: 20,
         hasCompletedWorkout: true,
+        muscleLabels: ['胸'],
       },
     );
     expect(calendar.days.find((day) => day.localDate === '2026-07-19')).toEqual(
@@ -159,6 +160,7 @@ describe('WorkoutSession history entry', () => {
         localDate: '2026-07-19',
         dayOfMonth: 19,
         hasCompletedWorkout: false,
+        muscleLabels: [],
       },
     );
   });
@@ -175,6 +177,7 @@ describe('WorkoutSession history entry', () => {
         durationSeconds: 3600,
         completedSetCount: 2,
         totalVolume: 1200,
+        muscleLabels: ['胸'],
       },
       {
         sessionId: CANCELLED_SESSION_ID,
@@ -184,6 +187,7 @@ describe('WorkoutSession history entry', () => {
         localDate: '2026-06-01',
         completedSetCount: 0,
         totalVolume: 0,
+        muscleLabels: [],
       },
     ];
 
@@ -212,6 +216,7 @@ describe('WorkoutSession history entry', () => {
       localDate: '2026-07-20',
       completedSetCount: 2,
       totalVolume: 1400,
+      muscleLabels: ['腿'],
     };
     const previous = {
       ...latest,
@@ -233,76 +238,74 @@ describe('WorkoutSession history entry', () => {
 
   it('renders grouped history rows with duration and volume', async () => {
     const onOpenSummary = jest.fn();
-    const { getAllByText, getByLabelText, getByText } = await render(
-      <WorkoutSessionHistoryScreenContent
-        state={{
-          status: 'ready',
-          sections: [
-            {
-              localDate: '2026-07-20',
-              title: '7月20日',
-              items: [
-                {
-                  sessionId: SESSION_ID,
-                  workoutName: 'Push',
-                  status: 'completed',
-                  startedAt: STARTED_AT,
-                  endedAt: ENDED_AT,
-                  localDate: '2026-07-20',
-                  durationSeconds: 3600,
-                  completedSetCount: 2,
-                  totalVolume: 1200,
-                },
-              ],
-            },
-            {
-              localDate: '2026-07-19',
-              title: '7月19日',
-              items: [
-                {
-                  sessionId: CANCELLED_SESSION_ID,
-                  workoutName: 'Pull',
-                  status: 'cancelled',
-                  startedAt: OLDER_STARTED_AT,
-                  endedAt: OLDER_ENDED_AT,
-                  localDate: '2026-07-19',
-                  durationSeconds: 1800,
-                  completedSetCount: 1,
-                  totalVolume: 400,
-                },
-              ],
-            },
-          ],
-        }}
-        onReload={jest.fn()}
-        onOpenSummary={onOpenSummary}
-        onGoToday={jest.fn()}
-      />,
-    );
+    const { getAllByText, getByLabelText, getByText, queryByText } =
+      await render(
+        <WorkoutSessionHistoryScreenContent
+          state={{
+            status: 'ready',
+            sections: [
+              {
+                localDate: '2026-07-20',
+                title: '7月20日',
+                items: [
+                  {
+                    sessionId: SESSION_ID,
+                    workoutName: 'Push',
+                    status: 'completed',
+                    startedAt: STARTED_AT,
+                    endedAt: ENDED_AT,
+                    localDate: '2026-07-20',
+                    durationSeconds: 3600,
+                    completedSetCount: 2,
+                    totalVolume: 1200,
+                    muscleLabels: ['胸'],
+                  },
+                ],
+              },
+              {
+                localDate: '2026-07-19',
+                title: '7月19日',
+                items: [
+                  {
+                    sessionId: CANCELLED_SESSION_ID,
+                    workoutName: 'Pull',
+                    status: 'cancelled',
+                    startedAt: OLDER_STARTED_AT,
+                    endedAt: OLDER_ENDED_AT,
+                    localDate: '2026-07-19',
+                    durationSeconds: 1800,
+                    completedSetCount: 1,
+                    totalVolume: 400,
+                    muscleLabels: [],
+                  },
+                ],
+              },
+            ],
+          }}
+          onReload={jest.fn()}
+          onOpenSummary={onOpenSummary}
+          onGoToday={jest.fn()}
+        />,
+      );
 
+    expect(getByText('2026年7月')).toBeTruthy();
     expect(getByText('7月20日')).toBeTruthy();
-    expect(getByText('7月19日')).toBeTruthy();
     expect(getByText('Push')).toBeTruthy();
-    expect(getByText('Pull')).toBeTruthy();
-    expect(getAllByText('1 小时')).toHaveLength(2);
-    expect(getByText('30 分钟')).toBeTruthy();
+    expect(queryByText('Pull')).toBeNull();
+    expect(getAllByText('1 小时').length).toBeGreaterThanOrEqual(1);
     expect(getByText('2 组 · 1,200 kg')).toBeTruthy();
-    expect(getByText('1 组 · 400 kg')).toBeTruthy();
     expect(getByText('完成训练')).toBeTruthy();
     expect(getByText('1 次')).toBeTruthy();
     expect(
       getByText('正式统计仅包含已完成训练，已取消记录不计入汇总。'),
     ).toBeTruthy();
+    expect(getByText('胸')).toBeTruthy();
     await fireEvent.press(getByLabelText('已完成Push，1 小时，1,200 kg'));
-    await fireEvent.press(getByLabelText('已取消Pull，30 分钟，400 kg'));
 
     expect(onOpenSummary).toHaveBeenCalledTimes(1);
     expect(onOpenSummary).toHaveBeenCalledWith(SESSION_ID);
-    expect(
-      getByLabelText('已取消Pull，30 分钟，400 kg').props.accessibilityState,
-    ).toEqual({
-      disabled: true,
-    });
+    await fireEvent.press(getByLabelText('2026-07-19无训练'));
+    expect(getByText('这一天没有已完成训练。')).toBeTruthy();
   });
 
   it('shows empty and retryable error states', async () => {

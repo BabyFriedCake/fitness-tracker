@@ -315,28 +315,85 @@ Sprint 6 未包含：
 - AI 模型
 - 摄像头识别
 - 自动 Rep Counter 正式接入
+- 用户自定义动作
+
+Sprint 6 合并后 Human Review 确认存在 Figma 交互偏差。
+
+处理方式：
+
+- 不回改 Sprint 6 完成记录。
+- 作为 Sprint 7 前置任务 `S7-00 Figma Product Alignment` 执行。
+
+S7-00 开始前确认：
+
+- Today “训练计划”表示今天添加的计划，不是全部模板列表。
+- 今日计划卡片主体进入本次训练预览/调整页。
+- 今日计划开始按钮进入训练页；完成后显示“已完成”且不可再次开始。
+- Exercise Library 只对齐 Figma 浏览布局，自定义动作留到未来版本。
+- History 需要 Figma 月历交互。
+- Workout 需要 Figma running / paused / resting 状态对齐。
 
 ---
 
-# Sprint 7（📋 计划）
+# Sprint 7（✅ 已完成）
 
 ## Workout Companion Expansion
+
+完成时间：2026-07-27
+
+Exit Review：PASS WITH WARNINGS
+
+Tag：待创建
+
+Release：待创建
 
 目标：
 
 增强训练陪练能力。
 
-内容：
+已完成：
 
-- Voice Coach
-- Rep Event Contract
-- Auto Rep Counter 接口
-- Runtime Feedback
-- Companion Settings
+- [x] S7-00 Figma Product Alignment
+- [x] S7-01 Voice Coach Runtime Control
+- [x] S7-02 Auto Rep Counter Source Interface
+
+进行中 / 待执行：
+
+- [x] S7-03 Companion Event Source Selection
+- [x] S7-04 Mock Auto Rep Runtime Binding
+- [x] S7-05 Companion Settings Prototype
+- [x] S7-06 Sprint 7 Exit Review
 
 目标：
 
 让用户训练过程中减少手机操作，获得实时反馈。
+
+Sprint 7 范围：
+
+- 保持 Sprint 5 Runtime 状态机和 Snapshot Recovery 兼容。
+- 保持 Event Source Architecture。
+- 只接入 Mock Auto Rep Source，不实现 Camera、Pose Detection、Voice
+  Recognition 或 AI 模型。
+- Voice Coach 仅提供运行页开关和现有反馈事件输出控制。
+- Companion Settings 当前只做本地会话/原型级设置，不引入账号、云同步或订阅。
+
+Sprint 7 退出条件：
+
+- Workout 页面可在 Figma 对齐后的 UI 中选择 Mock 输入源。
+- Mock 输入源产生的 RepCompleted 通过现有 validation 和 Runtime Flow。
+- 用户可以关闭语音教练，关闭后不调用 voice adapter。
+- 所有训练事实仍通过 Application → Domain → Repository → Database。
+- 完整 validation 通过，并生成 Sprint 7 Exit Review。
+
+Sprint 7 完成后 Human Review 确认仍有非阻塞 warning：
+
+- `use-workout-session-screen.ts` 保留 5 条 hook dependency warning。
+- GitHub-hosted CI 未在本次收口中重新验证。
+
+处理方式：
+
+- 不回改 Sprint 7 完成记录。
+- 作为后续 Sprint 或独立技术债处理。
 
 ---
 

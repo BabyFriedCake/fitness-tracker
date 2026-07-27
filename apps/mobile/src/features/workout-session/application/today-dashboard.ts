@@ -4,6 +4,13 @@ import type {
   DailyStatusValue,
 } from '@/domain/daily-status';
 import {
+  TodayWorkoutPlanDuplicateTemplateError,
+  type TodayWorkoutPlan,
+  type TodayWorkoutPlanId,
+  type TodayWorkoutPlanRepository,
+  type TodayWorkoutPlanStatus,
+} from '@/domain/today-workout-plan';
+import {
   assertWorkoutTemplateCanStart,
   type WorkoutTemplate,
   type WorkoutTemplateId,
@@ -29,6 +36,16 @@ export type TodayDashboardTemplateItem = {
   readonly totalTargetSets: number;
 };
 
+export type TodayDashboardPlanItem = {
+  readonly id: TodayWorkoutPlanId;
+  readonly templateId: WorkoutTemplateId;
+  readonly sessionId?: WorkoutSessionId;
+  readonly name: string;
+  readonly status: TodayWorkoutPlanStatus;
+  readonly exerciseCount: number;
+  readonly totalTargetSets: number;
+};
+
 export type TodayDashboardSessionEntry =
   | { readonly status: 'none' }
   | {
@@ -41,6 +58,7 @@ export type TodayDashboardSessionEntry =
 
 export type TodayDashboardData = {
   readonly sessionEntry: TodayDashboardSessionEntry;
+  readonly todayPlans: readonly TodayDashboardPlanItem[];
   readonly templates: readonly TodayDashboardTemplateItem[];
   readonly dailyStatus?: DailyStatusValue;
   readonly recentWorkout?: TodayDashboardRecentWorkout;
@@ -74,6 +92,7 @@ export type LoadTodayDashboardResult =
 export type TodayDashboardRepositories = {
   readonly workoutSessionRepository: WorkoutSessionRepository;
   readonly workoutTemplateRepository: WorkoutTemplateRepository;
+  readonly todayWorkoutPlanRepository: TodayWorkoutPlanRepository;
   readonly exerciseRepository: ExerciseRepository;
   readonly dailyStatusRepository: DailyStatusRepository;
 };
@@ -87,6 +106,33 @@ export type CreateWorkoutSessionFromTemplateResult =
       readonly status: 'existing_session';
       readonly sessionId: WorkoutSessionId;
       readonly sessionStatus: 'draft' | 'in_progress';
+    }
+  | {
+      readonly status: 'template_not_found';
+    };
+
+export type AddTodayPlanFromTemplateResult =
+  | {
+      readonly status: 'added';
+      readonly plan: TodayWorkoutPlan;
+    }
+  | {
+      readonly status: 'duplicate_template';
+    }
+  | {
+      readonly status: 'template_not_found';
+    };
+
+export type StartTodayPlanResult =
+  | {
+      readonly status: 'ready';
+      readonly sessionId: WorkoutSessionId;
+    }
+  | {
+      readonly status: 'completed';
+    }
+  | {
+      readonly status: 'plan_not_found';
     }
   | {
       readonly status: 'template_not_found';
@@ -110,11 +156,12 @@ export async function loadTodayDashboard(
 ): Promise<LoadTodayDashboardResult> {
   try {
     const localDate = toLocalDateKey(now);
-    const [recoverableSession, templates] = await Promise.all([
+    const [recoverableSession, templates, plans] = await Promise.all([
       repositories.workoutSessionRepository.findRecoverableSession(),
       repositories.workoutTemplateRepository.list({
         filters: { statuses: ['active'] },
       }),
+      repositories.todayWorkoutPlanRepository.listByDate(localDate),
     ]);
     const supplementalData = await loadTodaySupplementalData(
       repositories,
@@ -151,6 +198,7 @@ export async function loadTodayDashboard(
         sessionEntry: session
           ? toTodayDashboardSessionEntry(session)
           : { status: 'none' },
+        todayPlans: toTodayDashboardPlanItems(plans, templates),
         templates: templates.map(toTodayDashboardTemplateItem),
         dailyStatus: dailyStatus?.status,
         recentWorkout,
@@ -293,6 +341,112 @@ export async function createWorkoutSessionFromTemplate(
   return { status: 'created', session };
 }
 
+export async function addTodayPlanFromTemplate(
+  repositories: Pick<
+    TodayDashboardRepositories,
+    'todayWorkoutPlanRepository' | 'workoutTemplateRepository'
+  >,
+  templateId: WorkoutTemplateId,
+  options: {
+    readonly localDate: string;
+    readonly now: () => string;
+    readonly createId: () => string;
+    readonly position: number;
+  },
+): Promise<AddTodayPlanFromTemplateResult> {
+  const template =
+    await repositories.workoutTemplateRepository.getById(templateId);
+
+  if (!template || template.status !== 'active') {
+    return { status: 'template_not_found' };
+  }
+
+  try {
+    const plan = await repositories.todayWorkoutPlanRepository.addFromTemplate({
+      id: options.createId(),
+      localDate: options.localDate,
+      sourceTemplateId: template.id,
+      titleSnapshot: template.name,
+      position: options.position,
+      createdAt: options.now(),
+      updatedAt: options.now(),
+    });
+
+    return { status: 'added', plan };
+  } catch (error) {
+    if (error instanceof TodayWorkoutPlanDuplicateTemplateError) {
+      return { status: 'duplicate_template' };
+    }
+
+    throw error;
+  }
+}
+
+export async function startTodayPlan(
+  repositories: Omit<TodayDashboardRepositories, 'dailyStatusRepository'>,
+  planId: TodayWorkoutPlanId,
+  options: {
+    readonly now: () => string;
+    readonly createId: (kind: WorkoutSessionIdKind) => string;
+  },
+): Promise<StartTodayPlanResult> {
+  const plan = await repositories.todayWorkoutPlanRepository.findById(planId);
+
+  if (!plan) {
+    return { status: 'plan_not_found' };
+  }
+
+  if (plan.sessionId) {
+    const session = await repositories.workoutSessionRepository.findById(
+      plan.sessionId,
+    );
+
+    if (session?.status === 'completed') {
+      await repositories.todayWorkoutPlanRepository.syncStatusFromSession(
+        plan.id,
+        'completed',
+        options.now(),
+      );
+      return { status: 'completed' };
+    }
+
+    if (session?.status === 'draft' || session?.status === 'in_progress') {
+      await repositories.todayWorkoutPlanRepository.syncStatusFromSession(
+        plan.id,
+        session.status,
+        options.now(),
+      );
+      return { status: 'ready', sessionId: session.id };
+    }
+  }
+
+  const template = await repositories.workoutTemplateRepository.getById(
+    plan.sourceTemplateId,
+  );
+
+  if (!template) {
+    return { status: 'template_not_found' };
+  }
+
+  assertWorkoutTemplateCanStart(template);
+  const input = await toCreateWorkoutSessionInput(
+    repositories.exerciseRepository,
+    template,
+  );
+  const session = await createSession(
+    repositories.workoutSessionRepository,
+    input,
+    options,
+  );
+  await repositories.todayWorkoutPlanRepository.attachSession(
+    plan.id,
+    session.id,
+    options.now(),
+  );
+
+  return { status: 'ready', sessionId: session.id };
+}
+
 async function toCreateWorkoutSessionInput(
   exerciseRepository: ExerciseRepository,
   template: WorkoutTemplate,
@@ -342,6 +496,33 @@ function toTodayDashboardTemplateItem(
       0,
     ),
   };
+}
+
+function toTodayDashboardPlanItems(
+  plans: readonly TodayWorkoutPlan[],
+  templates: readonly WorkoutTemplate[],
+): readonly TodayDashboardPlanItem[] {
+  const templateById = new Map(
+    templates.map((template) => [template.id, template]),
+  );
+
+  return plans.map((plan) => {
+    const template = templateById.get(plan.sourceTemplateId);
+
+    return {
+      id: plan.id,
+      templateId: plan.sourceTemplateId,
+      sessionId: plan.sessionId,
+      name: plan.titleSnapshot,
+      status: plan.status,
+      exerciseCount: template?.exercises.length ?? 0,
+      totalTargetSets:
+        template?.exercises.reduce(
+          (total, exercise) => total + exercise.targetSets,
+          0,
+        ) ?? 0,
+    };
+  });
 }
 
 function toTodayDashboardSessionEntry(

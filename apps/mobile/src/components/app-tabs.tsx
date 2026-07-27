@@ -1,4 +1,4 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useColorScheme } from 'react-native';
 
 import { TOP_LEVEL_ROUTES } from '@/constants/routes';
@@ -6,7 +6,8 @@ import { Colors } from '@/constants/theme';
 
 export default function AppTabs() {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const theme = scheme ?? 'light';
+  const colors = Colors[theme];
 
   return (
     <NativeTabs
@@ -16,7 +17,7 @@ export default function AppTabs() {
     >
       {TOP_LEVEL_ROUTES.map((route) => (
         <NativeTabs.Trigger key={route.key} name={route.name}>
-          <NativeTabs.Trigger.Label>{route.title}</NativeTabs.Trigger.Label>
+          <Label>{route.title}</Label>
         </NativeTabs.Trigger>
       ))}
     </NativeTabs>

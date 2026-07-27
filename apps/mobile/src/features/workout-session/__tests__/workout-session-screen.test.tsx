@@ -31,6 +31,7 @@ import {
   pauseWorkoutCompanionRuntime,
   type WorkoutRuntimeSnapshot,
 } from '@/features/workout-session/application/workout-runtime-engine';
+import { createMockAutoRepCounterSource } from '@/features/workout-session/application/workout-companion-event-source';
 import type { WorkoutRuntimeSnapshotRepository } from '@/features/workout-session/application/workout-runtime-snapshot-repository';
 import type { WorkoutCompanionEventSource } from '@/features/workout-session/application/workout-companion-event-source';
 import {
@@ -154,22 +155,21 @@ describe('WorkoutSessionScreenContent', () => {
     expect(getByLabelText('重量输入').props.editable).toBe(false);
   });
 
-  it.each([
-    ['running', '休息进行中'],
-    ['paused', '休息已暂停'],
-    ['completed', '休息已结束'],
-  ] as const)('shows the existing %s timer status', async (status, label) => {
-    const state = buildReadyState(buildSession(), status);
+  it('shows Figma-style running controls', async () => {
     const { getByLabelText, getByText } = await render(
       <WorkoutSessionScreenContent
-        state={state}
+        state={buildReadyState(buildSession(), undefined, 'running')}
         controls={buildControls()}
         onBack={jest.fn()}
       />,
     );
 
-    expect(getByText(label)).toBeTruthy();
-    expect(getByLabelText(`休息计时状态：${label}`)).toBeTruthy();
+    expect(getByLabelText('当前动作示意图')).toBeTruthy();
+    expect(getByText('次数进度')).toBeTruthy();
+    expect(getByLabelText('训练控制')).toBeTruthy();
+    expect(getByLabelText('上一动作')).toBeTruthy();
+    expect(getByLabelText('暂停训练')).toBeTruthy();
+    expect(getByLabelText('下一动作')).toBeTruthy();
   });
 
   it('connects exercise controls without exposing manual completion', async () => {
@@ -246,6 +246,88 @@ describe('WorkoutSessionScreenContent', () => {
     expect(resumeWorkout).toHaveBeenCalledTimes(1);
   });
 
+  it('shows and toggles the voice coach control', async () => {
+    const toggleVoiceFeedback = jest.fn();
+    const { getByLabelText, getByText } = await render(
+      <WorkoutSessionScreenContent
+        state={{
+          ...buildReadyState(buildSession(), undefined, 'running'),
+          isVoiceFeedbackEnabled: false,
+        }}
+        controls={buildControls({ toggleVoiceFeedback })}
+        onBack={jest.fn()}
+      />,
+    );
+
+    expect(getByText('语音已关闭')).toBeTruthy();
+
+    await fireEvent.press(getByLabelText('切换语音教练'));
+
+    expect(toggleVoiceFeedback).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a mock auto rep trigger when the event source is mock bound', async () => {
+    const source = createMockAutoRepCounterSource({
+      sessionId: SESSION_ID,
+      sessionExerciseId: EXERCISE_ID,
+      now: () => Date.parse('2026-07-22T01:00:00.000Z'),
+    });
+    const { getByLabelText } = await render(
+      <WorkoutSessionScreenContent
+        state={{
+          ...buildReadyState(buildSession(), undefined, 'running'),
+          isMockCompanionEventSource: true,
+        }}
+        controls={buildControls({ emitMockCompanionRep: source.emitNextRep })}
+        onBack={jest.fn()}
+      />,
+    );
+
+    expect(getByLabelText('模拟下一次次数')).toBeTruthy();
+  });
+
+  it('connects previous and next exercise controls through selectExercise', async () => {
+    const selectExercise = jest.fn(async () => undefined);
+    const session = buildSession({
+      currentSessionExerciseId: SECOND_EXERCISE_ID,
+      sessionExercises: [
+        buildExercise({
+          id: EXERCISE_ID,
+          sourceExerciseId: 'exercise-bench' as ExerciseId,
+          exerciseNameSnapshot: '杠铃卧推',
+          position: 1,
+        }),
+        buildExercise({
+          id: SECOND_EXERCISE_ID,
+          sourceExerciseId: 'exercise-press' as ExerciseId,
+          exerciseNameSnapshot: '哑铃肩推',
+          position: 2,
+        }),
+        buildExercise({
+          id: 'session-exercise-row' as SessionExerciseId,
+          sourceExerciseId: 'exercise-row' as ExerciseId,
+          exerciseNameSnapshot: '杠铃划船',
+          position: 3,
+        }),
+      ],
+    });
+    const { getByLabelText } = await render(
+      <WorkoutSessionScreenContent
+        state={buildReadyState(session, undefined, 'running')}
+        controls={buildControls({ selectExercise })}
+        onBack={jest.fn()}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('上一动作'));
+    await fireEvent.press(getByLabelText('下一动作'));
+
+    expect(selectExercise).toHaveBeenCalledWith(EXERCISE_ID);
+    expect(selectExercise).toHaveBeenCalledWith(
+      'session-exercise-row' as SessionExerciseId,
+    );
+  });
+
   it.each([
     ['running', '训练中'],
     ['paused', '训练暂停'],
@@ -274,8 +356,9 @@ describe('WorkoutSessionScreenContent', () => {
     },
   );
 
-  it('shows the persisted resting countdown and next set', async () => {
+  it('shows the Figma-style resting countdown, next set and skip action', async () => {
     const base = buildReadyState(buildSession(), 'running');
+    const finishRest = jest.fn(async () => undefined);
     const { getByLabelText, getByText } = await render(
       <WorkoutSessionScreenContent
         state={{
@@ -288,13 +371,19 @@ describe('WorkoutSessionScreenContent', () => {
               }
             : undefined,
         }}
-        controls={buildControls()}
+        controls={buildControls({ finishRest })}
         onBack={jest.fn()}
       />,
     );
 
+    expect(getByLabelText('陪练运行状态：休息中')).toBeTruthy();
+    expect(getByText('休息调整')).toBeTruthy();
     expect(getByLabelText('休息剩余时间')).toHaveTextContent('01:25');
-    expect(getByText('下一组：杠铃卧推 · 第 1 组')).toBeTruthy();
+    expect(getByText('距离下一组')).toBeTruthy();
+    expect(getByText('下一组')).toBeTruthy();
+    expect(getByText('杠铃卧推 · 第 1 组')).toBeTruthy();
+    await fireEvent.press(getByLabelText('跳过休息'));
+    expect(finishRest).toHaveBeenCalledTimes(1);
   });
 
   it('confirms skipping with the approved data-retention copy', async () => {
@@ -1134,6 +1223,142 @@ describe('useWorkoutSessionScreen', () => {
     ).toHaveLength(1);
   });
 
+  it('does not call voice feedback while the screen voice coach is disabled', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const voiceAdapter: WorkoutVoiceFeedbackAdapter = {
+      speak: jest.fn(async () => undefined),
+    };
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({ targetRepsMin: 2, targetRepsMax: 2 }),
+        ],
+      }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          workoutCompanionEventSource: source,
+          voiceAdapter,
+          voiceFeedbackEnabled: false,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    expect(getReadyState(result.current.state).isVoiceFeedbackEnabled).toBe(
+      false,
+    );
+
+    await act(async () => {
+      source.emit(buildCompanionEvent(1));
+      await Promise.resolve();
+    });
+
+    expect(voiceAdapter.speak).not.toHaveBeenCalled();
+  });
+
+  it('resumes voice feedback after the screen voice coach is enabled again', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const voiceAdapter: WorkoutVoiceFeedbackAdapter = {
+      speak: jest.fn(async () => undefined),
+    };
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({ targetRepsMin: 2, targetRepsMax: 2 }),
+        ],
+      }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          workoutCompanionEventSource: source,
+          voiceAdapter,
+          voiceFeedbackEnabled: false,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => result.current.controls.toggleVoiceFeedback());
+    expect(getReadyState(result.current.state).isVoiceFeedbackEnabled).toBe(
+      true,
+    );
+
+    await act(async () => {
+      source.emit(buildCompanionEvent(1));
+      await Promise.resolve();
+    });
+
+    expect(voiceAdapter.speak).toHaveBeenCalledWith('第 1 次');
+  });
+
+  it('binds a mock auto rep source through the screen controls', async () => {
+    const source = createMockAutoRepCounterSource({
+      sessionId: SESSION_ID,
+      sessionExerciseId: EXERCISE_ID,
+      now: () => Date.parse('2026-07-22T01:00:00.000Z'),
+    });
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(createStatefulRepository(buildSession()), {
+          workoutCompanionEventSource: source,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await waitFor(() =>
+      expect(
+        getReadyState(result.current.state).isMockCompanionEventSource,
+      ).toBe(true),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => result.current.controls.emitMockCompanionRep());
+
+    await waitFor(() =>
+      expect(
+        getReadyState(result.current.state).companionRuntime?.progress
+          .completedReps,
+      ).toBe(1),
+    );
+  });
+
+  it('binds a mock auto rep source from the companion settings mode', async () => {
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({ targetRepsMin: 1, targetRepsMax: 1 }),
+        ],
+      }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          workoutCompanionEventSourceMode: 'mock_auto_rep',
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await waitFor(() =>
+      expect(
+        getReadyState(result.current.state).isMockCompanionEventSource,
+      ).toBe(true),
+    );
+    expect(result.current.controls.emitMockCompanionRep).toEqual(
+      expect.any(Function),
+    );
+  });
+
   it('silently refreshes durable session state when the page regains focus', async () => {
     const initialSession = buildSession();
     const refreshedSession = buildSession({
@@ -1420,6 +1645,8 @@ function buildReadyState(
     isMutating: false,
     isConfirmingSkip: false,
     endFlow: 'closed',
+    isVoiceFeedbackEnabled: true,
+    isMockCompanionEventSource: false,
   };
 }
 
@@ -1448,6 +1675,8 @@ function buildControls(
     confirmCancelSession: jest.fn(async () => undefined),
     confirmCompleteSession: jest.fn(async () => undefined),
     clearNavigationIntent: jest.fn(),
+    toggleVoiceFeedback: jest.fn(),
+    emitMockCompanionRep: jest.fn(),
     ...overrides,
   };
 }
@@ -1619,7 +1848,9 @@ function buildDependencies(
     readonly restTimerRepository?: RestTimerRepository;
     readonly runtimeSnapshotRepository?: WorkoutRuntimeSnapshotRepository;
     readonly voiceAdapter?: WorkoutVoiceFeedbackAdapter;
+    readonly voiceFeedbackEnabled?: boolean;
     readonly workoutCompanionEventSource?: WorkoutCompanionEventSource;
+    readonly workoutCompanionEventSourceMode?: 'off' | 'mock_auto_rep';
   } = {},
 ) {
   return {
@@ -1637,7 +1868,9 @@ function buildDependencies(
     createWorkoutSetId:
       overrides.createWorkoutSetId ?? (() => 'workout-set-new'),
     voiceAdapter: overrides.voiceAdapter,
+    voiceFeedbackEnabled: overrides.voiceFeedbackEnabled,
     workoutCompanionEventSource: overrides.workoutCompanionEventSource,
+    workoutCompanionEventSourceMode: overrides.workoutCompanionEventSourceMode,
   };
 }
 

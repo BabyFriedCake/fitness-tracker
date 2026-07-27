@@ -200,6 +200,26 @@ describe('Exercise Library screen', () => {
     expect(updateQuery).toHaveBeenCalledWith('卧推');
   });
 
+  it('keeps custom exercise creation explicitly unsupported in V1', async () => {
+    const { getByLabelText, getByText } = await render(
+      <ExerciseLibraryContent
+        controls={buildControls()}
+        selectionMode={buildBrowseMode()}
+        onOpenExercise={jest.fn()}
+        onSelectExercise={jest.fn()}
+        onCancelSelection={jest.fn()}
+        state={{
+          status: 'ready',
+          exercises: [buildExercise()],
+        }}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('创建自定义动作'));
+
+    expect(getByText('当前版本暂不支持自定义动作。')).toBeTruthy();
+  });
+
   it('toggles muscle-group and equipment filter chips', async () => {
     const toggleMuscleGroup = jest.fn();
     const toggleEquipment = jest.fn();
