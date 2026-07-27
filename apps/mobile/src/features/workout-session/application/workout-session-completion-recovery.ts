@@ -1,10 +1,14 @@
 import type {
+  CancelledWorkoutSession,
   CompletedWorkoutSession,
   RestTimer,
   RestTimerRepository,
+  WorkoutSession,
   WorkoutSessionId,
   WorkoutSessionRepository,
 } from '@/domain/workout-session';
+
+import { createWorkoutHistorySessionMetric } from './workout-history-metrics';
 
 import {
   loadWorkoutSessionScreen,
@@ -21,6 +25,7 @@ import {
 export type WorkoutSessionSummary = {
   readonly sessionId: WorkoutSessionId;
   readonly workoutName: string;
+  readonly status: 'completed' | 'cancelled';
   readonly startedAt: string;
   readonly endedAt: string;
   readonly durationSeconds: number;
@@ -47,7 +52,7 @@ export type WorkoutSessionSummaryExercise = {
 export type LoadWorkoutSessionSummaryResult =
   | { readonly status: 'ready'; readonly summary: WorkoutSessionSummary }
   | { readonly status: 'not_found' }
-  | { readonly status: 'not_completed' };
+  | { readonly status: 'not_terminal' };
 
 export type LoadWorkoutSessionRecoveryResult =
   | {
@@ -68,60 +73,46 @@ export async function loadWorkoutSessionSummary(
     return { status: 'not_found' };
   }
 
-  if (session.status !== 'completed') {
-    return { status: 'not_completed' };
+  if (session.status !== 'completed' && session.status !== 'cancelled') {
+    return { status: 'not_terminal' };
   }
 
   return { status: 'ready', summary: createWorkoutSessionSummary(session) };
 }
 
 export function createWorkoutSessionSummary(
-  session: CompletedWorkoutSession,
+  session: CompletedWorkoutSession | CancelledWorkoutSession,
 ): WorkoutSessionSummary {
-  const startedAt = requireTimestamp(session.startedAt);
-  const endedAt = requireTimestamp(session.endedAt);
-  const completedSets = session.sessionExercises.flatMap((exercise) =>
-    exercise.sets.filter((workoutSet) => workoutSet.isCompleted),
-  );
-  const exercises = session.sessionExercises.map((exercise) => {
-    const sets = exercise.sets
-      .filter((workoutSet) => workoutSet.isCompleted)
-      .map((workoutSet) => ({
+  const metric = createWorkoutHistorySessionMetric(session);
+
+  if (!metric) {
+    throw new Error(`WorkoutSession summary requires a terminal session.`);
+  }
+  const startedAt = requireStartedAt(session);
+
+  return {
+    sessionId: metric.sessionId,
+    workoutName: metric.workoutName,
+    status: metric.status,
+    startedAt,
+    endedAt: metric.endedAt,
+    durationSeconds: metric.durationSeconds ?? 0,
+    completedExerciseCount: metric.completedExerciseCount,
+    completedSetCount: metric.completedSetCount,
+    totalVolume: metric.totalVolume,
+    notes: session.notes,
+    exercises: metric.exercises.map((exercise) => ({
+      exerciseName: exercise.exerciseName,
+      completed: exercise.completed,
+      skipped: exercise.skipped,
+      totalVolume: exercise.totalVolume,
+      sets: exercise.sets.map((workoutSet) => ({
         setNumber: workoutSet.setNumber,
         actualReps: workoutSet.actualReps,
         weight: workoutSet.weight,
         completedAt: workoutSet.completedAt,
-      }));
-
-    return {
-      exerciseName: exercise.exerciseNameSnapshot,
-      completed: exercise.isCompleted,
-      skipped: exercise.isSkipped,
-      totalVolume: sets.reduce(
-        (total, workoutSet) =>
-          total + workoutSet.weight * workoutSet.actualReps,
-        0,
-      ),
-      sets,
-    };
-  });
-
-  return {
-    sessionId: session.id,
-    workoutName: session.workoutNameSnapshot,
-    startedAt: session.startedAt,
-    endedAt: session.endedAt,
-    durationSeconds: Math.max(0, Math.floor((endedAt - startedAt) / 1000)),
-    completedExerciseCount: session.sessionExercises.filter(
-      (exercise) => exercise.isCompleted,
-    ).length,
-    completedSetCount: completedSets.length,
-    totalVolume: completedSets.reduce(
-      (total, workoutSet) => total + workoutSet.weight * workoutSet.actualReps,
-      0,
-    ),
-    notes: session.notes,
-    exercises,
+      })),
+    })),
   };
 }
 
@@ -198,12 +189,24 @@ export async function closeActiveRestTimer(
   return cancelRestTimer(repository, { sessionId, now: closedAt });
 }
 
-function requireTimestamp(value: string): number {
-  const timestamp = Date.parse(value);
-
-  if (!Number.isFinite(timestamp)) {
-    throw new Error(`WorkoutSession summary timestamp is invalid: ${value}.`);
+function requireStartedAt(
+  session: Extract<
+    WorkoutSession,
+    { readonly status: 'completed' | 'cancelled' }
+  >,
+): string {
+  if (!session.startedAt) {
+    return session.endedAt;
   }
 
-  return timestamp;
+  const startedAt = Date.parse(session.startedAt);
+  const endedAt = Date.parse(session.endedAt);
+
+  if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt)) {
+    throw new Error(
+      `WorkoutSession summary timestamp is invalid: ${session.id}.`,
+    );
+  }
+
+  return session.startedAt;
 }

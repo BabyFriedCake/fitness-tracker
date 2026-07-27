@@ -268,10 +268,13 @@ export function useWorkoutSessionScreen(
     setState(next);
   }, []);
 
-  const readySessionId =
-    state.status === 'ready' ? state.data.session.id : undefined;
-  const readyExerciseId =
-    state.status === 'ready' ? state.runtime.currentExercise?.id : undefined;
+  const readyState = state.status === 'ready' ? state : undefined;
+  const readyStateStatus = state.status;
+  const readyCompanionRuntime = readyState?.companionRuntime;
+  const readyRestTimerStatus = readyState?.data.restTimerStatus;
+  const readyCompanionPhase = readyState?.companionRuntime?.phase;
+  const readyRestRemainingSeconds =
+    readyState?.companionRuntime?.restRemainingSeconds;
 
   const activeWorkoutCompanionEventSource = useMemo(() => {
     if (workoutCompanionEventSource !== NOOP_WORKOUT_COMPANION_EVENT_SOURCE) {
@@ -283,22 +286,22 @@ export function useWorkoutSessionScreen(
     }
 
     if (
-      state.status !== 'ready' ||
-      !state.runtime.currentExercise ||
-      !state.companionRuntime
+      !readyState ||
+      !readyState.runtime.currentExercise ||
+      !readyCompanionRuntime
     ) {
       return NOOP_WORKOUT_COMPANION_EVENT_SOURCE;
     }
 
     return createMockAutoRepCounterSource({
-      sessionId: state.data.session.id,
-      sessionExerciseId: state.runtime.currentExercise.id,
-      initialRepNumber: state.companionRuntime.progress.completedReps,
+      sessionId: readyState.data.session.id,
+      sessionExerciseId: readyState.runtime.currentExercise.id,
+      initialRepNumber: readyCompanionRuntime.progress.completedReps,
       now: () => Date.now(),
     });
   }, [
-    readySessionId,
-    readyExerciseId,
+    readyState,
+    readyCompanionRuntime,
     workoutCompanionEventSource,
     workoutCompanionEventSourceMode,
   ]);
@@ -1722,10 +1725,10 @@ export function useWorkoutSessionScreen(
 
   useEffect(() => {
     if (
-      state.status !== 'ready' ||
-      state.companionRuntime?.phase !== 'resting' ||
-      state.data.restTimerStatus !== 'running' ||
-      state.companionRuntime.restRemainingSeconds === undefined
+      readyStateStatus !== 'ready' ||
+      readyCompanionPhase !== 'resting' ||
+      readyRestTimerStatus !== 'running' ||
+      readyRestRemainingSeconds === undefined
     ) {
       return;
     }
@@ -1768,10 +1771,10 @@ export function useWorkoutSessionScreen(
     return () => clearInterval(interval);
   }, [
     commitState,
-    state.status,
-    state.status === 'ready' ? state.data.restTimerStatus : undefined,
-    state.status === 'ready' ? state.companionRuntime?.instance : undefined,
-    state.status === 'ready' ? state.companionRuntime?.phase : undefined,
+    readyStateStatus,
+    readyRestTimerStatus,
+    readyCompanionPhase,
+    readyRestRemainingSeconds,
     transitionRest,
   ]);
 

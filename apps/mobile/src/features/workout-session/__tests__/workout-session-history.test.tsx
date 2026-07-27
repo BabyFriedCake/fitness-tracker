@@ -237,7 +237,7 @@ describe('WorkoutSession history entry', () => {
   });
 
   it('renders grouped history rows with duration and volume', async () => {
-    const onOpenSummary = jest.fn();
+    const onOpenDetail = jest.fn();
     const { getAllByText, getByLabelText, getByText, queryByText } =
       await render(
         <WorkoutSessionHistoryScreenContent
@@ -283,7 +283,7 @@ describe('WorkoutSession history entry', () => {
             ],
           }}
           onReload={jest.fn()}
-          onOpenSummary={onOpenSummary}
+          onOpenDetail={onOpenDetail}
           onGoToday={jest.fn()}
         />,
       );
@@ -302,8 +302,8 @@ describe('WorkoutSession history entry', () => {
     expect(getByText('胸')).toBeTruthy();
     await fireEvent.press(getByLabelText('已完成Push，1 小时，1,200 kg'));
 
-    expect(onOpenSummary).toHaveBeenCalledTimes(1);
-    expect(onOpenSummary).toHaveBeenCalledWith(SESSION_ID);
+    expect(onOpenDetail).toHaveBeenCalledTimes(1);
+    expect(onOpenDetail).toHaveBeenCalledWith(SESSION_ID);
     await fireEvent.press(getByLabelText('2026-07-19无训练'));
     expect(getByText('这一天没有已完成训练。')).toBeTruthy();
   });
@@ -315,7 +315,7 @@ describe('WorkoutSession history entry', () => {
       <WorkoutSessionHistoryScreenContent
         state={{ status: 'empty' }}
         onReload={onReload}
-        onOpenSummary={jest.fn()}
+        onOpenDetail={jest.fn()}
         onGoToday={onGoToday}
       />,
     );
@@ -328,7 +328,7 @@ describe('WorkoutSession history entry', () => {
       <WorkoutSessionHistoryScreenContent
         state={{ status: 'error', message: '历史训练加载失败。' }}
         onReload={onReload}
-        onOpenSummary={jest.fn()}
+        onOpenDetail={jest.fn()}
         onGoToday={onGoToday}
       />,
     );

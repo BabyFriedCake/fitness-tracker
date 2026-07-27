@@ -29,12 +29,12 @@ import {
 import {
   createWorkoutSessionFromTemplate,
   addTodayPlanFromTemplate,
-  createTodayDashboardRecommendation,
   createTodayDashboardWeeklySummary,
   loadTodayDashboard,
   startTodayPlan,
   type TodayDashboardData,
 } from '@/features/workout-session/application/today-dashboard';
+import { createWorkoutRecommendation } from '@/features/workout-session/application/workout-recommendation';
 import type {
   TodayDashboardScreenControls,
   TodayDashboardScreenState,
@@ -195,9 +195,11 @@ describe('Today Dashboard', () => {
       completedSetCount: 0,
       totalVolume: 0,
     });
-    expect(createTodayDashboardRecommendation('fatigued', undefined)).toEqual({
+    expect(createWorkoutRecommendation({ dailyStatus: 'fatigued' })).toEqual({
       title: '保留余量',
       message: '你记录了疲劳。可以减少组数或重量，不会自动修改训练计划。',
+      kind: 'recover',
+      reasonCode: 'daily_status_fatigued',
     });
   });
 
@@ -523,8 +525,14 @@ describe('Today Dashboard', () => {
             totalVolume: 3200,
           },
           recommendation: {
+            kind: 'recover',
+            reasonCode: 'daily_status_fatigued',
             title: '保留余量',
             message: '你记录了疲劳。可以减少组数或重量，不会自动修改训练计划。',
+            explanation:
+              '你记录了疲劳。可以减少组数或重量，不会自动修改训练计划。',
+            entryLabel: '训练建议',
+            entryState: 'available',
           },
         })}
         controls={buildControls({ updateDailyStatus })}

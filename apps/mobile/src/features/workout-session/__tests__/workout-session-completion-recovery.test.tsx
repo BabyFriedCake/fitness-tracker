@@ -22,6 +22,7 @@ import {
   loadWorkoutSessionRecovery,
   loadWorkoutSessionSummary,
 } from '@/features/workout-session/application/workout-session-completion-recovery';
+import { createWorkoutHistorySessionMetric } from '@/features/workout-session/application/workout-history-metrics';
 import { recordWorkoutSet } from '@/features/workout-session/application/workout-session-execution';
 import type { WorkoutRuntimeSnapshotRepository } from '@/features/workout-session/application/workout-runtime-snapshot-repository';
 import { WorkoutSessionSummaryScreenContent } from '@/features/workout-session/screens/workout-session-summary-screen';
@@ -41,6 +42,7 @@ describe('WorkoutSession completion and recovery', () => {
     expect(summary).toEqual({
       sessionId: SESSION_ID,
       workoutName: 'Push',
+      status: 'completed',
       startedAt: STARTED_AT,
       endedAt: ENDED_AT,
       durationSeconds: 3690,
@@ -74,17 +76,47 @@ describe('WorkoutSession completion and recovery', () => {
     expect(completed.sessionExercises[0]?.sets).toHaveLength(3);
   });
 
-  it('does not expose cancelled or active sessions as completed summaries', async () => {
+  it('keeps summary metrics aligned with history metrics', () => {
+    const completed = buildCompletedSession();
+    const summary = createWorkoutSessionSummary(completed);
+    const metric = createWorkoutHistorySessionMetric(completed);
+
+    expect(metric).not.toBeNull();
+    expect(summary).toMatchObject({
+      sessionId: metric?.sessionId,
+      workoutName: metric?.workoutName,
+      status: metric?.status,
+      durationSeconds: metric?.durationSeconds,
+      completedExerciseCount: metric?.completedExerciseCount,
+      completedSetCount: metric?.completedSetCount,
+      totalVolume: metric?.totalVolume,
+    });
+  });
+
+  it('exposes cancelled sessions as terminal history details', async () => {
     const cancelled = buildCancelledSession();
     const cancelledRepository = buildRepository(cancelled);
-    const activeRepository = buildRepository(buildInProgressSession());
 
     await expect(
       loadWorkoutSessionSummary(cancelledRepository, SESSION_ID),
-    ).resolves.toEqual({ status: 'not_completed' });
+    ).resolves.toMatchObject({
+      status: 'ready',
+      summary: {
+        status: 'cancelled',
+        sessionId: SESSION_ID,
+        workoutName: 'Push',
+        completedSetCount: 2,
+        totalVolume: 1120,
+      },
+    });
+  });
+
+  it('does not expose active sessions as terminal history details', async () => {
+    const activeRepository = buildRepository(buildInProgressSession());
+
     await expect(
       loadWorkoutSessionSummary(activeRepository, SESSION_ID),
-    ).resolves.toEqual({ status: 'not_completed' });
+    ).resolves.toEqual({ status: 'not_terminal' });
   });
 
   it.each(['draft', 'in_progress'] as const)(
@@ -259,7 +291,7 @@ describe('WorkoutSession completion and recovery', () => {
     expect(getByLabelText('第 2 组，40 kg，8 次')).toBeTruthy();
     expect(getByText('保留备注')).toBeTruthy();
 
-    await fireEvent.press(getByLabelText('完成查看训练总结'));
+    await fireEvent.press(getByLabelText('完成查看训练历史详情'));
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
@@ -275,8 +307,25 @@ describe('WorkoutSession completion and recovery', () => {
       />,
     );
 
-    await fireEvent.press(getByLabelText('从训练总结查看历史训练'));
+    await fireEvent.press(getByLabelText('从训练历史详情查看历史训练'));
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders cancelled history details without marking them completed', async () => {
+    const summary = createWorkoutSessionSummary(buildCancelledSession());
+    const { getByText } = await render(
+      <WorkoutSessionSummaryScreenContent
+        state={{ status: 'ready', summary }}
+        onDone={jest.fn()}
+        onOpenHistory={jest.fn()}
+        onReload={jest.fn()}
+      />,
+    );
+
+    expect(getByText('训练已取消')).toBeTruthy();
+    expect(getByText('Push')).toBeTruthy();
+    expect(getByText('杠铃卧推')).toBeTruthy();
+    expect(getByText('训练量 1,120 kg')).toBeTruthy();
   });
 
   it('opens the persisted session from the Today recovery entry', async () => {

@@ -17,6 +17,12 @@ describe('WorkoutCompanionSettingsScreen', () => {
 
     await fireEvent.press(getByLabelText('选择Mock 自动计数输入源'));
     expect(getByText('当前输入源：Mock 自动计数')).toBeTruthy();
+    expect(getByText('音频权限')).toBeTruthy();
+    expect(
+      getByText(
+        '当前版本只显示权限边界，不请求系统音频权限。后续会在真实 Voice/TTS 接入时补齐平台级请求与降级策略。',
+      ),
+    ).toBeTruthy();
 
     const voiceSwitch = getByLabelText('切换语音教练');
     expect(voiceSwitch.props.value).toBe(true);

@@ -4,7 +4,10 @@ import type {
   WorkoutSessionRepository,
 } from '@/domain/workout-session';
 
-import { createWorkoutSessionSummary } from './workout-session-completion-recovery';
+import {
+  createWorkoutHistoryOverviewMetric,
+  createWorkoutHistorySessionMetric,
+} from './workout-history-metrics';
 
 export type WorkoutSessionHistoryItem = {
   readonly sessionId: WorkoutSessionId;
@@ -152,40 +155,27 @@ export function createWorkoutSessionHistorySections(
 export function createWorkoutSessionHistoryOverview(
   items: readonly WorkoutSessionHistoryItem[],
 ): WorkoutSessionHistoryOverview {
-  const completedItems = items.filter((item) => item.status === 'completed');
-
-  const totals = completedItems.reduce<
-    Omit<WorkoutSessionHistoryOverview, 'volumeTrend'>
-  >(
-    (overview, item) => ({
-      completedSessionCount: overview.completedSessionCount + 1,
-      completedSetCount: overview.completedSetCount + item.completedSetCount,
-      totalDurationSeconds:
-        overview.totalDurationSeconds + (item.durationSeconds ?? 0),
-      totalVolume: overview.totalVolume + item.totalVolume,
-    }),
-    {
-      completedSessionCount: 0,
-      completedSetCount: 0,
-      totalDurationSeconds: 0,
-      totalVolume: 0,
-    },
-  );
-  const [latest, previous] = [...completedItems].sort(compareHistoryItems);
-  const difference =
-    latest && previous ? latest.totalVolume - previous.totalVolume : undefined;
+  const metrics = items.map((item) => ({
+    sessionId: item.sessionId,
+    workoutName: item.workoutName,
+    status: item.status,
+    startedAt: item.startedAt,
+    endedAt: item.endedAt,
+    durationSeconds: item.durationSeconds,
+    includedInFormalStatistics: item.status === 'completed',
+    completedExerciseCount: 0,
+    completedSetCount: item.completedSetCount,
+    totalVolume: item.totalVolume,
+    exercises: [],
+  }));
+  const overview = createWorkoutHistoryOverviewMetric(metrics);
 
   return {
-    ...totals,
-    volumeTrend:
-      difference === undefined
-        ? { status: 'insufficient' }
-        : {
-            status: 'available',
-            direction:
-              difference > 0 ? 'up' : difference < 0 ? 'down' : 'stable',
-            difference,
-          },
+    completedSessionCount: overview.completedSessionCount,
+    completedSetCount: overview.completedSetCount,
+    totalDurationSeconds: overview.totalDurationSeconds,
+    totalVolume: overview.totalVolume,
+    volumeTrend: overview.volumeTrend,
   };
 }
 
@@ -232,53 +222,27 @@ export function createWorkoutSessionHistoryCalendar(
 function toWorkoutSessionHistoryItem(
   session: WorkoutSession,
 ): readonly WorkoutSessionHistoryItem[] {
-  if (session.status === 'completed') {
-    const summary = createWorkoutSessionSummary(session);
-    const localDate = toLocalDateKey(summary.endedAt);
+  const metric = createWorkoutHistorySessionMetric(session);
 
-    return [
-      {
-        sessionId: session.id,
-        workoutName: summary.workoutName,
-        status: 'completed',
-        startedAt: summary.startedAt,
-        endedAt: summary.endedAt,
-        localDate,
-        durationSeconds: summary.durationSeconds,
-        completedSetCount: summary.completedSetCount,
-        totalVolume: summary.totalVolume,
-        muscleLabels: toHistoryMuscleLabels(session),
-      },
-    ];
+  if (!metric) {
+    return [];
   }
 
-  if (session.status === 'cancelled') {
-    const localDate = toLocalDateKey(session.endedAt);
-    const completedSets = session.sessionExercises.flatMap((exercise) =>
-      exercise.sets.filter((workoutSet) => workoutSet.isCompleted),
-    );
-
-    return [
-      {
-        sessionId: session.id,
-        workoutName: session.workoutNameSnapshot,
-        status: 'cancelled',
-        startedAt: session.startedAt,
-        endedAt: session.endedAt,
-        localDate,
-        durationSeconds: calculateDurationSeconds(session),
-        completedSetCount: completedSets.length,
-        totalVolume: completedSets.reduce(
-          (total, workoutSet) =>
-            total + workoutSet.weight * workoutSet.actualReps,
-          0,
-        ),
-        muscleLabels: [],
-      },
-    ];
-  }
-
-  return [];
+  return [
+    {
+      sessionId: metric.sessionId,
+      workoutName: metric.workoutName,
+      status: metric.status,
+      startedAt: metric.startedAt,
+      endedAt: metric.endedAt,
+      localDate: toLocalDateKey(metric.endedAt),
+      durationSeconds: metric.durationSeconds,
+      completedSetCount: metric.completedSetCount,
+      totalVolume: metric.totalVolume,
+      muscleLabels:
+        metric.status === 'completed' ? toHistoryMuscleLabels(session) : [],
+    },
+  ];
 }
 
 function toHistoryMuscleLabels(session: WorkoutSession): readonly string[] {
@@ -333,23 +297,6 @@ function compareHistoryItems(
   }
 
   return first.sessionId.localeCompare(second.sessionId);
-}
-
-function calculateDurationSeconds(
-  session: Extract<WorkoutSession, { readonly status: 'cancelled' }>,
-): number | undefined {
-  if (!session.startedAt) {
-    return undefined;
-  }
-
-  const startedAt = Date.parse(session.startedAt);
-  const endedAt = Date.parse(session.endedAt);
-
-  if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt)) {
-    return undefined;
-  }
-
-  return Math.max(0, Math.floor((endedAt - startedAt) / 1000));
 }
 
 function toLocalDateKey(value: string): string {

@@ -28,6 +28,10 @@ import {
   type CreateWorkoutSessionInput,
   type WorkoutSessionIdKind,
 } from './workout-session-flow';
+import {
+  createWorkoutRecommendationEntry,
+  type WorkoutRecommendationEntry,
+} from './workout-recommendation-entry';
 
 export type TodayDashboardTemplateItem = {
   readonly id: WorkoutTemplateId;
@@ -80,10 +84,7 @@ export type TodayDashboardWeeklySummary = {
   readonly totalVolume: number;
 };
 
-export type TodayDashboardRecommendation = {
-  readonly title: string;
-  readonly message: string;
-};
+export type TodayDashboardRecommendation = WorkoutRecommendationEntry;
 
 export type LoadTodayDashboardResult =
   | { readonly status: 'ready'; readonly data: TodayDashboardData }
@@ -203,10 +204,10 @@ export async function loadTodayDashboard(
         dailyStatus: dailyStatus?.status,
         recentWorkout,
         weeklySummary,
-        recommendation: createTodayDashboardRecommendation(
-          dailyStatus?.status,
+        recommendation: createWorkoutRecommendationEntry({
+          dailyStatus: dailyStatus?.status,
           recentWorkout,
-        ),
+        }),
       },
     };
   } catch {
@@ -264,37 +265,6 @@ async function loadTodaySupplementalData(
   } catch {
     return { completedSessions: [], dailyStatus: null };
   }
-}
-
-export function createTodayDashboardRecommendation(
-  dailyStatus: DailyStatusValue | undefined,
-  recentWorkout: TodayDashboardRecentWorkout | undefined,
-): TodayDashboardRecommendation | undefined {
-  if (dailyStatus === 'unwell') {
-    return {
-      title: '根据今日状态调整',
-      message: '你记录了身体不适。可以休息或降低训练强度，由你决定是否训练。',
-    };
-  }
-
-  if (dailyStatus === 'fatigued' || dailyStatus === 'menstrual') {
-    return {
-      title: '保留余量',
-      message:
-        dailyStatus === 'fatigued'
-          ? '你记录了疲劳。可以减少组数或重量，不会自动修改训练计划。'
-          : '你记录了经期状态。可按体感调整，系统不会限制训练。',
-    };
-  }
-
-  if (recentWorkout) {
-    return {
-      title: '延续训练节奏',
-      message: `最近完成了“${recentWorkout.workoutName}”，今天可从已有模板中自主选择。`,
-    };
-  }
-
-  return undefined;
 }
 
 export async function createWorkoutSessionFromTemplate(

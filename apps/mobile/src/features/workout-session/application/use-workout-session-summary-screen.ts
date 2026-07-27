@@ -34,7 +34,7 @@ export type UseWorkoutSessionSummaryScreenDependencies = {
 const SUMMARY_LOAD_ERROR_MESSAGE =
   '训练总结加载失败。已保存的训练数据不会受影响，请重试。';
 const SUMMARY_NOT_FOUND_MESSAGE = '未找到这次训练。';
-const SUMMARY_NOT_COMPLETED_MESSAGE = '这次训练尚未完成，暂无总结。';
+const SUMMARY_NOT_TERMINAL_MESSAGE = '这次训练尚未结束，暂无历史详情。';
 
 export function useWorkoutSessionSummaryScreen(
   routeParams: WorkoutSessionRouteParams,
@@ -89,8 +89,8 @@ export function useWorkoutSessionSummaryScreen(
         return;
       }
 
-      if (result.status === 'not_completed') {
-        setState({ status: 'error', message: SUMMARY_NOT_COMPLETED_MESSAGE });
+      if (result.status === 'not_terminal') {
+        setState({ status: 'error', message: SUMMARY_NOT_TERMINAL_MESSAGE });
         return;
       }
 

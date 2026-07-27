@@ -36,7 +36,7 @@ export function WorkoutSessionHistoryScreen() {
     <WorkoutSessionHistoryScreenContent
       state={model.state}
       onReload={model.reload}
-      onOpenSummary={(sessionId) => {
+      onOpenDetail={(sessionId) => {
         router.push(`/workout-sessions/${sessionId}/summary`);
       }}
       onGoToday={() => {
@@ -49,12 +49,12 @@ export function WorkoutSessionHistoryScreen() {
 export function WorkoutSessionHistoryScreenContent({
   state,
   onReload,
-  onOpenSummary,
+  onOpenDetail,
   onGoToday,
 }: {
   readonly state: WorkoutSessionHistoryScreenState;
   readonly onReload: () => void;
-  readonly onOpenSummary: (sessionId: WorkoutSessionId) => void;
+  readonly onOpenDetail: (sessionId: WorkoutSessionId) => void;
   readonly onGoToday: () => void;
 }) {
   return (
@@ -79,7 +79,7 @@ export function WorkoutSessionHistoryScreenContent({
           {state.status === 'ready' && (
             <HistoryList
               sections={state.sections}
-              onOpenSummary={onOpenSummary}
+              onOpenDetail={onOpenDetail}
             />
           )}
         </ThemedView>
@@ -149,10 +149,10 @@ function ErrorState({
 
 function HistoryList({
   sections,
-  onOpenSummary,
+  onOpenDetail,
 }: {
   readonly sections: readonly WorkoutSessionHistorySection[];
-  readonly onOpenSummary: (sessionId: WorkoutSessionId) => void;
+  readonly onOpenDetail: (sessionId: WorkoutSessionId) => void;
 }) {
   const items = useMemo(
     () => sections.flatMap((section) => section.items),
@@ -219,7 +219,7 @@ function HistoryList({
             </ThemedText>
             {section.items.map((item, index) => (
               <View key={item.sessionId}>
-                <HistoryRow item={item} onOpenSummary={onOpenSummary} />
+                <HistoryRow item={item} onOpenDetail={onOpenDetail} />
                 {index < section.items.length - 1 && <ItemSeparator />}
               </View>
             ))}
@@ -454,17 +454,17 @@ function toLocalDateKey(date: Date): string {
 
 function HistoryRow({
   item,
-  onOpenSummary,
+  onOpenDetail,
 }: {
   readonly item: WorkoutSessionHistoryItem;
-  readonly onOpenSummary: (sessionId: WorkoutSessionId) => void;
+  readonly onOpenDetail: (sessionId: WorkoutSessionId) => void;
 }) {
   const theme = useTheme();
   const canOpenSummary = item.status === 'completed';
 
   return (
     <Pressable
-      onPress={() => onOpenSummary(item.sessionId)}
+      onPress={() => onOpenDetail(item.sessionId)}
       disabled={!canOpenSummary}
       accessibilityRole="button"
       accessibilityLabel={`${formatHistoryStatus(item.status)}${item.workoutName}，${formatDuration(item.durationSeconds)}，${formatVolume(item.totalVolume)} kg`}

@@ -88,7 +88,9 @@ export function WorkoutSessionSummaryScreenContent({
           <ScrollView contentContainerStyle={styles.content}>
             <View style={styles.header}>
               <ThemedText type="small" themeColor="textSecondary">
-                训练完成
+                {state.summary.status === 'completed'
+                  ? '训练完成'
+                  : '训练已取消'}
               </ThemedText>
               <ThemedText type="subtitle" numberOfLines={2}>
                 {state.summary.workoutName}
@@ -133,13 +135,13 @@ export function WorkoutSessionSummaryScreenContent({
             )}
             <SummaryButton
               label="完成"
-              accessibilityLabel="完成查看训练总结"
+              accessibilityLabel="完成查看训练历史详情"
               primary
               onPress={onDone}
             />
             <SummaryButton
               label="查看历史"
-              accessibilityLabel="从训练总结查看历史训练"
+              accessibilityLabel="从训练历史详情查看历史训练"
               onPress={onOpenHistory}
             />
           </ScrollView>

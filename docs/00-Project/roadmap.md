@@ -88,7 +88,7 @@ Exit Review：PASS
 
 完成时间：2026-07-16
 
-Tag：待创建
+Tag：final-release
 
 Release：待创建
 
@@ -397,21 +397,283 @@ Sprint 7 完成后 Human Review 确认仍有非阻塞 warning：
 
 ---
 
-# Sprint 8（📋 计划）
+# Sprint 8（✅ 已完成）
 
-## AI Coach
+## Product Experience Completion
+
+完成时间：2026-07-27
+
+Exit Review：PASS WITH WARNINGS
+
+Tag：待创建
+
+Release：待创建
 
 目标：
 
-提供智能训练辅助。
+把当前已完成的训练主干补成可稳定使用的产品体验，优先收口
+Today、模板详情/编辑分流、动作库、历史、总结、Settings 和 Onboarding。
+
+用户价值：
+
+- 更接近真实可用的训练 App
+- 减少“功能存在但体验不完整”的摩擦
+- 为后续 Voice / AI 打好一致的产品界面基础
+
+涉及范围：
+
+- P001 Today 的计划与入口体验
+- P002 训练模板详情与编辑分流
+- P005 Rest Timer 的视觉与交互收口
+- P006 Workout Summary 的总结信息补齐
+- P007 Exercise Library 的 Figma 对齐
+- P008 History 的日历与日期钻取
+- P009 Settings 的基础设置体验
+- P010 Onboarding 的首次引导基础流程
+
+完成：
+
+- [x] S8-00 Sprint Readiness and Prototype Sync
+- [x] S8-01 Today Plan Experience
+- [x] S8-02 Template Detail and Edit Flow
+- [x] S8-03 Exercise Library Figma Alignment
+- [x] S8-04 History Calendar and Drilldown
+- [x] S8-05 Workout / Rest / Summary Alignment
+- [x] S8-06 Settings and Onboarding Baseline
+- [x] S8-07 Sprint Exit Review
+
+Warnings：
+
+- `use-workout-session-screen.ts` 仍保留 5 条既有 hook dependency warning。
+- GitHub-hosted CI 未在本地 Exit Review 中验证。
+- Settings 仍是基础能力，不包含完整数据导出、清除和许可页。
+- Onboarding 已有基础流程，但权限说明、示例预览确认和首次训练分流仍需后续增强。
+
+Sprint 8 非目标：
+
+- 不实现完整 AI Coach
+- 不实现真实 Voice Engine
+- 不实现 Camera / Pose Detection
+- 不新增云账号或订阅
+
+## Sprint 9（✅ 已完成）
+
+## Voice / TTS / Input Source Hardening
+
+完成时间：2026-07-27
+
+Exit Review：PASS WITH WARNINGS
+
+Tag：待创建
+
+Release：待创建
+
+目标：
+
+把陪练从模拟输入推进到真实输入源能力，但仍保持 Event Source Architecture。
+
+完成：
+
+- [x] S9-00 Sprint Readiness and Voice Scope Sync
+- [x] S9-01 Voice Coach Contract and TTS Adapter
+- [x] S9-02 Input Source Selection and Fallback
+- [x] S9-03 Voice Feedback Runtime Binding
+- [x] S9-04 Audio Permission and Lifecycle Guards
+- [x] S9-05 Sprint Exit Review
+
+Warnings：
+
+- `use-workout-session-screen.ts` 仍保留 5 条既有 hook dependency warning。
+- GitHub-hosted CI 未在本地 Exit Review 中验证。
+- 真实 Voice Engine 未实现。
+- 原生设备语音和长流程 smoke test 未执行。
+
+Sprint 9 非目标：
+
+- 不实现 Camera / Pose Detection
+- 不实现真实动作识别模型
+- 不实现完整 AI Coach
+- 不新增云同步或账号系统
+
+## Sprint 10（✅ 已完成）
+
+## History and Analytics Enhancement
+
+完成时间：2026-07-27
+
+Exit Review：PASS WITH WARNINGS
+
+Tag：待创建
+
+Release：待创建
+
+目标：
+
+把历史从记录页升级成训练回顾页。
+
+完成：
+
+- [x] S10-00 Sprint Readiness and History Scope Sync
+- [x] S10-01 History Metrics Contract
+- [x] S10-02 History Session Detail
+- [x] S10-03 Personal Record and Trend Baseline
+- [x] S10-04 Summary and History Metric Alignment
+- [x] S10-05 History Calendar UX Hardening
+- [x] S10-06 Sprint Exit Review
+
+非目标：
+
+- 不实现完整 AI Coach
+- 不实现 Recommendation 自动改计划
+- 不修改 Workout Runtime 主状态机
+- 不修改 WorkoutSet 历史事实
+
+风险：
+
+- 查询口径不一致
+- 性能和统计一致性
+
+Warnings：
+
+- `use-workout-session-screen.ts` 仍保留 5 条既有 hook dependency warning。
+- GitHub-hosted CI 未在本地 Exit Review 中验证。
+- 历史纠错仍未实现。
+- 原生设备长流程 smoke test 未执行。
+
+## Sprint 11（✅ 已完成）
+
+## AI Coach / Recommendation Foundation
+
+完成时间：2026-07-27
+
+Exit Review：PASS WITH WARNINGS
+
+Tag：待创建
+
+Release：待创建
+
+目标：
+
+先落 Recommendation 和 Coach Decision Layer，不急着上完整 AI。
+
+完成：
+
+- [x] S11-00 Sprint Readiness and AI Scope Sync
+- [x] S11-01 Recommendation Contract
+- [x] S11-02 Coach Decision Layer
+- [x] S11-03 Recommendation Preview and Explanation
+- [x] S11-04 Training Recommendation Entry
+- [x] S11-05 Sprint Exit Review
+
+风险：
+
+- 过早自动化会和产品原则冲突
+- “建议”与“事实”边界必须非常清楚
+
+Warnings：
+
+- GitHub-hosted CI 未在本地 Exit Review 中验证。
+- P013 AI Coach 仍然只是 foundation，不包含完整 AI 推理或自动化改计划。
+
+## Sprint 12（✅ 已完成）
+
+## Product Alignment and Release Hardening
+
+完成时间：2026-07-27
+
+Exit Review：PASS WITH WARNINGS
+
+Tag：待创建
+
+Release：待创建
+
+目标：
+
+把现有原型差距和关键交互偏差收口到更接近可交付的状态。
+
+完成：
+
+- [x] S12-00 Sprint Readiness and Gap Sync
+- [x] S12-01 Today Plan and Entry Alignment
+- [x] S12-02 Template Detail and Edit Flow Alignment
+- [x] S12-03 Exercise Library Layout Alignment
+- [x] S12-04 History Calendar and Drilldown Alignment
+- [x] S12-05 Workout / Rest / Summary UI Alignment
+- [x] S12-06 Settings and Onboarding Polish
+- [x] S12-07 Sprint Exit Review
+
+风险：
+
+- 多页面并行对齐容易引入回归
+- 体验修正容易被误扩成新需求
+- 文档和实现收口要保持同步
+
+Warnings：
+
+- Sprint 12 本地质量门通过，但存在既有技术债与后续 Release 验证需求。
+- 最终 Release 仍需真机回归与交付收口。
+
+## Sprint 13（✅ 已完成）
+
+## Release Hardening
+
+目标：
+
+把当前产品推进到 Final Release 所需的验证、技术债收口和交付材料准备。
+
+完成时间：2026-07-27
+
+Exit Review：PASS WITH WARNINGS
+
+Tag：待创建
+
+Release：待创建
+
+完成：
+
+- [x] S13-00 Release Readiness and Debt Sync
+- [x] S13-01 Hook Warning Triage
+- [x] S13-02 Recommendation Warning Cleanup
+- [x] S13-03 Release Verification and CI Review
+- [x] S13-04 Tag / Release / Changelog Preparation
+- [x] S13-05 Final Release Review
+
+风险：
+
+- 真机验证与桌面验证可能不一致
+- 发布收口容易被误扩成新功能
+- 技术债修复可能影响既有测试稳定性
+
+Warnings：
+
+- 最终 Release 仍依赖真机回归与发布证据链。
+- GitHub-hosted CI 仍需后续实证确认。
+
+## Final Release（📦）
+
+## Release Readiness
+
+目标：
+
+把产品从“功能完成”推进到“可交付”。
 
 内容：
 
-- 训练建议
-- 历史分析
-- 动作建议
-- Recommendation
-- Coach Service
+- 真机回归
+- CI 复核
+- 性能与崩溃边界检查
+- 文档最终对齐
+- Tag / Release / Changelog
+
+风险：
+
+- 不是功能风险，而是交付风险
+
+当前状态：
+
+- 发布材料已准备。
+- 本地/远端 tag：`final-release`
+- 正式对外发布动作待执行。
 
 ---
 

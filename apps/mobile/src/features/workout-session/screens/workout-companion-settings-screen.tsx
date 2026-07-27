@@ -114,6 +114,14 @@ export function WorkoutCompanionSettingsScreen() {
             不在当前版本范围内。
           </ThemedText>
         </View>
+
+        <View style={styles.section}>
+          <ThemedText type="subtitle">音频权限</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            当前版本只显示权限边界，不请求系统音频权限。后续会在真实 Voice/TTS
+            接入时补齐平台级请求与降级策略。
+          </ThemedText>
+        </View>
       </SafeAreaView>
     </ThemedView>
   );
