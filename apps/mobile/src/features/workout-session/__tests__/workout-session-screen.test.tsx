@@ -31,6 +31,7 @@ import {
   pauseWorkoutCompanionRuntime,
   type WorkoutRuntimeSnapshot,
 } from '@/features/workout-session/application/workout-runtime-engine';
+import { createMockAutoRepCounterSource } from '@/features/workout-session/application/workout-companion-event-source';
 import type { WorkoutRuntimeSnapshotRepository } from '@/features/workout-session/application/workout-runtime-snapshot-repository';
 import type { WorkoutCompanionEventSource } from '@/features/workout-session/application/workout-companion-event-source';
 import {
@@ -263,6 +264,26 @@ describe('WorkoutSessionScreenContent', () => {
     await fireEvent.press(getByLabelText('切换语音教练'));
 
     expect(toggleVoiceFeedback).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a mock auto rep trigger when the event source is mock bound', async () => {
+    const source = createMockAutoRepCounterSource({
+      sessionId: SESSION_ID,
+      sessionExerciseId: EXERCISE_ID,
+      now: () => Date.parse('2026-07-22T01:00:00.000Z'),
+    });
+    const { getByLabelText } = await render(
+      <WorkoutSessionScreenContent
+        state={{
+          ...buildReadyState(buildSession(), undefined, 'running'),
+          isMockCompanionEventSource: true,
+        }}
+        controls={buildControls({ emitMockCompanionRep: source.emitNextRep })}
+        onBack={jest.fn()}
+      />,
+    );
+
+    expect(getByLabelText('模拟下一次次数')).toBeTruthy();
   });
 
   it('connects previous and next exercise controls through selectExercise', async () => {
@@ -1275,6 +1296,69 @@ describe('useWorkoutSessionScreen', () => {
     expect(voiceAdapter.speak).toHaveBeenCalledWith('第 1 次');
   });
 
+  it('binds a mock auto rep source through the screen controls', async () => {
+    const source = createMockAutoRepCounterSource({
+      sessionId: SESSION_ID,
+      sessionExerciseId: EXERCISE_ID,
+      now: () => Date.parse('2026-07-22T01:00:00.000Z'),
+    });
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(createStatefulRepository(buildSession()), {
+          workoutCompanionEventSource: source,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await waitFor(() =>
+      expect(
+        getReadyState(result.current.state).isMockCompanionEventSource,
+      ).toBe(true),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => result.current.controls.emitMockCompanionRep());
+
+    await waitFor(() =>
+      expect(
+        getReadyState(result.current.state).companionRuntime?.progress
+          .completedReps,
+      ).toBe(1),
+    );
+  });
+
+  it('binds a mock auto rep source from the companion settings mode', async () => {
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({ targetRepsMin: 1, targetRepsMax: 1 }),
+        ],
+      }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          workoutCompanionEventSourceMode: 'mock_auto_rep',
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await waitFor(() =>
+      expect(
+        getReadyState(result.current.state).isMockCompanionEventSource,
+      ).toBe(true),
+    );
+    expect(result.current.controls.emitMockCompanionRep).toEqual(
+      expect.any(Function),
+    );
+  });
+
   it('silently refreshes durable session state when the page regains focus', async () => {
     const initialSession = buildSession();
     const refreshedSession = buildSession({
@@ -1562,6 +1646,7 @@ function buildReadyState(
     isConfirmingSkip: false,
     endFlow: 'closed',
     isVoiceFeedbackEnabled: true,
+    isMockCompanionEventSource: false,
   };
 }
 
@@ -1591,6 +1676,7 @@ function buildControls(
     confirmCompleteSession: jest.fn(async () => undefined),
     clearNavigationIntent: jest.fn(),
     toggleVoiceFeedback: jest.fn(),
+    emitMockCompanionRep: jest.fn(),
     ...overrides,
   };
 }
@@ -1764,6 +1850,7 @@ function buildDependencies(
     readonly voiceAdapter?: WorkoutVoiceFeedbackAdapter;
     readonly voiceFeedbackEnabled?: boolean;
     readonly workoutCompanionEventSource?: WorkoutCompanionEventSource;
+    readonly workoutCompanionEventSourceMode?: 'off' | 'mock_auto_rep';
   } = {},
 ) {
   return {
@@ -1783,6 +1870,7 @@ function buildDependencies(
     voiceAdapter: overrides.voiceAdapter,
     voiceFeedbackEnabled: overrides.voiceFeedbackEnabled,
     workoutCompanionEventSource: overrides.workoutCompanionEventSource,
+    workoutCompanionEventSourceMode: overrides.workoutCompanionEventSourceMode,
   };
 }
 

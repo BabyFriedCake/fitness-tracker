@@ -27,6 +27,7 @@ import {
   type WorkoutSessionScreenControls,
   type WorkoutSessionScreenState,
 } from '@/features/workout-session/application/use-workout-session-screen';
+import { useWorkoutCompanionSettings } from '@/features/workout-session/application/workout-companion-settings';
 import type { WorkoutSessionScreenData } from '@/features/workout-session/application/load-workout-session-screen';
 import type {
   WorkoutCompanionRuntimePhase,
@@ -40,7 +41,12 @@ export function WorkoutSessionScreen({
   readonly routeParams: WorkoutSessionRouteParams;
 }) {
   const router = useRouter();
-  const model = useWorkoutSessionScreen(routeParams);
+  const { voiceFeedbackEnabled, inputSourceMode } =
+    useWorkoutCompanionSettings();
+  const model = useWorkoutSessionScreen(routeParams, {
+    voiceFeedbackEnabled,
+    workoutCompanionEventSourceMode: inputSourceMode,
+  });
   const navigationIntent =
     model.state.status === 'ready' ? model.state.navigationIntent : undefined;
   const sessionId =
@@ -216,7 +222,9 @@ function ReadyState({
               completedReps={state.companionRuntime?.progress.completedReps}
               coachFeedback={state.coachFeedback}
               isVoiceFeedbackEnabled={state.isVoiceFeedbackEnabled}
+              isMockCompanionEventSource={state.isMockCompanionEventSource}
               onToggleVoiceFeedback={controls.toggleVoiceFeedback}
+              onEmitMockCompanionRep={controls.emitMockCompanionRep}
             />
             <SetEditor
               state={state}
@@ -746,13 +754,17 @@ function CurrentExerciseSection({
   completedReps,
   coachFeedback,
   isVoiceFeedbackEnabled,
+  isMockCompanionEventSource,
   onToggleVoiceFeedback,
+  onEmitMockCompanionRep,
 }: {
   readonly runtime: WorkoutRuntimeSnapshot;
   readonly completedReps?: number;
   readonly coachFeedback?: string;
   readonly isVoiceFeedbackEnabled: boolean;
+  readonly isMockCompanionEventSource: boolean;
   readonly onToggleVoiceFeedback: () => void;
+  readonly onEmitMockCompanionRep: () => void;
 }) {
   const exercise = runtime.currentExercise;
 
@@ -830,6 +842,21 @@ function CurrentExerciseSection({
               </ThemedText>
             </Pressable>
           </View>
+          {isMockCompanionEventSource && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="模拟下一次次数"
+              onPress={onEmitMockCompanionRep}
+              style={({ pressed }) => [
+                styles.mockRepButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <ThemedText type="smallBold" style={styles.workoutMutedText}>
+                模拟下一次次数
+              </ThemedText>
+            </Pressable>
+          )}
           <ThemedText style={styles.coachCopy} accessibilityLiveRegion="polite">
             {coachFeedback ?? formatCurrentSetState(exercise)}
           </ThemedText>
@@ -1511,6 +1538,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(202, 255, 0, 0.18)',
   },
   voiceToggleEnabledText: { color: '#CAFF00' },
+  mockRepButton: {
+    minHeight: 36,
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(202, 255, 0, 0.28)',
+    borderRadius: 999,
+    paddingHorizontal: Spacing.two,
+  },
   section: {
     gap: Spacing.three,
     borderRadius: 22,

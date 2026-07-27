@@ -29,6 +29,15 @@ export type MockAutoRepCounterSource = WorkoutCompanionEventSource & {
   readonly emitNextRep: () => WorkoutCompanionRepCompletedEvent | null;
 };
 
+export type WorkoutCompanionEventSourceMode = 'off' | 'mock_auto_rep';
+
+export type WorkoutCompanionEventSourceSelectionInput = {
+  readonly sessionId: WorkoutSessionId;
+  readonly sessionExerciseId: SessionExerciseId;
+  readonly initialRepNumber?: number;
+  readonly now?: () => number;
+};
+
 export type WorkoutCompanionEventValidationResult =
   | {
       readonly status: 'valid';
@@ -51,6 +60,22 @@ export const NOOP_WORKOUT_COMPANION_EVENT_SOURCE: WorkoutCompanionEventSource =
     subscribe: () => undefined,
     unsubscribe: () => undefined,
   };
+
+export function selectWorkoutCompanionEventSource(
+  mode: WorkoutCompanionEventSourceMode,
+  input?: WorkoutCompanionEventSourceSelectionInput,
+): WorkoutCompanionEventSource {
+  switch (mode) {
+    case 'off':
+      return NOOP_WORKOUT_COMPANION_EVENT_SOURCE;
+    case 'mock_auto_rep':
+      if (!input) {
+        return NOOP_WORKOUT_COMPANION_EVENT_SOURCE;
+      }
+
+      return createMockAutoRepCounterSource(input);
+  }
+}
 
 export function createMockAutoRepCounterSource({
   sessionId,
@@ -85,6 +110,12 @@ export function createMockAutoRepCounterSource({
       return event;
     },
   };
+}
+
+export function isMockAutoRepCounterSource(
+  source: WorkoutCompanionEventSource,
+): source is MockAutoRepCounterSource {
+  return typeof (source as MockAutoRepCounterSource).emitNextRep === 'function';
 }
 
 export function validateWorkoutCompanionRepCompletedEvent(
