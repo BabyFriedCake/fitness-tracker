@@ -89,6 +89,6 @@ Sprint 描述工程实现阶段。
 Sprint 13 已完成 Final Release 硬化：
 
 - 既有 warning 已收口
-- 发布材料已准备
-- `final-release` 作为建议 tag 已确认
-- Final Release 仍保留 GitHub-hosted CI 与实际发布动作的后续确认要求
+- 发布材料已发布
+- `final-release` tag 已对齐到当前提交并完成 GitHub Release
+- 后续转入发布后稳定性观察与原型对齐

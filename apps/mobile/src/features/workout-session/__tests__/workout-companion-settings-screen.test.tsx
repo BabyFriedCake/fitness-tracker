@@ -13,10 +13,10 @@ describe('WorkoutCompanionSettingsScreen', () => {
       </WorkoutCompanionSettingsProvider>,
     );
 
-    expect(getByText('当前输入源：关闭')).toBeTruthy();
-
-    await fireEvent.press(getByLabelText('选择Mock 自动计数输入源'));
     expect(getByText('当前输入源：Mock 自动计数')).toBeTruthy();
+
+    await fireEvent.press(getByLabelText('选择关闭输入源'));
+    expect(getByText('当前输入源：关闭')).toBeTruthy();
     expect(getByText('音频权限')).toBeTruthy();
     expect(
       getByText(

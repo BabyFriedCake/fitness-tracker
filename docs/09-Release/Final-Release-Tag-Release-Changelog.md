@@ -43,16 +43,17 @@
 ### 发布风险
 
 - 真机与桌面验证结果可能不完全一致
-- 仍需确认 GitHub-hosted CI 的最终运行结果
+- GitHub-hosted CI 已随最新 main 通过
 - 发布材料需要与 Roadmap、Prototype 状态一致
 
 ### 当前状态
 
-- 本地 tag `final-release` 已创建。
-- GitHub 发布仍待执行。
+- 本地/远端 tag `final-release` 已创建并指向 `3c6e071`。
+- GitHub Release 已发布。
+- Release URL: https://github.com/BabyFriedCake/fitness-tracker/releases/tag/final-release
 
 ## 发布说明
 
-1. `final-release` tag 已创建。
-2. 继续执行 GitHub release，使用本文件作为说明基础。
-3. release 说明中保留 warnings，不伪装成无风险发布。
+1. `final-release` tag 已创建并推送到远端。
+2. GitHub Release 标题：Final Release。
+3. release 说明基于本文件，保留已知限制与发布风险。

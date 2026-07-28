@@ -37,6 +37,8 @@ import {
 } from '@/features/exercise-library/application/use-exercise-library';
 import { useTheme } from '@/hooks/use-theme';
 
+const EXERCISE_PLACEHOLDER_IMAGE = require('../../../../assets/images/exercise-placeholder.png');
+
 export function ExerciseLibraryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -592,17 +594,16 @@ function ExerciseCard({
         ]}
       >
         <View style={styles.exerciseImageFrame}>
-          {exercise.imageUri ? (
-            <Image
-              source={{ uri: exercise.imageUri }}
-              accessibilityIgnoresInvertColors
-              style={styles.exerciseImage}
-            />
-          ) : (
-            <ThemedText type="title" style={styles.exerciseImageInitial}>
-              {exercise.nameZh.slice(0, 1)}
-            </ThemedText>
-          )}
+          <Image
+            source={
+              exercise.imageUri
+                ? { uri: exercise.imageUri }
+                : EXERCISE_PLACEHOLDER_IMAGE
+            }
+            accessibilityIgnoresInvertColors
+            accessibilityLabel={`${exercise.nameZh}动作图片`}
+            style={styles.exerciseImage}
+          />
           <ThemedText type="smallBold" style={styles.imageBadge}>
             讲解
           </ThemedText>

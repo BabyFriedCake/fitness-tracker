@@ -48,6 +48,7 @@ function AppNavigator() {
         <Stack.Screen name="templates/new" />
         <Stack.Screen name="templates/[id]" />
         <Stack.Screen name="templates/[id]/edit" />
+        <Stack.Screen name="today-plans/[id]/edit" />
         <Stack.Screen name="workout-sessions/[id]" />
         <Stack.Screen name="workout-sessions/[id]/summary" />
       </Stack>

@@ -671,9 +671,26 @@ Warnings：
 
 当前状态：
 
-- 发布材料已准备。
+- 发布材料已完成。
 - 本地/远端 tag：`final-release`
-- 正式对外发布动作待执行。
+- GitHub Release：Final Release
+- Release URL：`https://github.com/BabyFriedCake/fitness-tracker/releases/tag/final-release`
+
+## Post Release Roadmap（进行中）
+
+目标：
+
+- 保持 Final Release 稳定性
+- 收敛后续原型与体验差距
+- 在不破坏现有架构边界的前提下推进 Sprint 14+
+
+优先级：
+
+1. 真机回归与发布后稳定性观察
+2. 继续对齐 Figma 与现有页面交互细节
+3. 补齐 Prototype 剩余缺口
+4. 规划 AI Coach、Recommendation、数据分析等后续能力
+5. 保持文档、原型和实现状态持续一致
 
 ---
 

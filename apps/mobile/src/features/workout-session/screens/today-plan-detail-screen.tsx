@@ -5,14 +5,12 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import type { SessionExerciseId } from '@/domain/workout-session';
 import {
   useTodayPlanDetail,
   type TodayPlanDetailData,
@@ -40,6 +38,12 @@ export function TodayPlanDetailScreen({
           params: { id: sessionId },
         });
       }}
+      onOpenEdit={(planId) => {
+        router.push({
+          pathname: '/today-plans/[id]/edit',
+          params: { id: planId },
+        } as unknown as Href);
+      }}
     />
   );
 }
@@ -49,14 +53,14 @@ export function TodayPlanDetailContent({
   controls,
   onBack,
   onOpenWorkoutSession,
+  onOpenEdit,
 }: {
   readonly state: TodayPlanDetailState;
   readonly controls: ReturnType<typeof useTodayPlanDetail>['controls'];
   readonly onBack: () => void;
   readonly onOpenWorkoutSession: (sessionId: string) => void;
+  readonly onOpenEdit: (planId: string) => void;
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -81,7 +85,7 @@ export function TodayPlanDetailContent({
                   const didPrepare = await controls.prepareEdit();
 
                   if (didPrepare) {
-                    setIsEditing(true);
+                    onOpenEdit(state.data.plan.id);
                   }
                 }}
                 disabled={state.isStarting}
@@ -111,10 +115,8 @@ export function TodayPlanDetailContent({
         {state.status === 'ready' && (
           <PlanDetail
             data={state.data}
-            isEditing={isEditing}
             isStarting={state.isStarting}
             actionError={state.actionError}
-            onUpdateExerciseConfig={controls.updateExerciseConfig}
             onStart={async () => {
               const sessionId = await controls.startPlan();
 
@@ -131,19 +133,13 @@ export function TodayPlanDetailContent({
 
 function PlanDetail({
   data,
-  isEditing,
   isStarting,
   actionError,
-  onUpdateExerciseConfig,
   onStart,
 }: {
   readonly data: TodayPlanDetailData;
-  readonly isEditing: boolean;
   readonly isStarting: boolean;
   readonly actionError?: string;
-  readonly onUpdateExerciseConfig: ReturnType<
-    typeof useTodayPlanDetail
-  >['controls']['updateExerciseConfig'];
   readonly onStart: () => Promise<void>;
 }) {
   const displayExercises = getDisplayExercises(data);
@@ -189,74 +185,6 @@ function PlanDetail({
                   : `-${exercise.targetRepsMax}`}{' '}
                 次 · {exercise.restSeconds} 秒
               </ThemedText>
-              {isEditing && (
-                <View style={styles.configActions}>
-                  <ConfigButton
-                    label="-组"
-                    accessibilityLabel={`减少${exercise.name}组数`}
-                    disabled={isStarting || exercise.targetSets <= 1}
-                    onPress={() =>
-                      void onUpdateExerciseConfig(
-                        exercise.id as SessionExerciseId,
-                        {
-                          targetSets: exercise.targetSets - 1,
-                          targetRepsMin: exercise.targetRepsMin,
-                          targetRepsMax: exercise.targetRepsMax,
-                          restSeconds: exercise.restSeconds,
-                        },
-                      )
-                    }
-                  />
-                  <ConfigButton
-                    label="+组"
-                    accessibilityLabel={`增加${exercise.name}组数`}
-                    disabled={isStarting}
-                    onPress={() =>
-                      void onUpdateExerciseConfig(
-                        exercise.id as SessionExerciseId,
-                        {
-                          targetSets: exercise.targetSets + 1,
-                          targetRepsMin: exercise.targetRepsMin,
-                          targetRepsMax: exercise.targetRepsMax,
-                          restSeconds: exercise.restSeconds,
-                        },
-                      )
-                    }
-                  />
-                  <ConfigButton
-                    label="+次"
-                    accessibilityLabel={`增加${exercise.name}次数`}
-                    disabled={isStarting}
-                    onPress={() =>
-                      void onUpdateExerciseConfig(
-                        exercise.id as SessionExerciseId,
-                        {
-                          targetSets: exercise.targetSets,
-                          targetRepsMin: exercise.targetRepsMin + 1,
-                          targetRepsMax: exercise.targetRepsMax + 1,
-                          restSeconds: exercise.restSeconds,
-                        },
-                      )
-                    }
-                  />
-                  <ConfigButton
-                    label="+15秒"
-                    accessibilityLabel={`增加${exercise.name}休息时间`}
-                    disabled={isStarting}
-                    onPress={() =>
-                      void onUpdateExerciseConfig(
-                        exercise.id as SessionExerciseId,
-                        {
-                          targetSets: exercise.targetSets,
-                          targetRepsMin: exercise.targetRepsMin,
-                          targetRepsMax: exercise.targetRepsMax,
-                          restSeconds: exercise.restSeconds + 15,
-                        },
-                      )
-                    }
-                  />
-                </View>
-              )}
             </View>
           </View>
         ))}
@@ -283,35 +211,6 @@ function PlanDetail({
         </ThemedText>
       </Pressable>
     </ScrollView>
-  );
-}
-
-function ConfigButton({
-  label,
-  accessibilityLabel,
-  disabled,
-  onPress,
-}: {
-  readonly label: string;
-  readonly accessibilityLabel: string;
-  readonly disabled: boolean;
-  readonly onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled }}
-      style={({ pressed }) => [
-        styles.configButton,
-        pressed && !disabled && styles.pressed,
-        disabled && styles.disabled,
-      ]}
-    >
-      <ThemedText type="smallBold">{label}</ThemedText>
-    </Pressable>
   );
 }
 
@@ -433,19 +332,6 @@ const styles = StyleSheet.create({
   },
   exerciseCopy: { flex: 1, gap: Spacing.one },
   exerciseName: { fontSize: 22, lineHeight: 30 },
-  configActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.one,
-    paddingTop: Spacing.two,
-  },
-  configButton: {
-    minHeight: 36,
-    justifyContent: 'center',
-    borderRadius: 18,
-    backgroundColor: '#E8E5DC',
-    paddingHorizontal: Spacing.two,
-  },
   startButton: {
     minHeight: 72,
     alignItems: 'center',

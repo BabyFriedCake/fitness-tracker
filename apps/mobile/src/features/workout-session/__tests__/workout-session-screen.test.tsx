@@ -172,8 +172,7 @@ describe('WorkoutSessionScreenContent', () => {
     expect(getByLabelText('下一动作')).toBeTruthy();
   });
 
-  it('connects exercise controls without exposing manual completion', async () => {
-    const requestSkipExercise = jest.fn();
+  it('uses next exercise instead of exposing duplicate skip or resume actions', async () => {
     const selectExercise = jest.fn(async () => undefined);
     const session = buildSession({
       sessionExercises: [
@@ -189,21 +188,18 @@ describe('WorkoutSessionScreenContent', () => {
     const { getByLabelText, queryByLabelText } = await render(
       <WorkoutSessionScreenContent
         state={buildReadyState(session)}
-        controls={buildControls({
-          requestSkipExercise,
-          selectExercise,
-        })}
+        controls={buildControls({ selectExercise })}
         onBack={jest.fn()}
       />,
     );
 
-    await fireEvent.press(getByLabelText('跳过动作杠铃卧推'));
     await fireEvent.press(getByLabelText('切换到动作哑铃肩推'));
 
     expect(queryByLabelText('完成当前组')).toBeNull();
     expect(queryByLabelText('次数输入')).toBeNull();
     expect(queryByLabelText('完成动作杠铃卧推')).toBeNull();
-    expect(requestSkipExercise).toHaveBeenCalledTimes(1);
+    expect(queryByLabelText('跳过动作杠铃卧推')).toBeNull();
+    expect(queryByLabelText('恢复动作杠铃卧推')).toBeNull();
     expect(selectExercise).toHaveBeenCalledWith(SECOND_EXERCISE_ID);
   });
 
@@ -266,13 +262,13 @@ describe('WorkoutSessionScreenContent', () => {
     expect(toggleVoiceFeedback).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a mock auto rep trigger when the event source is mock bound', async () => {
+  it('does not expose the mock auto rep source as a manual trigger', async () => {
     const source = createMockAutoRepCounterSource({
       sessionId: SESSION_ID,
       sessionExerciseId: EXERCISE_ID,
       now: () => Date.parse('2026-07-22T01:00:00.000Z'),
     });
-    const { getByLabelText } = await render(
+    const { queryByLabelText } = await render(
       <WorkoutSessionScreenContent
         state={{
           ...buildReadyState(buildSession(), undefined, 'running'),
@@ -283,7 +279,7 @@ describe('WorkoutSessionScreenContent', () => {
       />,
     );
 
-    expect(getByLabelText('模拟下一次次数')).toBeTruthy();
+    expect(queryByLabelText('模拟下一次次数')).toBeNull();
   });
 
   it('connects previous and next exercise controls through selectExercise', async () => {
@@ -1120,7 +1116,7 @@ describe('useWorkoutSessionScreen', () => {
     },
   );
 
-  it('starts a draft workout through the application boundary', async () => {
+  it('automatically starts a draft workout through the application boundary', async () => {
     const repository = createStatefulRepository(buildSessionForStatus('draft'));
     const { result } = await renderHook(() =>
       useWorkoutSessionScreen(
@@ -1130,11 +1126,11 @@ describe('useWorkoutSessionScreen', () => {
     );
 
     await waitFor(() => expect(result.current.state.status).toBe('ready'));
-    expect(getReadyState(result.current.state).runtime.status).toBe('idle');
-
-    await act(async () => {
-      await result.current.controls.startWorkout();
-    });
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).runtime.status).toBe(
+        'running',
+      ),
+    );
 
     const ready = getReadyState(result.current.state);
     expect(ready.runtime.status).toBe('running');
@@ -1331,11 +1327,11 @@ describe('useWorkoutSessionScreen', () => {
     );
   });
 
-  it('binds a mock auto rep source from the companion settings mode', async () => {
+  it('automatically emits mock reps from the companion settings mode', async () => {
     const repository = createStatefulRepository(
       buildSession({
         sessionExercises: [
-          buildExercise({ targetRepsMin: 1, targetRepsMax: 1 }),
+          buildExercise({ targetRepsMin: 2, targetRepsMax: 2 }),
         ],
       }),
     );
@@ -1356,6 +1352,17 @@ describe('useWorkoutSessionScreen', () => {
     );
     expect(result.current.controls.emitMockCompanionRep).toEqual(
       expect.any(Function),
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+    });
+
+    await waitFor(() =>
+      expect(
+        getReadyState(result.current.state).companionRuntime?.progress
+          .completedReps,
+      ).toBe(1),
     );
   });
 

@@ -222,9 +222,7 @@ function ReadyState({
               completedReps={state.companionRuntime?.progress.completedReps}
               coachFeedback={state.coachFeedback}
               isVoiceFeedbackEnabled={state.isVoiceFeedbackEnabled}
-              isMockCompanionEventSource={state.isMockCompanionEventSource}
               onToggleVoiceFeedback={controls.toggleVoiceFeedback}
-              onEmitMockCompanionRep={controls.emitMockCompanionRep}
             />
             <SetEditor
               state={state}
@@ -256,13 +254,6 @@ function ReadyState({
                 !state.isMutating &&
                 !state.isConfirmingSkip
               }
-            />
-            <ExerciseActions
-              exercise={currentExercise}
-              isActive={isActive}
-              isRuntimeRunning={isRuntimeRunning}
-              isMutating={state.isMutating || state.isConfirmingSkip}
-              controls={controls}
             />
           </>
         ) : (
@@ -754,17 +745,13 @@ function CurrentExerciseSection({
   completedReps,
   coachFeedback,
   isVoiceFeedbackEnabled,
-  isMockCompanionEventSource,
   onToggleVoiceFeedback,
-  onEmitMockCompanionRep,
 }: {
   readonly runtime: WorkoutRuntimeSnapshot;
   readonly completedReps?: number;
   readonly coachFeedback?: string;
   readonly isVoiceFeedbackEnabled: boolean;
-  readonly isMockCompanionEventSource: boolean;
   readonly onToggleVoiceFeedback: () => void;
-  readonly onEmitMockCompanionRep: () => void;
 }) {
   const exercise = runtime.currentExercise;
 
@@ -842,21 +829,6 @@ function CurrentExerciseSection({
               </ThemedText>
             </Pressable>
           </View>
-          {isMockCompanionEventSource && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="模拟下一次次数"
-              onPress={onEmitMockCompanionRep}
-              style={({ pressed }) => [
-                styles.mockRepButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <ThemedText type="smallBold" style={styles.workoutMutedText}>
-                模拟下一次次数
-              </ThemedText>
-            </Pressable>
-          )}
           <ThemedText style={styles.coachCopy} accessibilityLiveRegion="polite">
             {coachFeedback ?? formatCurrentSetState(exercise)}
           </ThemedText>
@@ -1024,44 +996,6 @@ function StepperButton({
         {symbol}
       </ThemedText>
     </Pressable>
-  );
-}
-
-function ExerciseActions({
-  exercise,
-  isActive,
-  isRuntimeRunning,
-  isMutating,
-  controls,
-}: {
-  readonly exercise: SessionExercise;
-  readonly isActive: boolean;
-  readonly isRuntimeRunning: boolean;
-  readonly isMutating: boolean;
-  readonly controls: WorkoutSessionScreenControls;
-}) {
-  const canMutateExercise = isActive && isRuntimeRunning && !isMutating;
-
-  return (
-    <View style={styles.actionRow}>
-      {exercise.isSkipped ? (
-        <SecondaryButton
-          label="恢复动作"
-          accessibilityLabel={`恢复动作${exercise.exerciseNameSnapshot}`}
-          disabled={!canMutateExercise || exercise.isCompleted}
-          onPress={() => {
-            void controls.resumeExercise();
-          }}
-        />
-      ) : (
-        <SecondaryButton
-          label="跳过动作"
-          accessibilityLabel={`跳过动作${exercise.exerciseNameSnapshot}`}
-          disabled={!canMutateExercise || exercise.isCompleted}
-          onPress={controls.requestSkipExercise}
-        />
-      )}
-    </View>
   );
 }
 

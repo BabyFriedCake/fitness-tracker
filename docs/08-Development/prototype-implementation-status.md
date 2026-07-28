@@ -208,15 +208,15 @@ Sprint 12 已聚焦并收口：
 
 目标不是增加新产品方向，而是把现有原型差距收口到更稳定的可交付状态。
 
-## Sprint 13 发布前说明
+## Sprint 13 / Final Release 完成后说明
 
-Sprint 13 只聚焦 Final Release 硬化：
+Sprint 13 已完成 Final Release 硬化与发布收口：
 
 - 归档既有技术债
 - 核对发布验证
-- 准备 Tag / Release / Changelog
+- 完成 Tag / Release / Changelog
 
-不再扩展原型范围。
+当前不再扩展原型范围，后续仅进入发布后稳定性观察与原型对齐。
 
 
 ## Prototype 与 Sprint 关系

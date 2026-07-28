@@ -18,7 +18,7 @@ export type WorkoutCompanionSettingsContextValue =
 
 const DEFAULT_WORKOUT_COMPANION_SETTINGS: WorkoutCompanionSettingsState = {
   voiceFeedbackEnabled: true,
-  inputSourceMode: 'off',
+  inputSourceMode: 'mock_auto_rep',
 };
 
 const WORKOUT_COMPANION_SETTINGS_CONTEXT =
@@ -35,7 +35,7 @@ export function WorkoutCompanionSettingsProvider({
 }) {
   const [voiceFeedbackEnabled, setVoiceFeedbackEnabled] = useState(true);
   const [inputSourceMode, setInputSourceMode] =
-    useState<WorkoutCompanionEventSourceMode>('off');
+    useState<WorkoutCompanionEventSourceMode>('mock_auto_rep');
 
   const value = useMemo<WorkoutCompanionSettingsContextValue>(
     () => ({

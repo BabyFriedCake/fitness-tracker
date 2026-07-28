@@ -22,6 +22,8 @@ import {
 } from '@/features/exercise-library/application/use-exercise-detail';
 import { useTheme } from '@/hooks/use-theme';
 
+const EXERCISE_PLACEHOLDER_IMAGE = require('../../../../assets/images/exercise-placeholder.png');
+
 export type ExerciseDetailScreenProps = {
   readonly exerciseId: string;
   readonly onBack?: () => void;
@@ -239,35 +241,13 @@ function ExerciseDetail({ exercise }: { readonly exercise: Exercise }) {
 }
 
 function ExerciseMedia({ exercise }: { readonly exercise: Exercise }) {
-  if (exercise.imageUri) {
-    return (
-      <Image
-        source={exercise.imageUri}
-        contentFit="contain"
-        accessibilityLabel={`${exercise.nameZh}动作图片`}
-        style={styles.exerciseImage}
-      />
-    );
-  }
-
-  return <ImagePlaceholder exerciseName={exercise.nameZh} />;
-}
-
-function ImagePlaceholder({ exerciseName }: { readonly exerciseName: string }) {
-  const theme = useTheme();
-
   return (
-    <ThemedView
-      style={[
-        styles.imagePlaceholder,
-        { borderColor: theme.backgroundSelected },
-      ]}
-      accessibilityLabel={`动作图片占位：${exerciseName}`}
-    >
-      <ThemedText type="small" themeColor="textSecondary">
-        暂无动作图片
-      </ThemedText>
-    </ThemedView>
+    <Image
+      source={exercise.imageUri ?? EXERCISE_PLACEHOLDER_IMAGE}
+      contentFit="contain"
+      accessibilityLabel={`${exercise.nameZh}动作图片`}
+      style={styles.exerciseImage}
+    />
   );
 }
 

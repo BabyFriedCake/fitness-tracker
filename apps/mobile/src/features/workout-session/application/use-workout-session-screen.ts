@@ -238,6 +238,7 @@ export function useWorkoutSessionScreen(
   const requestIdRef = useRef(0);
   const isMutatingRef = useRef(false);
   const hasFocusedRef = useRef(false);
+  const autoStartSessionIdRef = useRef<WorkoutSessionId | null>(null);
   const silentRefreshRequestIdRef = useRef<number | null>(null);
   const refreshAfterMutationRef = useRef(false);
   const runtimeSnapshotWriteChainRef = useRef<Promise<void>>(Promise.resolve());
@@ -245,6 +246,10 @@ export function useWorkoutSessionScreen(
   const companionSubscriptionRef = useRef(0);
   const pendingCompanionRecoveryRef =
     useRef<PendingCompanionRecovery>(undefined);
+  const mockAutoRepSourceRef = useRef<{
+    readonly key: string;
+    readonly source: WorkoutCompanionEventSource;
+  } | null>(null);
   const dependenciesRef = useRef({
     initializeDatabase,
     createWorkoutSessionRepository,
@@ -293,12 +298,23 @@ export function useWorkoutSessionScreen(
       return NOOP_WORKOUT_COMPANION_EVENT_SOURCE;
     }
 
-    return createMockAutoRepCounterSource({
+    const sourceKey = `${readyState.data.session.id}:${readyState.runtime.currentExercise.id}`;
+    const existingSource = mockAutoRepSourceRef.current;
+
+    if (existingSource?.key === sourceKey) {
+      return existingSource.source;
+    }
+
+    const source = createMockAutoRepCounterSource({
       sessionId: readyState.data.session.id,
       sessionExerciseId: readyState.runtime.currentExercise.id,
       initialRepNumber: readyCompanionRuntime.progress.completedReps,
       now: () => Date.now(),
     });
+
+    mockAutoRepSourceRef.current = { key: sourceKey, source };
+
+    return source;
   }, [
     readyState,
     readyCompanionRuntime,
@@ -425,6 +441,7 @@ export function useWorkoutSessionScreen(
       const sessionId = parseWorkoutSessionId(routeParams.id);
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
+      autoStartSessionIdRef.current = null;
 
       if (!showLoading) {
         silentRefreshRequestIdRef.current = requestId;
@@ -516,6 +533,9 @@ export function useWorkoutSessionScreen(
           result.data.restTimerStatus,
           result.data.restRemainingSeconds,
         );
+        if (result.data.session.status !== 'draft') {
+          autoStartSessionIdRef.current = null;
+        }
         commitState({
           status: 'ready',
           data: result.data,
@@ -688,6 +708,7 @@ export function useWorkoutSessionScreen(
     }
 
     beginMutation(current);
+    autoStartSessionIdRef.current = current.data.session.id;
 
     try {
       const nextSession = await startSession(
@@ -726,6 +747,31 @@ export function useWorkoutSessionScreen(
       finishMutation();
     }
   }, [beginMutation, commitState, finishMutation]);
+
+  useEffect(() => {
+    const current = stateRef.current;
+
+    if (
+      current.status !== 'ready' ||
+      current.data.session.status !== 'draft' ||
+      current.runtime.status !== 'idle' ||
+      current.isMutating ||
+      current.endFlow !== 'closed' ||
+      autoStartSessionIdRef.current === current.data.session.id
+    ) {
+      return;
+    }
+
+    autoStartSessionIdRef.current = current.data.session.id;
+    void startWorkout();
+  }, [
+    readyState?.data.session.id,
+    readyState?.data.session.status,
+    readyState?.endFlow,
+    readyState?.isMutating,
+    readyState?.runtime.status,
+    startWorkout,
+  ]);
 
   const pauseWorkout = useCallback((): void => {
     const current = stateRef.current;
@@ -1776,6 +1822,49 @@ export function useWorkoutSessionScreen(
     readyCompanionPhase,
     readyRestRemainingSeconds,
     transitionRest,
+  ]);
+
+  useEffect(() => {
+    const current = stateRef.current;
+
+    if (
+      current.status !== 'ready' ||
+      current.data.session.status !== 'in_progress' ||
+      current.runtime.status !== 'running' ||
+      current.companionRuntime?.phase !== 'running' ||
+      !current.runtime.currentExercise ||
+      !isMockAutoRepCounterSource(activeWorkoutCompanionEventSource)
+    ) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const latest = stateRef.current;
+
+      if (
+        latest.status !== 'ready' ||
+        latest.data.session.status !== 'in_progress' ||
+        latest.runtime.status !== 'running' ||
+        latest.companionRuntime?.phase !== 'running' ||
+        !latest.runtime.currentExercise ||
+        latest.runtime.currentExercise.isSkipped ||
+        latest.runtime.currentExercise.isCompleted ||
+        isMutatingRef.current
+      ) {
+        return;
+      }
+
+      activeWorkoutCompanionEventSource.emitNextRep();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [
+    activeWorkoutCompanionEventSource,
+    readyCompanionPhase,
+    readyStateStatus,
+    readyState?.data.session.status,
+    readyState?.runtime.currentExercise?.id,
+    readyState?.runtime.status,
   ]);
 
   const requestEndSession = useCallback((): void => {

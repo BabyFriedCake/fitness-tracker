@@ -85,7 +85,7 @@ describe('Exercise Detail screen', () => {
     expect(getByText('starter-v1')).toBeTruthy();
     expect(getByText('CC0-1.0')).toBeTruthy();
     expect(getByText('Fitness Tracker')).toBeTruthy();
-    expect(getByLabelText('动作图片占位：杠铃卧推')).toBeTruthy();
+    expect(getByLabelText('杠铃卧推动作图片')).toBeTruthy();
   });
 
   it('handles missing optional fields without breaking layout', async () => {

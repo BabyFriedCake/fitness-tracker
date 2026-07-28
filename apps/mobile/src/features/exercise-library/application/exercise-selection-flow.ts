@@ -11,6 +11,7 @@ export type ExerciseSelectionReturnPath =
   | '/templates/new'
   | '/templates/[id]'
   | '/templates/[id]/edit'
+  | '/today-plans/[id]/edit'
   | '/exercises'
   | '/history'
   | '/settings';
@@ -65,6 +66,7 @@ const VALID_RETURN_PATHS = [
   '/templates/new',
   '/templates/[id]',
   '/templates/[id]/edit',
+  '/today-plans/[id]/edit',
   '/exercises',
   '/history',
   '/settings',

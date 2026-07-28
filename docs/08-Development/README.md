@@ -24,4 +24,4 @@ Sprint 11 focused on Recommendation / Coach Decision boundaries
 while keeping Runtime and Event Source boundaries unchanged.
 Sprint 12 focused on Prototype alignment and release hardening.
 Sprint 13 focused on Final Release validation and technical debt closeout.
-Final Release report and tag/release/changelog materials are now prepared.
+Final Release report and tag/release/changelog materials are now published.
