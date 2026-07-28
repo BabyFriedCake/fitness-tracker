@@ -3,6 +3,7 @@ import {
   FlatList,
   Image,
   Pressable,
+  Modal,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -49,8 +50,7 @@ export function ExerciseLibraryScreen() {
     selectedIds?: string | string[];
   }>();
   const selectionMode = parseExerciseLibrarySelectionMode(params);
-
-  return (
+  const content = (
     <ExerciseLibraryContent
       {...useExerciseLibrary()}
       selectionMode={selectionMode}
@@ -91,6 +91,39 @@ export function ExerciseLibraryScreen() {
         router.replace('/exercises');
       }}
     />
+  );
+
+  if (selectionMode.status !== 'selecting') {
+    return content;
+  }
+
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      onRequestClose={() => {
+        router.dismissTo({
+          pathname: selectionMode.returnTo,
+          params: selectionMode.returnParams,
+        } as Href);
+      }}
+    >
+      <View style={styles.sheetBackdrop}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="关闭动作选择弹层"
+          onPress={() => {
+            router.dismissTo({
+              pathname: selectionMode.returnTo,
+              params: selectionMode.returnParams,
+            } as Href);
+          }}
+          style={styles.sheetScrim}
+        />
+        <View style={styles.sheetPanel}>{content}</View>
+      </View>
+    </Modal>
   );
 }
 
@@ -395,7 +428,7 @@ function MuscleGroupRail({
             ]}
           >
             <ThemedText
-              type="default"
+              type={isSelected ? 'smallBold' : 'default'}
               themeColor={isSelected ? 'text' : 'textSecondary'}
               style={styles.muscleRailText}
             >
@@ -600,6 +633,7 @@ function ExerciseCard({
                 ? { uri: exercise.imageUri }
                 : EXERCISE_PLACEHOLDER_IMAGE
             }
+            resizeMode="cover"
             accessibilityIgnoresInvertColors
             accessibilityLabel={`${exercise.nameZh}动作图片`}
             style={styles.exerciseImage}
@@ -632,7 +666,12 @@ function ExerciseCard({
             action.disabled && styles.disabled,
           ]}
         >
-          <ThemedText type="smallBold">{action.label}</ThemedText>
+          <ThemedText
+            type="smallBold"
+            style={action.disabled ? undefined : styles.exerciseActionText}
+          >
+            {action.label}
+          </ThemedText>
         </Pressable>
       )}
       {action?.disabledHint && (
@@ -685,6 +724,21 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: Spacing.three,
   },
+  sheetBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.36)',
+  },
+  sheetScrim: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sheetPanel: {
+    height: '86%',
+    borderTopLeftRadius: Spacing.five,
+    borderTopRightRadius: Spacing.five,
+    backgroundColor: '#F6F4ED',
+    overflow: 'hidden',
+  },
   listContent: {
     gap: Spacing.two,
     paddingBottom: Spacing.three,
@@ -703,13 +757,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
     paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.one,
   },
   searchWrap: {
     minWidth: 0,
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 28,
+    borderRadius: 30,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
@@ -718,7 +773,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   searchInput: {
-    minHeight: 72,
+    minHeight: 74,
     minWidth: 0,
     flex: 1,
     paddingHorizontal: Spacing.three,
@@ -733,17 +788,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
   },
   addExerciseButton: {
-    width: 72,
-    height: 72,
+    width: 76,
+    height: 76,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 36,
+    borderRadius: 38,
     backgroundColor: '#E6F0FF',
   },
   addExerciseText: {
     color: '#1677EF',
-    fontSize: 48,
-    lineHeight: 54,
+    fontSize: 50,
+    lineHeight: 56,
   },
   unsupportedText: {
     width: '100%',
@@ -754,11 +809,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E0DDD4',
+    backgroundColor: '#F8F6F1',
   },
   muscleRail: {
-    width: 118,
+    width: 124,
     borderRightWidth: StyleSheet.hairlineWidth,
     borderRightColor: '#E0DDD4',
+    backgroundColor: '#F6F3EC',
   },
   muscleRailContent: {
     paddingVertical: Spacing.two,
@@ -771,7 +828,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
   },
   muscleRailItemSelected: {
-    borderLeftColor: '#1677EF',
+    borderLeftColor: '#1B2016',
+    backgroundColor: '#EEF5CD',
   },
   muscleRailText: {
     textAlign: 'center',
@@ -801,11 +859,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
   },
   filterChipSelected: {
-    backgroundColor: '#E6F0FF',
+    backgroundColor: '#EEF5CD',
   },
   resultsTitle: {
-    fontSize: 46,
-    lineHeight: 54,
+    fontSize: 36,
+    lineHeight: 44,
+    marginTop: Spacing.one,
   },
   listColumns: {
     gap: Spacing.two,
@@ -825,7 +884,7 @@ const styles = StyleSheet.create({
     minHeight: 286,
     gap: Spacing.two,
     overflow: 'hidden',
-    borderRadius: 24,
+    borderRadius: 28,
     backgroundColor: '#FFFFFF',
     padding: Spacing.two,
     shadowColor: '#000000',
@@ -841,8 +900,8 @@ const styles = StyleSheet.create({
     height: 176,
     justifyContent: 'flex-end',
     overflow: 'hidden',
-    borderRadius: 22,
-    backgroundColor: '#DCE9AD',
+    borderRadius: 24,
+    backgroundColor: '#DAEFB3',
   },
   exerciseImage: {
     ...StyleSheet.absoluteFillObject,
@@ -866,8 +925,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   exerciseCardTitle: {
-    fontSize: 18,
-    lineHeight: 26,
+    fontSize: 17,
+    lineHeight: 24,
   },
   attributes: {
     flexShrink: 1,
@@ -876,9 +935,12 @@ const styles = StyleSheet.create({
     minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 19,
-    backgroundColor: '#E8F6B8',
+    borderRadius: 18,
+    backgroundColor: '#1B2016',
     paddingHorizontal: Spacing.two,
+  },
+  exerciseActionText: {
+    color: '#CAFF00',
   },
   pressed: {
     opacity: 0.72,

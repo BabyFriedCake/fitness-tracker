@@ -695,6 +695,86 @@ Warnings：
 4. 规划 AI Coach、Recommendation、数据分析等后续能力
 5. 保持文档、原型和实现状态持续一致
 
+## Sprint 14 - Post Release UX Polish（已完成）
+
+目标：
+
+在 Final Release 后先做稳定性和视觉体验收敛，避免直接进入大功能扩展。
+
+范围：
+
+- 真机 / Expo 关键流程回归
+- Figma 与当前实现差距清单
+- Today、Workout、Exercise Library、History 的体验优先级排序
+- 正式动作图片资源方案评估
+- 后续 AI Coach / Recommendation / Analytics 的入口规划
+
+完成任务：
+
+- [x] S14-00 Sprint Readiness and Figma Gap Audit
+- [x] S14-01 Device Smoke Test and Runtime Regression
+- [x] S14-02 Today Plan Modal and Interaction Polish
+- [x] S14-03 Workout Pause and Rest Visual Polish
+- [x] S14-04 Exercise Media Asset Strategy
+- [x] S14-05 Sprint Exit Review
+
+Exit Review：
+
+- PASS WITH WARNINGS
+- 完成时间：2026-07-28
+- Tag / Release：待创建
+
+非目标：
+
+- 不修改数据库 Schema / Migration
+- 不重写 Workout Runtime 状态机
+- 不实现真实 AI、姿态识别或云同步
+- 不引入未确认授权的第三方图片资源
+
+---
+
+## Sprint 15 - Product Experience Refinement（✅ 主要范围已完成）
+
+目标：
+
+在不破坏已完成 Runtime、History、Exercise Library 基础能力的前提下，
+继续收敛 Today、动作库、模板、Settings 与选择器交互。
+
+完成时间：2026-07-28
+
+Exit Review：待执行
+
+Tag / Release：待创建
+
+完成：
+
+- [x] S15-00 Sprint Readiness and Scope Sync
+- [x] S15-01 Today Button and Exercise Library Polish
+- [x] S15-02 Template Weight Capability
+- [x] S15-03 Settings Development Reset
+- [x] S15-04 Exercise Picker Bottom Sheet
+- [ ] S15-05 Sprint Exit Review
+
+已完成能力：
+
+- Today 训练卡片按钮颜色与状态感修正
+- 动作库视觉收敛和左侧肌群单选
+- 模板重量能力正式建模，覆盖 Domain、Schema、Migration、Repository 和 UI
+- Settings 开发环境数据重置
+- Today / 模板动作选择底部上拉选择器
+- 训练页跳过休息后下一组 Mock 自动计数恢复
+
+挂起：
+
+- S15-06 Exercise Media License and Import
+  - 原因：动作图片资源必须先完成授权和离线打包策略确认，不允许运行时依赖 GitHub 或直接打包未确认授权资源。
+
+主要风险：
+
+- 模板重量涉及 Domain、Schema、Migration、Repository 和 UI，不可只做界面输入。
+- 动作库图片必须遵守授权和离线可用性约束，不允许运行时依赖 GitHub。
+- 选择器交互需要统一返回契约，避免 Today 和模板编辑各做一套。
+
 ---
 
 # Long Term Vision

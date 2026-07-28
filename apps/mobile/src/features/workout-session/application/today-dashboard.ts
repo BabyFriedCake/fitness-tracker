@@ -38,6 +38,7 @@ export type TodayDashboardTemplateItem = {
   readonly name: string;
   readonly exerciseCount: number;
   readonly totalTargetSets: number;
+  readonly weightSummary?: string;
 };
 
 export type TodayDashboardPlanItem = {
@@ -48,6 +49,7 @@ export type TodayDashboardPlanItem = {
   readonly status: TodayWorkoutPlanStatus;
   readonly exerciseCount: number;
   readonly totalTargetSets: number;
+  readonly weightSummary?: string;
 };
 
 export type TodayDashboardSessionEntry =
@@ -465,6 +467,7 @@ function toTodayDashboardTemplateItem(
       (total, exercise) => total + exercise.targetSets,
       0,
     ),
+    ...formatTemplateWeightSummary(template.exercises),
   };
 }
 
@@ -491,6 +494,7 @@ function toTodayDashboardPlanItems(
           (total, exercise) => total + exercise.targetSets,
           0,
         ) ?? 0,
+      ...formatTemplateWeightSummary(template?.exercises ?? []),
     };
   });
 }
@@ -535,6 +539,34 @@ function toTodayDashboardRecentWorkout(
       0,
     ),
   };
+}
+
+function formatTemplateWeightSummary(
+  exercises: readonly Pick<WorkoutTemplate['exercises'][number], 'weight'>[],
+): { readonly weightSummary?: string } {
+  const weights = exercises.flatMap((exercise) =>
+    exercise.weight === undefined ? [] : [exercise.weight],
+  );
+
+  if (weights.length === 0) {
+    return {};
+  }
+
+  const uniqueWeights = [...new Set(weights)].sort(
+    (first, second) => Number(first) - Number(second),
+  );
+
+  return {
+    weightSummary: uniqueWeights
+      .map((weight) => `${formatWeight(weight)} 公斤`)
+      .join(' · '),
+  };
+}
+
+function formatWeight(weight: number): string {
+  return Number.isInteger(weight)
+    ? String(weight)
+    : String(Number(weight.toFixed(2)));
 }
 
 export function toLocalDateKey(date: Date): string {

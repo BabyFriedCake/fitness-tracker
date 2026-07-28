@@ -61,7 +61,7 @@ describe('Workout Runtime Engine', () => {
       sessionId: SESSION_ID,
       status: 'running',
       currentSessionExerciseId: SECOND_SESSION_EXERCISE_ID,
-      currentSetNumber: 2,
+      currentSetNumber: 1,
       currentExerciseIndex: 1,
       completedSetCount: 1,
       totalTargetSetCount: 6,

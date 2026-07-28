@@ -90,6 +90,7 @@ describe('saveWorkoutTemplateCreateDraft', () => {
           targetRepsMin: 8,
           targetRepsMax: 10,
           restSeconds: 90,
+          weight: null,
           createdAt: '2026-07-16T00:00:00.000Z',
           updatedAt: '2026-07-16T00:00:00.000Z',
         },
@@ -473,10 +474,12 @@ describe('useWorkoutTemplateCreate', () => {
           expect.objectContaining({
             exerciseId: 'exercise-row',
             position: 1,
+            weight: null,
           }),
           expect.objectContaining({
             exerciseId: 'exercise-barbell-bench-press',
             position: 2,
+            weight: null,
           }),
         ],
       }),

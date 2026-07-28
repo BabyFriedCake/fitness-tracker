@@ -139,6 +139,30 @@ V1 初始迁移：
 如既有数据不满足生命周期或字段约束，迁移失败并完整回滚，
 `schema_migrations` 不记录版本 3。
 
+## 3.5 Template Weight Migration
+
+第六个迁移：
+
+```text
+0006_template_weight
+```
+
+目的：
+
+- 在不修改已执行历史迁移的前提下，为 `workout_template_exercises` 增加可选重量列
+- 兼容既有模板数据，旧记录默认保持空重量
+- 不改变模板动作的其他字段和索引
+
+变更：
+
+- 为 `workout_template_exercises` 增加 `weight` 列
+
+迁移策略：
+
+1. 在事务中执行结构变更
+2. 保留既有模板和模板动作数据
+3. 成功后记录版本 6
+
 ## 3.3 Exercise Dataset Metadata Migration
 
 第四个迁移：

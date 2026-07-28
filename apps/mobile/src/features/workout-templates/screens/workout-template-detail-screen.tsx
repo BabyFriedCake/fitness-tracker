@@ -20,6 +20,7 @@ import {
   type WorkoutTemplateDetailScreenState,
 } from '@/features/workout-templates/application/use-workout-template-detail';
 import { useTheme } from '@/hooks/use-theme';
+import type { ExerciseId } from '@/domain/exercise';
 
 export function WorkoutTemplateDetailScreen({
   routeParams,
@@ -40,6 +41,12 @@ export function WorkoutTemplateDetailScreen({
           params: { id: templateId },
         } as unknown as Href);
       }}
+      onOpenExercise={(exerciseId) => {
+        router.push({
+          pathname: '/exercises/[id]',
+          params: { id: exerciseId },
+        } as unknown as Href);
+      }}
     />
   );
 }
@@ -49,6 +56,7 @@ export type WorkoutTemplateDetailContentProps = {
   readonly controls: WorkoutTemplateDetailScreenControls;
   readonly onBack: () => void;
   readonly onEditTemplate: (templateId: WorkoutTemplateId) => void;
+  readonly onOpenExercise: (exerciseId: ExerciseId) => void;
 };
 
 export function WorkoutTemplateDetailContent({
@@ -56,6 +64,7 @@ export function WorkoutTemplateDetailContent({
   controls,
   onBack,
   onEditTemplate,
+  onOpenExercise,
 }: WorkoutTemplateDetailContentProps) {
   return (
     <ThemedView style={styles.container}>
@@ -91,7 +100,10 @@ export function WorkoutTemplateDetailContent({
           <ErrorState message={state.message} onReload={controls.reload} />
         )}
         {state.status === 'ready' && (
-          <TemplateDetail template={state.template} />
+          <TemplateDetail
+            template={state.template}
+            onOpenExercise={onOpenExercise}
+          />
         )}
       </SafeAreaView>
     </ThemedView>
@@ -100,8 +112,10 @@ export function WorkoutTemplateDetailContent({
 
 function TemplateDetail({
   template,
+  onOpenExercise,
 }: {
   readonly template: WorkoutTemplateDetail;
+  readonly onOpenExercise: (exerciseId: ExerciseId) => void;
 }) {
   return (
     <ScrollView
@@ -131,7 +145,18 @@ function TemplateDetail({
 
       <View style={styles.exerciseList}>
         {template.exercises.map((exercise, index) => (
-          <View key={exercise.id} style={styles.exerciseRow}>
+          <Pressable
+            key={exercise.id}
+            onPress={() => {
+              onOpenExercise(exercise.exerciseId);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`查看动作${exercise.name}`}
+            style={({ pressed }) => [
+              styles.exerciseRow,
+              pressed && styles.pressed,
+            ]}
+          >
             <ThemedText type="smallBold" themeColor="textSecondary">
               {(index + 1).toString().padStart(2, '0')}
             </ThemedText>
@@ -142,9 +167,12 @@ function TemplateDetail({
               <ThemedText type="small" themeColor="textSecondary">
                 {exercise.targetSets} 组 · {exercise.targetRepsLabel} 次 ·{' '}
                 {exercise.restSeconds} 秒
+                {exercise.weight !== null
+                  ? ` · ${formatWeight(exercise.weight)} 公斤`
+                  : ''}
               </ThemedText>
             </View>
-          </View>
+          </Pressable>
         ))}
       </View>
     </ScrollView>
@@ -222,6 +250,12 @@ function formatDuration(value: number | null): string {
 
 function formatCalories(value: number | null): string {
   return value === null ? '预计消耗待估算' : `预计消耗 ${value} 千卡`;
+}
+
+function formatWeight(weight: number): string {
+  return Number.isInteger(weight)
+    ? String(weight)
+    : String(Number(weight.toFixed(2)));
 }
 
 const styles = StyleSheet.create({

@@ -210,6 +210,11 @@ function TemplateCard({
       <ThemedText type="small" themeColor="textSecondary">
         {metrics.join(' · ')}
       </ThemedText>
+      {template.weightSummary ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          {template.weightSummary}
+        </ThemedText>
+      ) : null}
       <ThemedView style={styles.templateActions}>
         <ThemedText type="small" themeColor="textSecondary">
           查看详情

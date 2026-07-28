@@ -127,6 +127,7 @@ CREATE TABLE workout_template_exercises (
   target_reps_max INTEGER NOT NULL
     CHECK (target_reps_max >= target_reps_min),
   rest_seconds INTEGER NOT NULL CHECK (rest_seconds >= 0),
+  weight REAL,
   group_key TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -160,6 +161,7 @@ V1 规则：
 - target_reps_min > 0
 - target_reps_max >= target_reps_min
 - rest_seconds >= 0
+- weight 可为空；存在时必须是非负数
 - group_key 预留超级组能力，V1 通常为空
 
 ---

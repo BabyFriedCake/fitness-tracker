@@ -19,6 +19,7 @@ export type WorkoutTemplateEditRouteExerciseDraft = {
   readonly targetRepsMin: string;
   readonly targetRepsMax: string;
   readonly restSeconds: string;
+  readonly weight: string;
   readonly createdAt?: string;
 };
 
@@ -100,6 +101,7 @@ export function serializeWorkoutTemplateEditDraftRouteParams(input: {
         targetRepsMin: exercise.targetRepsMin,
         targetRepsMax: exercise.targetRepsMax,
         restSeconds: exercise.restSeconds,
+        weight: exercise.weight,
         createdAt: exercise.createdAt,
       })),
     ),
@@ -125,6 +127,7 @@ function mergeSelectedExercise(
       targetRepsMin: String(DEFAULT_TEMPLATE_EXERCISE_CONFIG.targetRepsMin),
       targetRepsMax: String(DEFAULT_TEMPLATE_EXERCISE_CONFIG.targetRepsMax),
       restSeconds: String(DEFAULT_TEMPLATE_EXERCISE_CONFIG.restSeconds),
+      weight: '',
     },
   ];
 }
@@ -199,6 +202,7 @@ function parseDraftExercise(
   const targetRepsMin = readConfigValue(record.targetRepsMin);
   const targetRepsMax = readConfigValue(record.targetRepsMax);
   const restSeconds = readConfigValue(record.restSeconds);
+  const weight = readOptionalConfigValue(record.weight);
 
   if (
     targetSets === null ||
@@ -218,6 +222,7 @@ function parseDraftExercise(
     targetRepsMin,
     targetRepsMax,
     restSeconds,
+    weight,
     ...(createdAt ? { createdAt } : {}),
   };
 }
@@ -232,6 +237,18 @@ function readConfigValue(value: unknown): string | null {
   }
 
   return null;
+}
+
+function readOptionalConfigValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return '';
 }
 
 function firstParamValue(

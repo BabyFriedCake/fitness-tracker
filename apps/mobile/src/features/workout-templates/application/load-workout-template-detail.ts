@@ -14,6 +14,7 @@ export type WorkoutTemplateDetailExerciseItem = {
   readonly targetSets: number;
   readonly targetRepsLabel: string;
   readonly restSeconds: number;
+  readonly weight: number | null;
 };
 
 export type WorkoutTemplateDetail = {
@@ -115,6 +116,7 @@ function toWorkoutTemplateDetail(
         exercise.targetReps.max,
       ),
       restSeconds: exercise.restSeconds,
+      weight: exercise.weight ?? null,
     })),
   };
 }

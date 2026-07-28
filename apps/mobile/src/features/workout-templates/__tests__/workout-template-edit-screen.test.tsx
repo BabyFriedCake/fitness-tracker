@@ -70,6 +70,7 @@ describe('saveWorkoutTemplateEditDraft', () => {
               targetRepsMin: '8',
               targetRepsMax: '10',
               restSeconds: '120',
+              weight: '80',
               createdAt: '2026-07-16T00:10:00.000Z',
             },
           ],
@@ -100,6 +101,7 @@ describe('saveWorkoutTemplateEditDraft', () => {
           targetRepsMin: 8,
           targetRepsMax: 10,
           restSeconds: 120,
+          weight: 80,
           createdAt: '2026-07-16T00:10:00.000Z',
           updatedAt: '2026-07-16T01:00:00.000Z',
         },
@@ -211,6 +213,18 @@ describe('saveWorkoutTemplateEditDraft', () => {
         exercises: [{ ...exercise, restSeconds: '0' }],
       }),
     ).toEqual({});
+    expect(
+      validateWorkoutTemplateEditDraft({
+        templateId: 'template-push' as WorkoutTemplateId,
+        name: 'Push',
+        description: '',
+        exercises: [{ ...exercise, weight: '-10' }],
+      }),
+    ).toEqual({
+      exerciseConfigs: {
+        'exercise-bench': '重量必须是非负数字。',
+      },
+    });
   });
 });
 
@@ -254,6 +268,26 @@ describe('workout template edit route params', () => {
       exerciseDraftState: {
         status: 'valid',
         exercises: [expect.objectContaining({ exerciseId: 'exercise-bench' })],
+      },
+    });
+  });
+
+  it('preserves template exercise weight across route serialization', () => {
+    const serialized = serializeWorkoutTemplateEditDraftRouteParams({
+      templateId: 'template-push',
+      name: 'Push',
+      description: '',
+      exercises: [{ ...buildEditExercise(), weight: '80' }],
+    });
+
+    expect(
+      parseWorkoutTemplateEditRouteDraft({
+        ...serialized,
+      }),
+    ).toMatchObject({
+      exerciseDraftState: {
+        status: 'valid',
+        exercises: [expect.objectContaining({ weight: '80' })],
       },
     });
   });
@@ -1904,6 +1938,7 @@ function buildEditExerciseBase() {
     targetRepsMin: '8',
     targetRepsMax: '10',
     restSeconds: '90',
+    weight: '',
     createdAt: '2026-07-16T00:10:00.000Z',
   };
 }

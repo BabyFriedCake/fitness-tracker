@@ -7,6 +7,7 @@ import {
   type TemplateExerciseId,
   type TemplateExerciseInput,
   type TemplateExercisePosition,
+  type TemplateWeight,
   type WorkoutTemplate,
   type WorkoutTemplateId,
   type WorkoutTemplateInput,
@@ -33,6 +34,7 @@ export type WorkoutTemplateValidationIssueCode =
   | 'template_exercise_target_reps_max_invalid'
   | 'template_exercise_target_reps_range_invalid'
   | 'template_exercise_rest_seconds_invalid'
+  | 'template_exercise_weight_invalid'
   | 'template_exercise_created_at_invalid'
   | 'template_exercise_updated_at_invalid'
   | 'workout_template_start_requires_active_status'
@@ -301,6 +303,18 @@ export function validateTemplateExerciseInput(
     });
   }
 
+  if (
+    input.weight !== undefined &&
+    input.weight !== null &&
+    !isNonNegativeNumber(input.weight)
+  ) {
+    issues.push({
+      code: 'template_exercise_weight_invalid',
+      path: 'weight',
+      message: 'TemplateExercise weight must be a non-negative finite number.',
+    });
+  }
+
   if (!isIsoDateTime(input.createdAt)) {
     issues.push({
       code: 'template_exercise_created_at_invalid',
@@ -337,6 +351,9 @@ export function validateTemplateExerciseInput(
         max: input.targetRepsMax as TargetRepCount,
       },
       restSeconds: input.restSeconds as RestDurationSeconds,
+      ...(typeof input.weight === 'number'
+        ? { weight: input.weight as TemplateWeight }
+        : {}),
       createdAt: input.createdAt,
       updatedAt: input.updatedAt,
     },
@@ -406,6 +423,10 @@ function isPositiveInteger(value: number): boolean {
 
 function isNonNegativeInteger(value: number): boolean {
   return Number.isInteger(value) && value >= 0;
+}
+
+function isNonNegativeNumber(value: number): boolean {
+  return Number.isFinite(value) && value >= 0;
 }
 
 function isIsoDateTime(value: string): boolean {

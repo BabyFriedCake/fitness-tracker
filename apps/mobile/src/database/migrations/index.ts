@@ -3,6 +3,7 @@ import { WORKOUT_TEMPLATE_CONSTRAINTS_SQL } from '@/database/migrations/0002-wor
 import { WORKOUT_SESSION_SCHEMA_SQL } from '@/database/migrations/0003-workout-session-schema';
 import { EXERCISE_DATASET_METADATA_SQL } from '@/database/migrations/0004-exercise-dataset-metadata';
 import { TODAY_WORKOUT_PLAN_SQL } from '@/database/migrations/0005-today-workout-plan';
+import { TEMPLATE_WEIGHT_SQL } from '@/database/migrations/0006-template-weight';
 
 export type Migration = {
   readonly version: number;
@@ -38,5 +39,10 @@ export const MIGRATIONS = [
     version: 5,
     name: '0005_today_workout_plan',
     sql: TODAY_WORKOUT_PLAN_SQL,
+  },
+  {
+    version: 6,
+    name: '0006_template_weight',
+    sql: TEMPLATE_WEIGHT_SQL,
   },
 ] as const satisfies readonly Migration[];

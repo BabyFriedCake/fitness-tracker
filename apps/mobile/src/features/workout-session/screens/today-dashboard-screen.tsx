@@ -235,11 +235,7 @@ function ReadyState({
         isSubmitting={state.isCreatingSession}
         onClose={() => setIsPlanPickerVisible(false)}
         onAddTemplate={async (templateId) => {
-          const didAdd = await controls.addTodayPlanFromTemplate(templateId);
-
-          if (didAdd) {
-            setIsPlanPickerVisible(false);
-          }
+          return controls.addTodayPlanFromTemplate(templateId);
         }}
       />
 
@@ -570,6 +566,7 @@ function TodayPlanCard({
 }) {
   const theme = useTheme();
   const metrics = `${plan.exerciseCount} 个动作 · ${plan.totalTargetSets} 组`;
+  const weightSummary = plan.weightSummary ? ` · ${plan.weightSummary}` : '';
   const isCompleted = plan.status === 'completed';
   const buttonLabel = isCompleted
     ? '已完成'
@@ -577,6 +574,12 @@ function TodayPlanCard({
       ? '继续'
       : '开始';
   const isStartDisabled = disabled || isCompleted;
+  const startButtonStyle = isCompleted
+    ? styles.templateStartButtonCompleted
+    : styles.templateStartButtonActive;
+  const startTextStyle = isCompleted
+    ? styles.templateStartTextCompleted
+    : styles.templateStartTextActive;
 
   return (
     <View
@@ -606,6 +609,7 @@ function TodayPlanCard({
           <ThemedText type="default">{plan.name}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {metrics}
+            {weightSummary}
           </ThemedText>
         </View>
       </Pressable>
@@ -617,11 +621,12 @@ function TodayPlanCard({
         accessibilityState={{ disabled: isStartDisabled }}
         style={({ pressed }) => [
           styles.templateStartButton,
+          startButtonStyle,
+          isStartDisabled && styles.templateStartButtonDisabled,
           pressed && !isStartDisabled && styles.pressed,
-          isStartDisabled && styles.disabled,
         ]}
       >
-        <ThemedText type="smallBold" style={styles.templateStartText}>
+        <ThemedText type="smallBold" style={startTextStyle}>
           {isCreating ? '…' : buttonLabel}
         </ThemedText>
       </Pressable>
@@ -642,12 +647,51 @@ function TodayPlanPickerModal({
   readonly plans: readonly TodayDashboardPlanItem[];
   readonly isSubmitting: boolean;
   readonly onClose: () => void;
-  readonly onAddTemplate: (templateId: WorkoutTemplateId) => Promise<void>;
+  readonly onAddTemplate: (templateId: WorkoutTemplateId) => Promise<boolean>;
 }) {
   const plannedTemplateIds = new Set(plans.map((plan) => plan.templateId));
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<
+    readonly WorkoutTemplateId[]
+  >([]);
+  const canSubmit = selectedTemplateIds.length > 0 && !isSubmitting;
+
+  function toggleTemplate(templateId: WorkoutTemplateId) {
+    setSelectedTemplateIds((current) =>
+      current.includes(templateId)
+        ? current.filter((selectedId) => selectedId !== templateId)
+        : [...current, templateId],
+    );
+  }
+
+  function closePicker() {
+    setSelectedTemplateIds([]);
+    onClose();
+  }
+
+  async function submitSelection() {
+    if (!canSubmit) {
+      return;
+    }
+
+    let didAddAnyTemplate = false;
+
+    for (const templateId of selectedTemplateIds) {
+      didAddAnyTemplate =
+        (await onAddTemplate(templateId)) || didAddAnyTemplate;
+    }
+
+    if (didAddAnyTemplate) {
+      closePicker();
+    }
+  }
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={closePicker}
+    >
       <View style={styles.modalScrim}>
         <View style={styles.planPicker}>
           <View style={styles.sectionHeader}>
@@ -658,7 +702,7 @@ function TodayPlanPickerModal({
               </ThemedText>
             </View>
             <Pressable
-              onPress={onClose}
+              onPress={closePicker}
               accessibilityRole="button"
               accessibilityLabel="关闭添加计划"
               style={({ pressed }) => [
@@ -672,22 +716,27 @@ function TodayPlanPickerModal({
           <View style={styles.pickerList}>
             {templates.map((template) => {
               const isAdded = plannedTemplateIds.has(template.id);
+              const isSelected = selectedTemplateIds.includes(template.id);
 
               return (
                 <Pressable
                   key={template.id}
-                  onPress={() => void onAddTemplate(template.id)}
+                  onPress={() => toggleTemplate(template.id)}
                   disabled={isAdded || isSubmitting}
                   accessibilityRole="button"
                   accessibilityLabel={
                     isAdded
                       ? `${template.name}已添加到今日计划`
-                      : `添加${template.name}到今日计划`
+                      : `${isSelected ? '取消选择' : '选择'}${template.name}加入今日计划`
                   }
-                  accessibilityState={{ disabled: isAdded || isSubmitting }}
+                  accessibilityState={{
+                    disabled: isAdded || isSubmitting,
+                    selected: isSelected,
+                  }}
                   style={({ pressed }) => [
                     styles.pickerRow,
-                    pressed && !isAdded && styles.pressed,
+                    isSelected && styles.pickerRowSelected,
+                    pressed && !isAdded && !isSubmitting && styles.pressed,
                     isAdded && styles.disabled,
                   ]}
                 >
@@ -696,15 +745,26 @@ function TodayPlanPickerModal({
                     <ThemedText type="small" themeColor="textSecondary">
                       {template.exerciseCount} 个动作 ·{' '}
                       {template.totalTargetSets} 组
+                      {template.weightSummary
+                        ? ` · ${template.weightSummary}`
+                        : ''}
                     </ThemedText>
                   </View>
                   <View style={styles.pickerRadio}>
-                    {isAdded && <View style={styles.pickerRadioSelected} />}
+                    {(isAdded || isSelected) && (
+                      <View style={styles.pickerRadioSelected} />
+                    )}
                   </View>
                 </Pressable>
               );
             })}
           </View>
+          <PrimaryButton
+            label={isSubmitting ? '正在更新' : '更新训练计划'}
+            accessibilityLabel="更新今日训练计划"
+            disabled={!canSubmit}
+            onPress={() => void submitSelection()}
+          />
         </View>
       </View>
     </Modal>
@@ -781,7 +841,7 @@ function formatSessionStatus(
 ): string {
   switch (status) {
     case 'draft':
-      return '可恢复的训练草稿';
+      return '待开始训练草稿';
     case 'in_progress':
       return '进行中的训练';
     case 'completed':
@@ -946,10 +1006,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 26,
-    backgroundColor: '#1B2016',
     paddingHorizontal: Spacing.two,
   },
-  templateStartText: { color: '#CAFF00' },
+  templateStartButtonActive: {
+    backgroundColor: '#1B2016',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  templateStartButtonCompleted: {
+    backgroundColor: '#8D8A81',
+  },
+  templateStartButtonDisabled: { opacity: 1 },
+  templateStartTextActive: { color: '#CAFF00' },
+  templateStartTextCompleted: { color: '#D9D8D1' },
   modalScrim: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -981,6 +1053,10 @@ const styles = StyleSheet.create({
     borderColor: '#DAD7CE',
     backgroundColor: '#FFFFFF',
     padding: Spacing.three,
+  },
+  pickerRowSelected: {
+    borderColor: '#1B2016',
+    backgroundColor: '#F8FFE6',
   },
   pickerRadio: {
     width: 36,

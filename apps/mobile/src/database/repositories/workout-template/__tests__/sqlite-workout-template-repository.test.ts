@@ -75,6 +75,28 @@ describe('SQLite WorkoutTemplateRepository', () => {
     ]);
   });
 
+  it('persists optional template exercise weight through repository round trips', async () => {
+    const repository = createSqliteWorkoutTemplateRepository(database);
+
+    await repository.create(
+      buildCreateInput({
+        exercises: [
+          buildTemplateExerciseInput({
+            weight: 80,
+          }),
+        ],
+      }),
+    );
+
+    const detail = await repository.getById(toTemplateId('template-push'));
+
+    expect(detail?.exercises[0]).toEqual(
+      expect.objectContaining({
+        weight: 80,
+      }),
+    );
+  });
+
   it('lists active templates by default and can explicitly include archived templates', async () => {
     const repository = createSqliteWorkoutTemplateRepository(database);
 
@@ -894,6 +916,7 @@ function buildTemplateExerciseInput(
     readonly targetRepsMin?: number;
     readonly targetRepsMax?: number;
     readonly restSeconds?: number;
+    readonly weight?: number | null;
   } = {},
 ) {
   return {
@@ -905,6 +928,7 @@ function buildTemplateExerciseInput(
     targetRepsMin: 8,
     targetRepsMax: 10,
     restSeconds: 90,
+    weight: null,
     createdAt: CREATED_AT,
     updatedAt: CREATED_AT,
     ...overrides,

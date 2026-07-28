@@ -90,7 +90,7 @@ P003 → Workout Session → Companion Event → Runtime Progress
 8 / 10
 
 [上一动作] [暂停/继续] [下一动作]
-[结束训练]
+[保存退出]
 ```
 
 Paused：
@@ -159,7 +159,8 @@ Exercise Library ID 代替。
 - 上一动作 → 只在存在上一动作时可用；不得删除或修改已完成 WorkoutSet。
 - 下一动作 → 通过现有跳过/完成推进规则进入下一动作；保留已有 WorkoutSet。
 - 跳过动作 → 保留已完成 WorkoutSet，通过现有 Application Flow 推进。
-- 结束训练 → 使用现有保存并结束、继续训练或放弃确认流程。
+- running 状态保存退出 → 返回入口页面，保留当前训练状态。
+- 暂停状态结束训练 → 使用现有保存并结束、继续训练或放弃确认流程。
 
 所有写操作需防止重复持久化。
 

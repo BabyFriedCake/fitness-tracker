@@ -247,22 +247,11 @@ function ExerciseEditCard({
           onChangeText={(value) => onUpdate(exercise.id, 'targetSets', value)}
         />
         <ConfigInput
-          label="最少次数"
-          value={exercise.targetRepsMin}
-          error={fieldErrors[`${exercise.id}:targetRepsMin`]}
+          label="次数"
+          value={exercise.targetReps}
+          error={fieldErrors[`${exercise.id}:targetReps`]}
           editable={!isSaving}
-          onChangeText={(value) =>
-            onUpdate(exercise.id, 'targetRepsMin', value)
-          }
-        />
-        <ConfigInput
-          label="最多次数"
-          value={exercise.targetRepsMax}
-          error={fieldErrors[`${exercise.id}:targetRepsMax`]}
-          editable={!isSaving}
-          onChangeText={(value) =>
-            onUpdate(exercise.id, 'targetRepsMax', value)
-          }
+          onChangeText={(value) => onUpdate(exercise.id, 'targetReps', value)}
         />
         <ConfigInput
           label="休息"

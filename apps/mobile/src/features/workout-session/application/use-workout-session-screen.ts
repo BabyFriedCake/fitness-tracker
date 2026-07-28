@@ -123,6 +123,7 @@ export type WorkoutSessionScreenControls = {
   readonly updateWeight: (value: string) => void;
   readonly updateActualReps: (value: string) => void;
   readonly recordSet: () => Promise<void>;
+  readonly moveWorkoutPosition: (direction: -1 | 1) => Promise<void>;
   readonly selectExercise: (exerciseId: SessionExerciseId) => Promise<void>;
   readonly requestSkipExercise: () => void;
   readonly cancelSkipExercise: () => void;
@@ -298,7 +299,11 @@ export function useWorkoutSessionScreen(
       return NOOP_WORKOUT_COMPANION_EVENT_SOURCE;
     }
 
-    const sourceKey = `${readyState.data.session.id}:${readyState.runtime.currentExercise.id}`;
+    const sourceKey = [
+      readyState.data.session.id,
+      readyState.runtime.currentExercise.id,
+      readyCompanionRuntime.progress.currentSetIndex,
+    ].join(':');
     const existingSource = mockAutoRepSourceRef.current;
 
     if (existingSource?.key === sourceKey) {
@@ -1080,6 +1085,108 @@ export function useWorkoutSessionScreen(
             nextRuntime,
             undefined,
             current.data.restTimerStatus,
+          ),
+          setDraft: createDefaultSetDraft(nextRuntime.currentExercise),
+          isMutating: false,
+          isConfirmingSkip: false,
+          actionError: undefined,
+        });
+      } catch {
+        if (isMountedRef.current) {
+          commitState({
+            ...current,
+            isMutating: false,
+            isConfirmingSkip: false,
+            actionError: SESSION_ACTION_ERROR_MESSAGE,
+          });
+        }
+      } finally {
+        finishMutation();
+      }
+    },
+    [beginMutation, commitState, finishMutation],
+  );
+
+  const moveWorkoutPosition = useCallback(
+    async (direction: -1 | 1): Promise<void> => {
+      const current = stateRef.current;
+      const repositories = repositoriesRef.current;
+
+      if (
+        current.status !== 'ready' ||
+        current.data.session.status !== 'in_progress' ||
+        current.runtime.status !== 'running' ||
+        current.companionRuntime?.phase !== 'running' ||
+        current.isConfirmingSkip ||
+        current.endFlow !== 'closed' ||
+        !repositories ||
+        isMutatingRef.current
+      ) {
+        return;
+      }
+
+      const currentExercise = current.runtime.currentExercise;
+      if (!currentExercise) {
+        return;
+      }
+
+      const currentSetNumber = current.runtime.currentSetNumber ?? 1;
+      const sameExerciseTargetSetNumber =
+        direction === -1 ? currentSetNumber - 1 : currentSetNumber + 1;
+
+      let targetExercise = currentExercise;
+      let targetSetNumber = sameExerciseTargetSetNumber;
+
+      if (
+        sameExerciseTargetSetNumber < 1 ||
+        sameExerciseTargetSetNumber > currentExercise.targetSets
+      ) {
+        const targetBoundaryExercise =
+          direction === -1
+            ? findPreviousEnabledExercise(
+                current.runtime.orderedExercises,
+                current.runtime.currentExerciseIndex,
+              )
+            : findNextEnabledExercise(
+                current.runtime.orderedExercises,
+                current.runtime.currentExerciseIndex,
+              );
+
+        if (!targetBoundaryExercise) {
+          return;
+        }
+
+        targetExercise = targetBoundaryExercise;
+        targetSetNumber = getSessionExerciseNextSetNumber(targetExercise);
+      }
+
+      beginMutation(current);
+
+      try {
+        const nextSession = await setCurrentSessionPosition(
+          repositories.workoutSessionRepository,
+          {
+            sessionId: current.data.session.id,
+            sessionExerciseId: targetExercise.id,
+            currentSetNumber: targetSetNumber,
+            updatedAt: dependenciesRef.current.now(),
+          },
+        );
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        const nextData = createWorkoutSessionScreenData(nextSession, undefined);
+        const nextRuntime = createWorkoutRuntimeSnapshot(nextSession);
+        commitState({
+          ...current,
+          data: nextData,
+          runtime: nextRuntime,
+          companionRuntime: createCompanionRuntimeForScreen(
+            nextSession,
+            nextRuntime,
+            undefined,
           ),
           setDraft: createDefaultSetDraft(nextRuntime.currentExercise),
           isMutating: false,
@@ -2040,6 +2147,7 @@ export function useWorkoutSessionScreen(
       updateWeight: (value) => updateSetDraft('weight', value),
       updateActualReps: (value) => updateSetDraft('actualReps', value),
       recordSet,
+      moveWorkoutPosition,
       selectExercise,
       requestSkipExercise,
       cancelSkipExercise,
@@ -2174,19 +2282,16 @@ function createCompanionRuntimeForScreen(
     return undefined;
   }
 
-  if (
-    existing &&
-    existing.progress.sessionId === session.id &&
-    existing.orderedExercises[existing.progress.currentExerciseIndex]?.id ===
-      runtime.currentExercise?.id
-  ) {
-    return existing;
-  }
+  const currentSetNumber = runtime.currentSetNumber ?? 1;
+  const currentSetIndex = Math.max(0, currentSetNumber - 1);
 
   let companionRuntime: WorkoutCompanionRuntimeState;
 
   try {
-    companionRuntime = createWorkoutCompanionRuntimeState(session);
+    companionRuntime = createWorkoutCompanionRuntimeState(
+      session,
+      currentSetNumber,
+    );
   } catch {
     return undefined;
   }
@@ -2199,9 +2304,61 @@ function createCompanionRuntimeForScreen(
     };
   }
 
+  if (
+    existing &&
+    existing.progress.sessionId === session.id &&
+    existing.orderedExercises[existing.progress.currentExerciseIndex]?.id ===
+      runtime.currentExercise?.id &&
+    existing.progress.currentSetIndex === currentSetIndex
+  ) {
+    return existing;
+  }
+
   return runtime.status === 'paused'
     ? pauseWorkoutCompanionRuntime(companionRuntime)
     : companionRuntime;
+}
+
+function findPreviousEnabledExercise(
+  exercises: readonly SessionExercise[],
+  currentExerciseIndex?: number,
+): SessionExercise | undefined {
+  if (currentExerciseIndex === undefined || currentExerciseIndex <= 0) {
+    return undefined;
+  }
+
+  for (let index = currentExerciseIndex - 1; index >= 0; index -= 1) {
+    const exercise = exercises[index];
+
+    if (exercise?.isEnabled) {
+      return exercise;
+    }
+  }
+
+  return undefined;
+}
+
+function findNextEnabledExercise(
+  exercises: readonly SessionExercise[],
+  currentExerciseIndex?: number,
+): SessionExercise | undefined {
+  if (currentExerciseIndex === undefined) {
+    return undefined;
+  }
+
+  for (
+    let index = currentExerciseIndex + 1;
+    index < exercises.length;
+    index += 1
+  ) {
+    const exercise = exercises[index];
+
+    if (exercise?.isEnabled) {
+      return exercise;
+    }
+  }
+
+  return undefined;
 }
 
 function getCompanionExerciseTargetReps(exercise: SessionExercise): number {

@@ -66,6 +66,12 @@ Last Updated: 2026-07-17
 
 目标组数，必须大于 0。
 
+### workout_template_exercises.weight
+
+模板动作计划重量。
+
+可为空；存在时必须是非负数。
+
 ### exercises.instruction_steps_json
 
 本地化有序动作步骤，保存 JSON 对象。键为受支持语言代码，值为非空字符串

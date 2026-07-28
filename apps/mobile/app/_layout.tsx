@@ -12,6 +12,10 @@ import {
 } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
+import {
+  ApplicationResetProvider,
+  useApplicationReset,
+} from '@/features/application-reset';
 import { useOnboardingGate } from '@/features/onboarding/application/onboarding-state';
 import { WorkoutCompanionSettingsProvider } from '@/features/workout-session/application/workout-companion-settings';
 
@@ -19,10 +23,18 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AppNavigator />
-    </ThemeProvider>
+    <ApplicationResetProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <ResetAwareApp />
+      </ThemeProvider>
+    </ApplicationResetProvider>
   );
+}
+
+function ResetAwareApp() {
+  const { resetVersion } = useApplicationReset();
+
+  return <AppNavigator key={resetVersion} />;
 }
 
 function AppNavigator() {

@@ -117,7 +117,7 @@ describe('WorkoutSessionScreenContent', () => {
         }),
       ],
     });
-    const { getByText, getAllByText, getByLabelText } = await render(
+    const { getByText, getAllByText, queryByLabelText } = await render(
       <WorkoutSessionScreenContent
         state={buildReadyState(session)}
         controls={buildControls()}
@@ -126,8 +126,8 @@ describe('WorkoutSessionScreenContent', () => {
     );
 
     expect(getByText('Push')).toBeTruthy();
-    expect(getByLabelText('训练状态：进行中')).toBeTruthy();
-    expect(getByLabelText('陪练运行状态：训练中')).toBeTruthy();
+    expect(queryByLabelText('训练状态：进行中')).toBeNull();
+    expect(queryByLabelText('陪练运行状态：训练中')).toBeNull();
     expect(getByText('动作 1 / 2')).toBeTruthy();
     expect(getByText('已完成 1 / 6 组')).toBeTruthy();
     expect(getAllByText('杠铃卧推')).toHaveLength(2);
@@ -142,7 +142,7 @@ describe('WorkoutSessionScreenContent', () => {
     ['cancelled', '已取消'],
   ] as const)('shows %s sessions as read-only', async (status, label) => {
     const session = buildSessionForStatus(status);
-    const { getByLabelText, queryByLabelText } = await render(
+    const { queryByLabelText } = await render(
       <WorkoutSessionScreenContent
         state={buildReadyState(session)}
         controls={buildControls()}
@@ -150,9 +150,9 @@ describe('WorkoutSessionScreenContent', () => {
       />,
     );
 
-    expect(getByLabelText(`训练状态：${label}`)).toBeTruthy();
+    expect(queryByLabelText(`训练状态：${label}`)).toBeNull();
     expect(queryByLabelText('完成当前组')).toBeNull();
-    expect(getByLabelText('重量输入').props.editable).toBe(false);
+    expect(queryByLabelText('重量输入')).toBeNull();
   });
 
   it('shows Figma-style running controls', async () => {
@@ -167,9 +167,9 @@ describe('WorkoutSessionScreenContent', () => {
     expect(getByLabelText('当前动作示意图')).toBeTruthy();
     expect(getByText('次数进度')).toBeTruthy();
     expect(getByLabelText('训练控制')).toBeTruthy();
-    expect(getByLabelText('上一动作')).toBeTruthy();
+    expect(getByLabelText('上一个')).toBeTruthy();
     expect(getByLabelText('暂停训练')).toBeTruthy();
-    expect(getByLabelText('下一动作')).toBeTruthy();
+    expect(getByLabelText('下一个')).toBeTruthy();
   });
 
   it('uses next exercise instead of exposing duplicate skip or resume actions', async () => {
@@ -203,22 +203,23 @@ describe('WorkoutSessionScreenContent', () => {
     expect(selectExercise).toHaveBeenCalledWith(SECOND_EXERCISE_ID);
   });
 
-  it('connects runtime start, pause and resume controls', async () => {
+  it('connects runtime pause and resume controls while hiding manual start', async () => {
     const startWorkout = jest.fn(async () => undefined);
     const pauseWorkout = jest.fn();
     const resumeWorkout = jest.fn();
     const draftState = buildReadyState(buildSessionForStatus('draft'));
-    const { getByLabelText, rerender } = await render(
-      <WorkoutSessionScreenContent
-        state={draftState}
-        controls={buildControls({ startWorkout })}
-        onBack={jest.fn()}
-      />,
-    );
+    const { getByLabelText, getByText, queryByLabelText, rerender } =
+      await render(
+        <WorkoutSessionScreenContent
+          state={draftState}
+          controls={buildControls({ startWorkout })}
+          onBack={jest.fn()}
+        />,
+      );
 
-    expect(getByLabelText('陪练运行状态：未开始')).toBeTruthy();
-    await fireEvent.press(getByLabelText('开始训练'));
-    expect(startWorkout).toHaveBeenCalledTimes(1);
+    expect(queryByLabelText('陪练运行状态：未开始')).toBeNull();
+    expect(queryByLabelText('开始训练')).toBeNull();
+    expect(startWorkout).not.toHaveBeenCalled();
 
     await rerender(
       <WorkoutSessionScreenContent
@@ -238,13 +239,15 @@ describe('WorkoutSessionScreenContent', () => {
       />,
     );
     expect(getByLabelText('陪练运行状态：训练暂停')).toBeTruthy();
+    expect(getByLabelText('暂停训练当前动作：杠铃卧推')).toBeTruthy();
+    expect(getByText('暂停期间不会推进次数。')).toBeTruthy();
     await fireEvent.press(getByLabelText('继续训练'));
     expect(resumeWorkout).toHaveBeenCalledTimes(1);
   });
 
-  it('shows and toggles the voice coach control', async () => {
+  it('hides the voice coach control until real voice playback exists', async () => {
     const toggleVoiceFeedback = jest.fn();
-    const { getByLabelText, getByText } = await render(
+    const { queryByLabelText, queryByText } = await render(
       <WorkoutSessionScreenContent
         state={{
           ...buildReadyState(buildSession(), undefined, 'running'),
@@ -255,11 +258,9 @@ describe('WorkoutSessionScreenContent', () => {
       />,
     );
 
-    expect(getByText('语音已关闭')).toBeTruthy();
-
-    await fireEvent.press(getByLabelText('切换语音教练'));
-
-    expect(toggleVoiceFeedback).toHaveBeenCalledTimes(1);
+    expect(queryByText('语音已关闭')).toBeNull();
+    expect(queryByLabelText('切换语音教练')).toBeNull();
+    expect(toggleVoiceFeedback).not.toHaveBeenCalled();
   });
 
   it('does not expose the mock auto rep source as a manual trigger', async () => {
@@ -282,16 +283,18 @@ describe('WorkoutSessionScreenContent', () => {
     expect(queryByLabelText('模拟下一次次数')).toBeNull();
   });
 
-  it('connects previous and next exercise controls through selectExercise', async () => {
-    const selectExercise = jest.fn(async () => undefined);
+  it('connects previous and next controls through moveWorkoutPosition', async () => {
+    const moveWorkoutPosition = jest.fn(async () => undefined);
     const session = buildSession({
-      currentSessionExerciseId: SECOND_EXERCISE_ID,
+      currentSessionExerciseId: EXERCISE_ID,
+      currentSetNumber: 2,
       sessionExercises: [
         buildExercise({
           id: EXERCISE_ID,
           sourceExerciseId: 'exercise-bench' as ExerciseId,
           exerciseNameSnapshot: '杠铃卧推',
           position: 1,
+          targetSets: 3,
         }),
         buildExercise({
           id: SECOND_EXERCISE_ID,
@@ -299,43 +302,33 @@ describe('WorkoutSessionScreenContent', () => {
           exerciseNameSnapshot: '哑铃肩推',
           position: 2,
         }),
-        buildExercise({
-          id: 'session-exercise-row' as SessionExerciseId,
-          sourceExerciseId: 'exercise-row' as ExerciseId,
-          exerciseNameSnapshot: '杠铃划船',
-          position: 3,
-        }),
       ],
     });
     const { getByLabelText } = await render(
       <WorkoutSessionScreenContent
         state={buildReadyState(session, undefined, 'running')}
-        controls={buildControls({ selectExercise })}
+        controls={buildControls({ moveWorkoutPosition })}
         onBack={jest.fn()}
       />,
     );
 
-    await fireEvent.press(getByLabelText('上一动作'));
-    await fireEvent.press(getByLabelText('下一动作'));
+    await fireEvent.press(getByLabelText('上一个'));
+    await fireEvent.press(getByLabelText('下一个'));
 
-    expect(selectExercise).toHaveBeenCalledWith(EXERCISE_ID);
-    expect(selectExercise).toHaveBeenCalledWith(
-      'session-exercise-row' as SessionExerciseId,
-    );
+    expect(moveWorkoutPosition).toHaveBeenCalledWith(-1);
+    expect(moveWorkoutPosition).toHaveBeenCalledWith(1);
   });
 
   it.each([
-    ['running', '训练中'],
-    ['paused', '训练暂停'],
-    ['set_completion_pending', '正在确认本组完成'],
-    ['resting', '休息中'],
-    ['exercise_completion_pending', '正在保存训练结果'],
-    ['completed', '训练完成'],
+    'running',
+    'set_completion_pending',
+    'exercise_completion_pending',
+    'completed',
   ] as const)(
-    'maps companion %s phase to stable UI copy',
-    async (phase, copy) => {
+    'hides companion %s phase status copy in the running UI',
+    async (phase) => {
       const base = buildReadyState(buildSession());
-      const { getByLabelText } = await render(
+      const { queryByLabelText } = await render(
         <WorkoutSessionScreenContent
           state={{
             ...base,
@@ -348,7 +341,7 @@ describe('WorkoutSessionScreenContent', () => {
         />,
       );
 
-      expect(getByLabelText(`陪练运行状态：${copy}`)).toBeTruthy();
+      expect(queryByLabelText(/陪练运行状态/)).toBeNull();
     },
   );
 
@@ -378,6 +371,7 @@ describe('WorkoutSessionScreenContent', () => {
     expect(getByText('距离下一组')).toBeTruthy();
     expect(getByText('下一组')).toBeTruthy();
     expect(getByText('杠铃卧推 · 第 1 组')).toBeTruthy();
+    expect(getByLabelText('下一组动作示意图：杠铃卧推')).toBeTruthy();
     await fireEvent.press(getByLabelText('跳过休息'));
     expect(finishRest).toHaveBeenCalledTimes(1);
   });
@@ -989,6 +983,69 @@ describe('useWorkoutSessionScreen', () => {
     expect(repository.update).toHaveBeenCalledTimes(2);
   });
 
+  it('moves within a workout set before crossing to adjacent exercises', async () => {
+    const repository = createStatefulRepository(
+      buildSession({
+        currentSetNumber: 2,
+        sessionExercises: [
+          buildExercise({
+            targetSets: 3,
+          }),
+          buildExercise({
+            id: SECOND_EXERCISE_ID,
+            sourceExerciseId: 'exercise-press' as ExerciseId,
+            exerciseNameSnapshot: '哑铃肩推',
+            position: 2,
+            targetSets: 2,
+          }),
+        ],
+      }),
+    );
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+
+    await act(async () => result.current.controls.moveWorkoutPosition(-1));
+    expect(
+      getReadyState(result.current.state).data.session.currentSetNumber,
+    ).toBe(1);
+    expect(
+      getReadyState(result.current.state).data.session.currentSessionExerciseId,
+    ).toBe(EXERCISE_ID);
+
+    await act(async () => result.current.controls.moveWorkoutPosition(1));
+    expect(
+      getReadyState(result.current.state).data.session.currentSetNumber,
+    ).toBe(2);
+
+    await act(async () => result.current.controls.moveWorkoutPosition(1));
+    expect(
+      getReadyState(result.current.state).data.session.currentSetNumber,
+    ).toBe(3);
+
+    await act(async () => result.current.controls.moveWorkoutPosition(1));
+    expect(
+      getReadyState(result.current.state).data.session.currentSessionExerciseId,
+    ).toBe(SECOND_EXERCISE_ID);
+    expect(
+      getReadyState(result.current.state).data.session.currentSetNumber,
+    ).toBe(1);
+
+    await act(async () => result.current.controls.moveWorkoutPosition(-1));
+    expect(
+      getReadyState(result.current.state).data.session.currentSessionExerciseId,
+    ).toBe(EXERCISE_ID);
+    expect(
+      getReadyState(result.current.state).data.session.currentSetNumber,
+    ).toBe(1);
+    expect(repository.update).toHaveBeenCalledTimes(5);
+  });
+
   it('rejects invalid set input without writing', async () => {
     const repository = createStatefulRepository(buildSession());
     const { result } = await renderHook(() =>
@@ -1366,6 +1423,86 @@ describe('useWorkoutSessionScreen', () => {
     );
   });
 
+  it('restarts mock rep sequencing after skipping rest into the next set', async () => {
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({
+            targetSets: 2,
+            targetRepsMin: 1,
+            targetRepsMax: 1,
+          }),
+        ],
+      }),
+    );
+    let nextWorkoutSetId = 1;
+    let storedTimer: RestTimer | null = null;
+    let lastTimerStatus: RestTimer['status'] | undefined;
+    const restTimerRepository: RestTimerRepository = {
+      ...buildRestTimerRepository(),
+      findBySessionId: async () => storedTimer,
+      startIfNoActiveTimer: async (input) => {
+        storedTimer = input.timer;
+        return {
+          status: 'started' as const,
+          timer: input.timer,
+        };
+      },
+      update: async (next) => {
+        storedTimer = next;
+        lastTimerStatus = next.status;
+        return next;
+      },
+    };
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          restTimerRepository,
+          workoutCompanionEventSourceMode: 'mock_auto_rep',
+          createWorkoutSetId: () => `workout-set-auto-${nextWorkoutSetId++}`,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+
+    await act(async () => result.current.controls.emitMockCompanionRep());
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
+        'resting',
+      ),
+    );
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).isMutating).toBe(false),
+    );
+
+    await act(async () => result.current.controls.finishRest());
+    expect(lastTimerStatus).toBe('skipped');
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
+        'running',
+      ),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => result.current.controls.emitMockCompanionRep());
+    await waitFor(() =>
+      expect(
+        getReadyState(result.current.state).runtime.currentExercise?.sets,
+      ).toHaveLength(2),
+    );
+
+    const ready = getReadyState(result.current.state);
+    expect(ready.actionError).toBeUndefined();
+    expect(ready.runtime.currentExercise?.sets).toEqual([
+      expect.objectContaining({ setNumber: 1, actualReps: 1 }),
+      expect.objectContaining({ setNumber: 2, actualReps: 1 }),
+    ]);
+  });
+
   it('silently refreshes durable session state when the page regains focus', async () => {
     const initialSession = buildSession();
     const refreshedSession = buildSession({
@@ -1668,6 +1805,7 @@ function buildControls(
     updateWeight: jest.fn(),
     updateActualReps: jest.fn(),
     recordSet: jest.fn(async () => undefined),
+    moveWorkoutPosition: jest.fn(async () => undefined),
     selectExercise: jest.fn(async () => undefined),
     requestSkipExercise: jest.fn(),
     cancelSkipExercise: jest.fn(),

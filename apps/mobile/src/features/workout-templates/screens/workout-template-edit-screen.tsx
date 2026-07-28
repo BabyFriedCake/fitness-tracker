@@ -574,30 +574,22 @@ function ExerciseEditorList({
               }
             />
             <ConfigInput
-              label="最小"
+              label="次数"
               value={String(exercise.targetRepsMin)}
               disabled={disabled}
-              accessibilityLabel={`修改${exercise.exercise?.nameZh ?? exercise.exerciseId}最小次数`}
-              onChangeText={(value) =>
+              accessibilityLabel={`修改${exercise.exercise?.nameZh ?? exercise.exerciseId}目标次数`}
+              onChangeText={(value) => {
                 controls.updateExerciseConfig(
                   exercise.exerciseId,
                   'targetRepsMin',
                   value,
-                )
-              }
-            />
-            <ConfigInput
-              label="最大"
-              value={String(exercise.targetRepsMax)}
-              disabled={disabled}
-              accessibilityLabel={`修改${exercise.exercise?.nameZh ?? exercise.exerciseId}最大次数`}
-              onChangeText={(value) =>
+                );
                 controls.updateExerciseConfig(
                   exercise.exerciseId,
                   'targetRepsMax',
                   value,
-                )
-              }
+                );
+              }}
             />
             <ConfigInput
               label="休息"
@@ -608,6 +600,20 @@ function ExerciseEditorList({
                 controls.updateExerciseConfig(
                   exercise.exerciseId,
                   'restSeconds',
+                  value,
+                )
+              }
+            />
+            <ConfigInput
+              label="重量"
+              value={exercise.weight}
+              disabled={disabled}
+              accessibilityLabel={`修改${exercise.exercise?.nameZh ?? exercise.exerciseId}训练重量`}
+              keyboardType="decimal-pad"
+              onChangeText={(value) =>
+                controls.updateExerciseConfig(
+                  exercise.exerciseId,
+                  'weight',
                   value,
                 )
               }
@@ -668,12 +674,14 @@ function ConfigInput({
   value,
   disabled,
   accessibilityLabel,
+  keyboardType = 'number-pad',
   onChangeText,
 }: {
   readonly label: string;
   readonly value: string;
   readonly disabled: boolean;
   readonly accessibilityLabel: string;
+  readonly keyboardType?: 'number-pad' | 'decimal-pad';
   readonly onChangeText: (value: string) => void;
 }) {
   const theme = useTheme();
@@ -684,7 +692,7 @@ function ConfigInput({
       <TextInput
         value={value}
         editable={!disabled}
-        keyboardType="number-pad"
+        keyboardType={keyboardType}
         onChangeText={onChangeText}
         accessibilityLabel={accessibilityLabel}
         style={[

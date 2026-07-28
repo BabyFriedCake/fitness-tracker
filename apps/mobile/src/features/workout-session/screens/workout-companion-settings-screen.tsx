@@ -1,9 +1,19 @@
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Switch,
+  View,
+} from 'react-native';
+import { deleteDatabaseAsync } from 'expo-sqlite';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { APPLICATION_DATABASE_NAME } from '@/database/constants';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useApplicationReset } from '@/features/application-reset';
 
 import {
   useWorkoutCompanionSettings,
@@ -34,6 +44,23 @@ export function WorkoutCompanionSettingsScreen() {
     setVoiceFeedbackEnabled,
     setInputSourceMode,
   } = useWorkoutCompanionSettings();
+  const { requestApplicationReset } = useApplicationReset();
+  const [isResetting, setIsResetting] = useState(false);
+
+  async function resetDevelopmentData(): Promise<void> {
+    if (isResetting) {
+      return;
+    }
+
+    setIsResetting(true);
+
+    try {
+      await deleteDatabaseAsync(APPLICATION_DATABASE_NAME);
+      requestApplicationReset();
+    } finally {
+      setIsResetting(false);
+    }
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -113,6 +140,31 @@ export function WorkoutCompanionSettingsScreen() {
             Mock 仅用于开发和演示。真实识别、摄像头、姿态检测与 AI 推理仍然
             不在当前版本范围内。
           </ThemedText>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="subtitle">开发环境</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            仅用于本地调试和真机验证。重置后会清空本地训练数据并重新初始化。
+          </ThemedText>
+          <Pressable
+            onPress={() => void resetDevelopmentData()}
+            disabled={isResetting}
+            accessibilityRole="button"
+            accessibilityLabel="重置开发环境数据"
+            accessibilityState={{ disabled: isResetting }}
+            style={({ pressed }) => [
+              styles.resetButton,
+              pressed && !isResetting && styles.pressed,
+              isResetting && styles.resetButtonDisabled,
+            ]}
+          >
+            {isResetting ? (
+              <ActivityIndicator />
+            ) : (
+              <ThemedText type="smallBold">重置开发环境数据</ThemedText>
+            )}
+          </Pressable>
         </View>
 
         <View style={styles.section}>
@@ -202,6 +254,17 @@ const styles = StyleSheet.create({
   },
   optionDotSelected: {
     backgroundColor: '#0f172a',
+  },
+  resetButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: '#1B2016',
+    paddingHorizontal: Spacing.four,
+  },
+  resetButtonDisabled: {
+    opacity: 0.7,
   },
   pressed: {
     opacity: 0.75,

@@ -25,7 +25,7 @@ describe('TodayWorkoutPlan schema migration', () => {
     await database.closeAsync();
   });
 
-  it('creates today_workout_plans on fresh install at schema version 5', async () => {
+  it('creates today_workout_plans on fresh install at schema version 6', async () => {
     const result = await runMigrations(database);
     const version = await getCurrentSchemaVersion(database);
     const row = await database.getFirstAsync<{ name: string }>(
@@ -33,9 +33,9 @@ describe('TodayWorkoutPlan schema migration', () => {
        WHERE type = 'table' AND name = 'today_workout_plans';`,
     );
 
-    expect(result.schemaVersion).toBe(5);
-    expect(version).toBe(5);
-    expect(result.appliedVersions).toEqual([1, 2, 3, 4, 5]);
+    expect(result.schemaVersion).toBe(6);
+    expect(version).toBe(6);
+    expect(result.appliedVersions).toEqual([1, 2, 3, 4, 5, 6]);
     expect(row?.name).toBe('today_workout_plans');
   });
 

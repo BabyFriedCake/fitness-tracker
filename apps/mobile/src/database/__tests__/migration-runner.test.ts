@@ -93,7 +93,7 @@ describe('database migration runner', () => {
     const result = await runMigrations(database);
 
     expect(result.schemaVersion).toBe(LATEST_SCHEMA_VERSION);
-    expect(result.appliedVersions).toEqual([1, 2, 3, 4, 5]);
+    expect(result.appliedVersions).toEqual([1, 2, 3, 4, 5, 6]);
     await expectSqliteObjects('table', REQUIRED_TABLES);
     await expectSqliteObjects('index', REQUIRED_INDEXES);
   });
@@ -108,7 +108,7 @@ describe('database migration runner', () => {
 
     expect(rerunResult.schemaVersion).toBe(LATEST_SCHEMA_VERSION);
     expect(rerunResult.appliedVersions).toEqual([]);
-    expect(migrationRows?.count).toBe(5);
+    expect(migrationRows?.count).toBe(6);
   });
 
   it('rolls back a failed migration without recording success', async () => {
@@ -175,6 +175,11 @@ describe('database migration runner', () => {
         name: '0005_begin_fails',
         sql: 'SELECT 1;',
         disableForeignKeysDuringMigration: true,
+      },
+      {
+        version: 6,
+        name: '0006_already_applied',
+        sql: '',
       },
     ];
     const failingBeginDatabase: DatabaseConnection = {
@@ -270,8 +275,8 @@ describe('database migration runner', () => {
     );
 
     expect(result).toEqual({
-      schemaVersion: 5,
-      appliedVersions: [4, 5],
+      schemaVersion: 6,
+      appliedVersions: [4, 5, 6],
     });
     expect(exercise).toEqual({
       id: 'exercise-existing',
@@ -282,7 +287,7 @@ describe('database migration runner', () => {
     });
 
     await expect(runMigrations(database)).resolves.toEqual({
-      schemaVersion: 5,
+      schemaVersion: 6,
       appliedVersions: [],
     });
   });
@@ -439,9 +444,9 @@ describe('database migration runner', () => {
 
     const result = await runMigrations(database);
 
-    expect(result.schemaVersion).toBe(5);
-    expect(result.appliedVersions).toEqual([2, 3, 4, 5]);
-    expect(await getCurrentSchemaVersion(database)).toBe(5);
+    expect(result.schemaVersion).toBe(6);
+    expect(result.appliedVersions).toEqual([2, 3, 4, 5, 6]);
+    expect(await getCurrentSchemaVersion(database)).toBe(6);
     expect(await getTableCount('workout_templates')).toBe(2);
     expect(await getTableCount('workout_template_exercises')).toBe(2);
 
@@ -479,9 +484,9 @@ describe('database migration runner', () => {
 
     const rerunResult = await runMigrations(database);
 
-    expect(rerunResult.schemaVersion).toBe(5);
+    expect(rerunResult.schemaVersion).toBe(6);
     expect(rerunResult.appliedVersions).toEqual([]);
-    expect(await getTableCount('schema_migrations')).toBe(5);
+    expect(await getTableCount('schema_migrations')).toBe(6);
   });
 
   it('rolls back a failed version 2 upgrade without recording success', async () => {

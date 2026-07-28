@@ -24,6 +24,7 @@ const CREATED_AT = '2026-07-23T01:00:00.000Z';
 describe('Workout Template detail screen', () => {
   it('renders a read-only template detail and opens edit from the header action', async () => {
     const onEditTemplate = jest.fn();
+    const onOpenExercise = jest.fn();
     const { getByLabelText, getByText } = await render(
       <WorkoutTemplateDetailContent
         state={{
@@ -46,6 +47,7 @@ describe('Workout Template detail screen', () => {
                 targetSets: 4,
                 targetRepsLabel: '8-10',
                 restSeconds: 90,
+                weight: 80,
               },
             ],
           },
@@ -53,6 +55,7 @@ describe('Workout Template detail screen', () => {
         controls={{ reload: jest.fn() }}
         onBack={jest.fn()}
         onEditTemplate={onEditTemplate}
+        onOpenExercise={onOpenExercise}
       />,
     );
 
@@ -61,11 +64,13 @@ describe('Workout Template detail screen', () => {
     expect(getByText('时长待估算 · 4 组 · 预计消耗待估算')).toBeTruthy();
     expect(getByText('01')).toBeTruthy();
     expect(getByText('杠铃深蹲')).toBeTruthy();
-    expect(getByText('4 组 · 8-10 次 · 90 秒')).toBeTruthy();
+    expect(getByText('4 组 · 8-10 次 · 90 秒 · 80 公斤')).toBeTruthy();
 
     await fireEvent.press(getByLabelText('编辑此次训练'));
+    await fireEvent.press(getByLabelText('查看动作杠铃深蹲'));
 
     expect(onEditTemplate).toHaveBeenCalledWith(TEMPLATE_ID);
+    expect(onOpenExercise).toHaveBeenCalledWith(EXERCISE_ID);
   });
 
   it('loads template details through repository boundaries', async () => {
@@ -102,6 +107,7 @@ describe('Workout Template detail screen', () => {
             targetSets: 4,
             targetRepsLabel: '8-10',
             restSeconds: 90,
+            weight: 80,
           },
         ],
       },
@@ -159,6 +165,7 @@ function buildTemplate(
         targetRepsMin: 8,
         targetRepsMax: 10,
         restSeconds: 90,
+        weight: 80,
         createdAt: CREATED_AT,
         updatedAt: CREATED_AT,
       },
