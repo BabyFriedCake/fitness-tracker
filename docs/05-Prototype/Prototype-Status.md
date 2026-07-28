@@ -25,18 +25,18 @@ Prototype 编号不等于 Sprint 编号。
 
 | Prototype             | Sprint来源 | 状态     | 说明                                             |
 | --------------------- | ---------- | -------- | ------------------------------------------------ |
-| P001 Today            | Sprint 4/6 | 已批准   | 基础页面存在，Sprint 6 补齐 DailyStatus、本周概览、推荐展示 |
+| P001 Today            | Sprint 4/6/Post Release | 基本完成 | 基础页面存在；Today 计划入口、完成态禁用和本次训练编辑页已实现 |
 | P002 Workout Template | Sprint 3   | 基本完成 | 创建、编辑、排序、归档能力已实现                 |
 | P003 Start Workout    | Sprint 4   | 部分完成 | 开始训练流程存在，缺训练前预览增强               |
-| P004 Workout          | Sprint 4/5/7 | 核心完成 | Workout Runtime 主流程已完成，Sprint 7 对齐 Figma running / paused / resting |
+| P004 Workout          | Sprint 4/5/7/Post Release | 核心完成 | Workout Runtime 主流程已完成；训练页自动启动、默认 Mock 自动计数，已移除重复跳过/恢复入口 |
 | P005 Rest Timer       | Sprint 4/5/7 | 部分完成 | 基础计时完成，Sprint 7 已对齐休息页展示；延长和系统通知仍属后续 |
 | P006 Workout Summary  | Sprint 4/6 | 部分完成 | 基础总结完成，缺 PR、备注、详情分析              |
-| P007 Exercise Library | Sprint 2/6 | 已批准   | 基础动作库存在，Sprint 6 接入真实本地数据并增强筛选 |
+| P007 Exercise Library | Sprint 2/6/Post Release | 基本完成 | 基础动作库存在，Sprint 6 接入真实本地数据并增强筛选；列表和详情已显示离线动作图片占位 |
 | P008 History          | Sprint 4/6 | 已批准   | 已有训练记录，Sprint 6 增加日历、趋势、统计       |
 | P009 Settings         | Sprint 7   | 部分完成 | 已实现 Companion 会话级设置入口，完整系统设置仍待后续 |
 | P010 Onboarding       | 后续       | 未开始   | 未建立完整流程                                   |
 | P011 Voice Coach      | Sprint 7   | 部分完成 | 已有语音反馈事件和训练页开关；真实 Voice Engine 后续实现 |
-| P012 Exercise Detail  | Sprint 6   | 已批准   | 从 P007 Exercise Library 拆出的详情能力          |
+| P012 Exercise Detail  | Sprint 6/Post Release | 基本完成 | 从 P007 Exercise Library 拆出的详情能力；无授权图片时显示离线稳定占位 |
 | P013 AI Coach         | Sprint 8   | 规划中   | AI 训练辅助入口                                  |
 
 ---

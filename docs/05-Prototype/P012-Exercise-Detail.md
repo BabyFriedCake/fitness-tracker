@@ -126,7 +126,7 @@ Exercise Domain 是动作字段事实；Database 保存导入后的本地数据�
 ## 18. Edge Cases
 
 - ExerciseId 无效或不存在
-- 图片文件缺失
+- 图片文件缺失时显示离线本地稳定占位，不在运行时访问 GitHub
 - 说明只有一种语言
 - 来源要求展示 Attribution
 - 动作已停用
