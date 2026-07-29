@@ -1,10 +1,9 @@
-export type TopLevelRouteKey =
-  'today' | 'templates' | 'exercises' | 'history' | 'settings';
+export type TopLevelRouteKey = 'today' | 'templates' | 'exercises' | 'history';
 
 export type TopLevelRoute = {
   readonly key: TopLevelRouteKey;
-  readonly name: 'index' | 'templates' | 'exercises' | 'history' | 'settings';
-  readonly href: '/' | '/templates' | '/exercises' | '/history' | '/settings';
+  readonly name: 'index' | 'templates' | 'exercises' | 'history';
+  readonly href: '/' | '/templates' | '/exercises' | '/history';
   readonly title: string;
   readonly note: string;
 };
@@ -37,13 +36,6 @@ export const TOP_LEVEL_ROUTES = [
     href: '/history',
     title: '历史',
     note: '导航占位页，后续任务实现训练历史。',
-  },
-  {
-    key: 'settings',
-    name: 'settings',
-    href: '/settings',
-    title: '设置',
-    note: '导航占位页，后续任务实现偏好与数据管理。',
   },
 ] as const satisfies readonly TopLevelRoute[];
 

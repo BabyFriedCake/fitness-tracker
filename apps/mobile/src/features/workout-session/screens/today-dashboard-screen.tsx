@@ -63,6 +63,9 @@ export function TodayDashboardScreen() {
       onOpenHistory={() => {
         router.push('/history');
       }}
+      onOpenProfile={() => {
+        router.push('/profile');
+      }}
     />
   );
 }
@@ -75,6 +78,7 @@ export type TodayDashboardScreenContentProps = {
   readonly onOpenTodayPlan: (planId: TodayWorkoutPlanId) => void;
   readonly onOpenWorkoutSession: (sessionId: WorkoutSessionId) => void;
   readonly onOpenHistory: () => void;
+  readonly onOpenProfile?: () => void;
 };
 
 export function TodayDashboardScreenContent({
@@ -85,15 +89,33 @@ export function TodayDashboardScreenContent({
   onOpenTodayPlan,
   onOpenWorkoutSession,
   onOpenHistory,
+  onOpenProfile,
 }: TodayDashboardScreenContentProps) {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.content}>
           <View style={styles.header}>
-            <ThemedText type="small" themeColor="textSecondary">
-              7 月 23 日 · 星期四
-            </ThemedText>
+            <View style={styles.headerTopRow}>
+              <ThemedText type="small" themeColor="textSecondary">
+                7 月 23 日 · 星期四
+              </ThemedText>
+              {onOpenProfile ? (
+                <Pressable
+                  onPress={onOpenProfile}
+                  accessibilityRole="button"
+                  accessibilityLabel="打开个人中心"
+                  style={({ pressed }) => [
+                    styles.profileButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <ThemedText type="smallBold" style={styles.profileInitials}>
+                    我
+                  </ThemedText>
+                </Pressable>
+              ) : null}
+            </View>
             <ThemedText type="title">专注每一次动作。</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               选择模板开始训练，或继续已保存的训练。
@@ -900,6 +922,24 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.four,
   },
   header: { gap: Spacing.one },
+  headerTopRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  profileButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DCD8CE',
+    borderRadius: 24,
+    backgroundColor: '#F7F6F1',
+  },
+  profileInitials: { color: '#1B2016' },
   readyScrollContent: { paddingBottom: Spacing.four },
   readyContent: { gap: Spacing.four },
   statusSection: { gap: Spacing.two },

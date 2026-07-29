@@ -670,6 +670,30 @@ describe('Today Dashboard', () => {
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
   });
 
+  it('opens the personal center from the Today header avatar', async () => {
+    const onOpenProfile = jest.fn();
+    const { getByLabelText } = await render(
+      <TodayDashboardScreenContent
+        state={buildReadyState({
+          sessionEntry: { status: 'none' },
+          todayPlans: [],
+          templates: [],
+        })}
+        controls={buildControls()}
+        onCreateTemplate={jest.fn()}
+        onOpenTemplate={jest.fn()}
+        onOpenTodayPlan={jest.fn()}
+        onOpenWorkoutSession={jest.fn()}
+        onOpenHistory={jest.fn()}
+        onOpenProfile={onOpenProfile}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('打开个人中心'));
+
+    expect(onOpenProfile).toHaveBeenCalledTimes(1);
+  });
+
   it('renders and updates DailyStatus with weekly and recent facts', async () => {
     const updateDailyStatus = jest.fn(async () => {});
     const onOpenHistory = jest.fn();

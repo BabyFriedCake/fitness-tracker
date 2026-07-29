@@ -49,7 +49,7 @@ Related Documents: PRD、Architecture、Domain Model、Database（如涉及）�
 ## 6. User Journey
 
 ```text
-设置 → 修改偏好自动保存 → 新建内容采用新默认值
+Today 右上角头像 → 个人中心 → 偏好设置 → 修改偏好自动保存 → 新建内容采用新默认值
 ```
 
 ## 7. Entry & Exit
@@ -63,7 +63,7 @@ Related Documents: PRD、Architecture、Domain Model、Database（如涉及）�
 ## 9. Wireframe
 
 ```text
-设置
+个人中心 / 偏好设置
 训练：默认休息90秒 · 步进2.5kg · 单位kg
 提醒：通知/声音/震动
 数据：导出数据 · 清除全部数据
@@ -133,7 +133,7 @@ Loading → Ready/Error；Ready → Updating/Exporting/ConfirmingClear/Clearing
 
 ## 17. Navigation
 
-所有跳转由第 13 节交互定义；返回时不得静默丢失已完成训练数据。
+设置不作为底部 Tab。用户从 Today 右上角头像进入个人中心，再打开偏好设置；返回时不得静默丢失已完成训练数据。
 
 ## 18. Edge Cases
 

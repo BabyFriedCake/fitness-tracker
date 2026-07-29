@@ -88,6 +88,7 @@ Legs · 4动作 · 13组              [已完成]
 - Recommendation Card
 - Recent Workout Row
 - Weekly Summary
+- Profile Avatar Entry
 
 所有组件引用 `docs/07-Design-System/`，关键点击区域至少 44×44 pt。
 
@@ -120,6 +121,7 @@ Legs · 4动作 · 13组              [已完成]
 - 添加计划→打开模板选择 Modal
 - 模板选择确认→将模板加入今天训练计划
 - 点击今日计划卡片主体→进入本次训练预览/调整页
+- 点击右上角头像→进入个人中心，再进入偏好设置
 - 今日计划卡片开始按钮→创建或恢复该计划的 WorkoutSession 并进入 P004
 - 已完成今日计划开始按钮→禁用，不创建新 Session
 - 选择今日状态→立即保存

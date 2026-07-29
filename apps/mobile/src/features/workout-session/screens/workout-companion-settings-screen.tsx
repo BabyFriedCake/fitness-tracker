@@ -37,7 +37,11 @@ const INPUT_SOURCE_OPTIONS: {
   },
 ];
 
-export function WorkoutCompanionSettingsScreen() {
+export function WorkoutCompanionSettingsScreen({
+  onBack,
+}: {
+  readonly onBack?: () => void;
+}) {
   const {
     voiceFeedbackEnabled,
     inputSourceMode,
@@ -66,9 +70,26 @@ export function WorkoutCompanionSettingsScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.pageHeader}>
-          <ThemedText type="small" themeColor="textSecondary">
-            当前训练会话
-          </ThemedText>
+          <View style={styles.headerRow}>
+            <ThemedText type="small" themeColor="textSecondary">
+              个人中心 · 偏好设置
+            </ThemedText>
+            {onBack ? (
+              <Pressable
+                onPress={onBack}
+                accessibilityRole="button"
+                accessibilityLabel="返回个人中心"
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  返回
+                </ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
           <ThemedText type="title">Companion 设置</ThemedText>
           <ThemedText type="default" themeColor="textSecondary">
             这里只影响当前应用会话，不会写入用户设置或训练历史。
@@ -207,6 +228,18 @@ const styles = StyleSheet.create({
   },
   pageHeader: {
     gap: Spacing.one,
+  },
+  headerRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  backButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
   },
   section: {
     gap: Spacing.three,

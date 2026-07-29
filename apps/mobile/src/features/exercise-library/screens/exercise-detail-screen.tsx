@@ -3,6 +3,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  View,
 } from 'react-native';
 import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
@@ -74,20 +75,16 @@ export function ExerciseDetailContent({
 }
 
 function BackButton({ onBack }: { readonly onBack: () => void }) {
-  const theme = useTheme();
-
   return (
     <Pressable
       onPress={onBack}
       accessibilityRole="button"
       accessibilityLabel="返回动作库"
-      style={({ pressed }) => [
-        styles.backButton,
-        { borderColor: theme.backgroundSelected },
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
     >
-      <ThemedText type="smallBold">返回动作库</ThemedText>
+      <ThemedText type="default" themeColor="textSecondary">
+        ←　动作资料库
+      </ThemedText>
     </Pressable>
   );
 }
@@ -163,19 +160,27 @@ function ExerciseDetail({ exercise }: { readonly exercise: Exercise }) {
 
   return (
     <>
+      <ExerciseMedia exercise={exercise} />
+
       <ThemedView style={styles.header}>
-        <ThemedText type="subtitle">{exercise.nameZh}</ThemedText>
-        <ThemedText type="smallBold">
+        <ThemedText type="small" themeColor="textSecondary">
           {primaryMuscleGroup} · {equipment}
         </ThemedText>
+        <ThemedText type="title" style={styles.exerciseTitle}>
+          {exercise.nameZh}
+        </ThemedText>
+        <View style={styles.chipRow}>
+          <ExerciseChip label={equipment} />
+          <ExerciseChip
+            label={exercise.type === 'strength' ? '力量' : '有氧'}
+          />
+        </View>
         {exercise.status === 'inactive' && (
           <ThemedText type="small" themeColor="textSecondary">
             状态：停用，仅用于历史记录兼容。
           </ThemedText>
         )}
       </ThemedView>
-
-      <ExerciseMedia exercise={exercise} />
 
       <DetailSection title="动作说明">
         <ThemedText type="default">
@@ -231,6 +236,16 @@ function ExerciseDetail({ exercise }: { readonly exercise: Exercise }) {
         )}
       </DetailSection>
     </>
+  );
+}
+
+function ExerciseChip({ label }: { readonly label: string }) {
+  return (
+    <View style={styles.chip}>
+      <ThemedText type="small" style={styles.chipText}>
+        {label}
+      </ThemedText>
+    </View>
   );
 }
 
@@ -336,24 +351,27 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
+    gap: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.two,
     paddingBottom: BottomTabInset + Spacing.three,
   },
   backButton: {
     minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
     alignSelf: 'flex-start',
-    borderRadius: Spacing.two,
-    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    paddingRight: Spacing.two,
+  },
+  header: { gap: Spacing.two },
+  exerciseTitle: { fontSize: 52, lineHeight: 58 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  chip: {
+    borderRadius: 20,
+    backgroundColor: '#EAE8E1',
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
-  header: {
-    gap: Spacing.one,
-  },
+  chipText: { color: '#1B2016' },
   imagePlaceholder: {
     minHeight: 160,
     alignItems: 'center',
@@ -365,9 +383,14 @@ const styles = StyleSheet.create({
   exerciseImage: {
     width: '100%',
     aspectRatio: 1.6,
+    borderRadius: 28,
+    backgroundColor: '#EAE8E1',
   },
   section: {
     gap: Spacing.two,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E1DED6',
+    paddingTop: Spacing.four,
   },
   sectionBody: {
     gap: Spacing.two,
