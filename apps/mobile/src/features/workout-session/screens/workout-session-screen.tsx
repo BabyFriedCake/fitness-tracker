@@ -453,6 +453,11 @@ function PausedWorkoutState({
   const targetReps = currentExercise
     ? getExerciseTargetReps(currentExercise)
     : 0;
+  const imageSource = currentExercise
+    ? resolveExerciseImageSource(
+        state.data.exerciseImageUriBySessionExerciseId?.[currentExercise.id],
+      )
+    : undefined;
 
   return (
     <View
@@ -461,6 +466,20 @@ function PausedWorkoutState({
     >
       <View style={styles.pausedCenter}>
         <ThemedText style={styles.workoutEyebrow}>训练已暂停</ThemedText>
+        {currentExercise && imageSource && (
+          <View
+            style={styles.pausedExerciseMedia}
+            accessible
+            accessibilityLabel={`暂停训练动作示意图：${currentExercise.exerciseNameSnapshot}`}
+          >
+            <Image
+              source={imageSource}
+              contentFit="cover"
+              style={styles.pausedExerciseMediaImage}
+              accessibilityIgnoresInvertColors
+            />
+          </View>
+        )}
         <ThemedText style={styles.pausedHeadline}>调整一下呼吸。</ThemedText>
         {currentExercise && (
           <View
@@ -1292,6 +1311,16 @@ const styles = StyleSheet.create({
     lineHeight: 58,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  pausedExerciseMedia: {
+    width: 136,
+    height: 136,
+    borderRadius: 28,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(202, 255, 0, 0.18)',
+  },
+  pausedExerciseMediaImage: {
+    ...StyleSheet.absoluteFillObject,
   },
   pausedContextCard: {
     width: '100%',

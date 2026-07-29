@@ -8,12 +8,12 @@ describe('Expo speech workout voice adapter', () => {
     const speech = createSpeechModule();
     const adapter = createExpoSpeechWorkoutVoiceFeedbackAdapter({ speech });
 
-    const speaking = adapter.speak('第 1 次');
+    const speaking = adapter.speak('1');
 
     await Promise.resolve();
     expect(speech.stop).toHaveBeenCalledTimes(1);
     expect(speech.speak).toHaveBeenCalledWith(
-      '第 1 次',
+      '1',
       expect.objectContaining({ language: 'zh-CN', rate: 0.52 }),
     );
 
@@ -25,15 +25,15 @@ describe('Expo speech workout voice adapter', () => {
     const speech = createSpeechModule();
     const adapter = createExpoSpeechWorkoutVoiceFeedbackAdapter({ speech });
 
-    const first = adapter.speak('第 1 次');
-    const second = adapter.speak('第 2 次');
+    const first = adapter.speak('1');
+    const second = adapter.speak('2');
 
     await Promise.resolve();
     await Promise.resolve();
 
     expect(speech.stop).toHaveBeenCalledTimes(2);
     expect(speech.speak).toHaveBeenCalledTimes(1);
-    expect(speech.speak).toHaveBeenCalledWith('第 2 次', expect.any(Object));
+    expect(speech.speak).toHaveBeenCalledWith('2', expect.any(Object));
 
     getSpeechOptions(speech).onDone?.();
     await expect(first).resolves.toBeUndefined();
@@ -61,8 +61,8 @@ describe('Expo speech workout voice adapter', () => {
     });
     const adapter = createExpoSpeechWorkoutVoiceFeedbackAdapter({ speech });
 
-    const first = adapter.speak('第 1 次');
-    const second = adapter.speak('第 2 次');
+    const first = adapter.speak('1');
+    const second = adapter.speak('2');
 
     stopResolvers[0]?.();
     await Promise.resolve();
@@ -71,7 +71,7 @@ describe('Expo speech workout voice adapter', () => {
     await Promise.resolve();
 
     expect(speech.speak).toHaveBeenCalledTimes(1);
-    expect(speech.speak).toHaveBeenCalledWith('第 2 次', expect.any(Object));
+    expect(speech.speak).toHaveBeenCalledWith('2', expect.any(Object));
 
     getSpeechOptions(speech).onDone?.();
     await expect(first).resolves.toBeUndefined();

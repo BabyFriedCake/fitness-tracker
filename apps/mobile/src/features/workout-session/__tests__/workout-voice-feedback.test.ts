@@ -14,7 +14,9 @@ import {
   createSetCompletedFeedbackEvent,
 } from '@/features/workout-session/application/workout-feedback-events';
 import {
+  InvalidExerciseStartCountdownVoiceFeedbackInputError,
   InvalidRestTimerVoiceFeedbackInputError,
+  createExerciseStartCountdownVoiceFeedbackEvent,
   createRestTimerStartedVoiceFeedbackEvent,
   createWorkoutVoiceFeedbackMessage,
   speakWorkoutVoiceFeedbackEvent,
@@ -45,7 +47,7 @@ describe('Workout Voice Feedback', () => {
           repNumber: 10,
         }),
       ),
-    ).toBe('第 10 次');
+    ).toBe('10');
     expect(
       createWorkoutVoiceFeedbackMessage(
         createSetCompletedFeedbackEvent({
@@ -68,6 +70,11 @@ describe('Workout Voice Feedback', () => {
         createRestTimerStartedVoiceFeedbackEvent(90),
       ),
     ).toBe('休息 90 秒');
+    expect(
+      createWorkoutVoiceFeedbackMessage(
+        createExerciseStartCountdownVoiceFeedbackEvent('杠铃卧推'),
+      ),
+    ).toBe('杠铃卧推，3，2，1，开始');
   });
 
   it('does not call the voice adapter when voice feedback is disabled', async () => {
@@ -129,6 +136,12 @@ describe('Workout Voice Feedback', () => {
       ).toThrow(InvalidRestTimerVoiceFeedbackInputError);
     },
   );
+
+  it('rejects a blank exercise name for voice-only start countdown feedback', () => {
+    expect(() => createExerciseStartCountdownVoiceFeedbackEvent('  ')).toThrow(
+      InvalidExerciseStartCountdownVoiceFeedbackInputError,
+    );
+  });
 });
 
 function buildSessionExercise(

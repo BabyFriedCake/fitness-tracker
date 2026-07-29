@@ -792,6 +792,7 @@ Workout Runtime 和持久化事实的前提下播报真实训练反馈。
 
 - 只使用设备本地 TTS；不依赖网络。
 - 只在训练页前台播报；不实现后台播放或锁屏控制。
+- Mock 自动计数每 2 秒发送一次事件；休息结束后先播报开始倒计时再恢复 Mock 计数。
 - 不请求麦克风权限，不实现语音识别、Camera、Pose Detection 或 AI 计数。
 - 语音失败不得影响 Runtime、RestTimer 或 WorkoutSet 持久化。
 

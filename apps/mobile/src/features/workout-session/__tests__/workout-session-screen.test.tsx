@@ -519,8 +519,17 @@ describe('useWorkoutSessionScreen', () => {
         ],
       }),
     );
+    let releaseFinalRep: (() => void) | undefined;
     const voiceAdapter: WorkoutVoiceFeedbackAdapter = {
-      speak: jest.fn(async () => undefined),
+      speak: jest.fn((message: string) => {
+        if (message === '2') {
+          return new Promise<void>((resolve) => {
+            releaseFinalRep = resolve;
+          });
+        }
+
+        return Promise.resolve();
+      }),
     };
     const { result } = await renderHook(() =>
       useWorkoutSessionScreen(
@@ -540,6 +549,18 @@ describe('useWorkoutSessionScreen', () => {
     });
 
     await waitFor(() => expect(repository.update).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(releaseFinalRep).toEqual(expect.any(Function)));
+    expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
+      'set_completion_pending',
+    );
+    expect(
+      getReadyState(result.current.state).companionRuntime?.progress
+        .completedReps,
+    ).toBe(2);
+    expect(voiceAdapter.speak).toHaveBeenCalledWith('2');
+    expect(voiceAdapter.speak).not.toHaveBeenCalledWith('第 1 组完成');
+
+    await act(async () => releaseFinalRep?.());
     await waitFor(() =>
       expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
         'resting',
@@ -947,7 +968,7 @@ describe('useWorkoutSessionScreen', () => {
     expect(repository.update).toHaveBeenCalledTimes(3);
   });
 
-  it('persists selecting the next exercise after completing the current one', async () => {
+  it('moves to the next exercise when completing the current one', async () => {
     const repository = createStatefulRepository(
       buildSession({
         sessionExercises: [
@@ -970,17 +991,13 @@ describe('useWorkoutSessionScreen', () => {
 
     await waitFor(() => expect(result.current.state.status).toBe('ready'));
     await act(async () => result.current.controls.completeExercise());
-    await act(async () =>
-      result.current.controls.selectExercise(SECOND_EXERCISE_ID),
-    );
-
     const ready = getReadyState(result.current.state);
     expect(ready.runtime.currentExercise?.id).toBe(SECOND_EXERCISE_ID);
     expect(ready.data.session.currentSessionExerciseId).toBe(
       SECOND_EXERCISE_ID,
     );
     expect(ready.data.session.currentSetNumber).toBe(1);
-    expect(repository.update).toHaveBeenCalledTimes(2);
+    expect(repository.update).toHaveBeenCalledTimes(1);
   });
 
   it('moves within a workout set before crossing to adjacent exercises', async () => {
@@ -1175,10 +1192,16 @@ describe('useWorkoutSessionScreen', () => {
 
   it('automatically starts a draft workout through the application boundary', async () => {
     const repository = createStatefulRepository(buildSessionForStatus('draft'));
+    const voiceAdapter: WorkoutVoiceFeedbackAdapter = {
+      speak: jest.fn(async () => undefined),
+    };
     const { result } = await renderHook(() =>
       useWorkoutSessionScreen(
         { id: SESSION_ID },
-        buildDependencies(repository),
+        buildDependencies(repository, {
+          workoutCompanionEventSourceMode: 'mock_auto_rep',
+          voiceAdapter,
+        }),
       ),
     );
 
@@ -1192,6 +1215,72 @@ describe('useWorkoutSessionScreen', () => {
     const ready = getReadyState(result.current.state);
     expect(ready.runtime.status).toBe('running');
     expect(ready.data.session.status).toBe('in_progress');
+    await waitFor(() =>
+      expect(voiceAdapter.speak).toHaveBeenCalledWith(
+        '杠铃卧推，3，2，1，开始',
+      ),
+    );
+  });
+
+  it('starts a persisted rest timer before the first set of the next exercise', async () => {
+    const source = new ControlledWorkoutCompanionEventSource();
+    const repository = createStatefulRepository(
+      buildSession({
+        sessionExercises: [
+          buildExercise({ targetSets: 1, targetRepsMin: 1, targetRepsMax: 1 }),
+          buildExercise({
+            id: SECOND_EXERCISE_ID,
+            sourceExerciseId: 'exercise-press' as ExerciseId,
+            exerciseNameSnapshot: '哑铃肩推',
+            position: 2,
+            targetSets: 1,
+            targetRepsMin: 1,
+            targetRepsMax: 1,
+          }),
+        ],
+      }),
+    );
+    const startIfNoActiveTimer = jest.fn(async (input) => ({
+      status: 'started' as const,
+      timer: input.timer,
+    }));
+    const { result } = await renderHook(() =>
+      useWorkoutSessionScreen(
+        { id: SESSION_ID },
+        buildDependencies(repository, {
+          workoutCompanionEventSource: source,
+          restTimerRepository: {
+            ...buildRestTimerRepository(),
+            startIfNoActiveTimer,
+          },
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    await act(async () => {
+      source.emit(buildCompanionEvent(1));
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
+        'resting',
+      ),
+    );
+    const ready = getReadyState(result.current.state);
+    expect(ready.runtime.currentExercise?.id).toBe(SECOND_EXERCISE_ID);
+    expect(ready.data.session.currentSessionExerciseId).toBe(
+      SECOND_EXERCISE_ID,
+    );
+    expect(startIfNoActiveTimer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timer: expect.objectContaining({
+          sessionExerciseId: SECOND_EXERCISE_ID,
+          nextSetNumber: 1,
+        }),
+      }),
+    );
   });
 
   it('pauses and resumes runtime state without writing workout facts', async () => {
@@ -1346,7 +1435,7 @@ describe('useWorkoutSessionScreen', () => {
       await Promise.resolve();
     });
 
-    expect(voiceAdapter.speak).toHaveBeenCalledWith('第 1 次');
+    expect(voiceAdapter.speak).toHaveBeenCalledWith('1');
   });
 
   it('binds a mock auto rep source through the screen controls', async () => {
@@ -1415,6 +1504,15 @@ describe('useWorkoutSessionScreen', () => {
       await new Promise((resolve) => setTimeout(resolve, 1100));
     });
 
+    expect(
+      getReadyState(result.current.state).companionRuntime?.progress
+        .completedReps,
+    ).toBe(0);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+    });
+
     await waitFor(() =>
       expect(
         getReadyState(result.current.state).companionRuntime?.progress
@@ -1436,6 +1534,9 @@ describe('useWorkoutSessionScreen', () => {
       }),
     );
     let nextWorkoutSetId = 1;
+    const voiceAdapter: WorkoutVoiceFeedbackAdapter = {
+      speak: jest.fn(async () => undefined),
+    };
     let storedTimer: RestTimer | null = null;
     let lastTimerStatus: RestTimer['status'] | undefined;
     const restTimerRepository: RestTimerRepository = {
@@ -1460,6 +1561,7 @@ describe('useWorkoutSessionScreen', () => {
         buildDependencies(repository, {
           restTimerRepository,
           workoutCompanionEventSourceMode: 'mock_auto_rep',
+          voiceAdapter,
           createWorkoutSetId: () => `workout-set-auto-${nextWorkoutSetId++}`,
         }),
       ),
@@ -1482,6 +1584,11 @@ describe('useWorkoutSessionScreen', () => {
     await waitFor(() =>
       expect(getReadyState(result.current.state).companionRuntime?.phase).toBe(
         'running',
+      ),
+    );
+    await waitFor(() =>
+      expect(voiceAdapter.speak).toHaveBeenCalledWith(
+        '杠铃卧推，3，2，1，开始',
       ),
     );
     await act(async () => {

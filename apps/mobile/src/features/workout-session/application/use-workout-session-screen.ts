@@ -78,10 +78,15 @@ import {
   createSetCompletedFeedbackEvent,
 } from './workout-feedback-events';
 import {
+  createExerciseStartCountdownVoiceFeedbackEvent,
   speakWorkoutVoiceFeedbackEvent,
   type WorkoutVoiceFeedbackEvent,
   type WorkoutVoiceFeedbackAdapter,
 } from './workout-voice-feedback';
+
+const MOCK_AUTO_REP_INTERVAL_MS = 2_000;
+const MOCK_AUTO_REP_COUNTDOWN_TIMEOUT_MS = 6_000;
+const COMPLETION_VOICE_FEEDBACK_TIMEOUT_MS = 4_000;
 
 export type WorkoutSessionRouteParams = {
   readonly id?: string | readonly string[];
@@ -168,6 +173,12 @@ type PendingCompanionRecovery =
   | {
       readonly kind: 'exercise_completion';
       readonly result: PersistedSetCompanionResult;
+    }
+  | {
+      readonly kind: 'exercise_transition_rest';
+      readonly exerciseResult: WorkoutCompanionExerciseFlowResult;
+      readonly previousSetNumber: number;
+      readonly durationSeconds: number;
     }
   | {
       readonly kind: 'session_completion';
@@ -260,6 +271,9 @@ export function useWorkoutSessionScreen(
     readonly key: string;
     readonly source: WorkoutCompanionEventSource;
   } | null>(null);
+  const mockAutoRepCountdownRef = useRef({ token: 0, isActive: false });
+  const [mockAutoRepCountdownVersion, setMockAutoRepCountdownVersion] =
+    useState(0);
   const dependenciesRef = useRef({
     initializeDatabase,
     createWorkoutSessionRepository,
@@ -283,6 +297,42 @@ export function useWorkoutSessionScreen(
     stateRef.current = next;
     setState(next);
   }, []);
+
+  const startMockAutoRepCountdown = useCallback(
+    (
+      exerciseNameSnapshot: string | undefined,
+      isVoiceFeedbackEnabled: boolean,
+    ) => {
+      if (
+        dependenciesRef.current.workoutCompanionEventSourceMode !==
+          'mock_auto_rep' ||
+        !isVoiceFeedbackEnabled ||
+        !exerciseNameSnapshot?.trim()
+      ) {
+        return;
+      }
+
+      const countdown = mockAutoRepCountdownRef.current;
+      const token = countdown.token + 1;
+      mockAutoRepCountdownRef.current = { token, isActive: true };
+
+      void speakMockAutoRepCountdown({
+        exerciseNameSnapshot,
+        isVoiceFeedbackEnabled,
+        voiceAdapter: dependenciesRef.current.voiceAdapter,
+        timeoutMs: MOCK_AUTO_REP_COUNTDOWN_TIMEOUT_MS,
+      }).finally(() => {
+        if (
+          isMountedRef.current &&
+          mockAutoRepCountdownRef.current.token === token
+        ) {
+          mockAutoRepCountdownRef.current = { token, isActive: false };
+          setMockAutoRepCountdownVersion((version) => version + 1);
+        }
+      });
+    },
+    [],
+  );
 
   const readyState = state.status === 'ready' ? state : undefined;
   const readyStateStatus = state.status;
@@ -742,16 +792,23 @@ export function useWorkoutSessionScreen(
         return;
       }
 
+      const nextRuntime = createWorkoutRuntimeSnapshot(
+        nextSession,
+        current.data.restTimerStatus,
+      );
+      startMockAutoRepCountdown(
+        nextRuntime.currentExercise?.exerciseNameSnapshot,
+        current.isVoiceFeedbackEnabled,
+      );
+
       commitState({
         ...current,
-        data: createWorkoutSessionScreenData(
+        data: createWorkoutSessionScreenDataPreservingExerciseMedia(
+          current.data,
           nextSession,
           current.data.restTimerStatus,
         ),
-        runtime: createWorkoutRuntimeSnapshot(
-          nextSession,
-          current.data.restTimerStatus,
-        ),
+        runtime: nextRuntime,
         companionRuntime: createWorkoutCompanionRuntimeState(nextSession),
         isMutating: false,
         actionError: undefined,
@@ -767,7 +824,7 @@ export function useWorkoutSessionScreen(
     } finally {
       finishMutation();
     }
-  }, [beginMutation, commitState, finishMutation]);
+  }, [beginMutation, commitState, finishMutation, startMockAutoRepCountdown]);
 
   useEffect(() => {
     const current = stateRef.current;
@@ -890,7 +947,8 @@ export function useWorkoutSessionScreen(
 
         commitState({
           ...current,
-          data: createWorkoutSessionScreenData(
+          data: createWorkoutSessionScreenDataPreservingExerciseMedia(
+            current.data,
             nextSession,
             current.data.restTimerStatus,
           ),
@@ -1014,7 +1072,8 @@ export function useWorkoutSessionScreen(
 
       commitState({
         ...current,
-        data: createWorkoutSessionScreenData(
+        data: createWorkoutSessionScreenDataPreservingExerciseMedia(
+          current.data,
           nextSession,
           current.data.restTimerStatus,
         ),
@@ -1084,7 +1143,8 @@ export function useWorkoutSessionScreen(
           return;
         }
 
-        const nextData = createWorkoutSessionScreenData(
+        const nextData = createWorkoutSessionScreenDataPreservingExerciseMedia(
+          current.data,
           nextSession,
           current.data.restTimerStatus,
         );
@@ -1193,7 +1253,11 @@ export function useWorkoutSessionScreen(
           return;
         }
 
-        const nextData = createWorkoutSessionScreenData(nextSession, undefined);
+        const nextData = createWorkoutSessionScreenDataPreservingExerciseMedia(
+          current.data,
+          nextSession,
+          undefined,
+        );
         const nextRuntime = createWorkoutRuntimeSnapshot(nextSession);
         commitState({
           ...current,
@@ -1381,6 +1445,10 @@ export function useWorkoutSessionScreen(
           companionRuntime: {
             ...eventRuntime,
             phase: 'set_completion_pending',
+            progress: {
+              ...eventRuntime.progress,
+              completedReps: validation.event.repNumber,
+            },
           },
           isMutating: true,
           canRetryCompanionEvent: false,
@@ -1444,24 +1512,42 @@ export function useWorkoutSessionScreen(
         return;
       }
 
-      speakWorkoutVoiceFeedbackEvents(
-        result.events,
-        current,
-        dependenciesRef.current,
-      );
-
       if (result.status === 'ignored') {
         isMutatingRef.current = false;
         return;
       }
 
       if (result.status === 'rep_completed') {
+        speakWorkoutVoiceFeedbackEvents(
+          result.events,
+          current,
+          dependenciesRef.current,
+        );
         commitState({
           ...current,
           companionRuntime: result.runtime,
           coachFeedback: `已完成第 ${validation.event.repNumber} 次`,
           actionError: undefined,
         });
+        return;
+      }
+
+      await speakWorkoutVoiceFeedbackEventsInOrder(
+        result.events,
+        current,
+        dependenciesRef.current,
+      );
+
+      if (
+        !isCurrentCompanionSubscription(
+          subscriptionId,
+          runtimeInstance,
+          companionSubscriptionRef,
+          stateRef,
+          isMountedRef,
+        )
+      ) {
+        isMutatingRef.current = false;
         return;
       }
 
@@ -1513,7 +1599,11 @@ export function useWorkoutSessionScreen(
       } else if (result.runtime.phase === 'exercise_completion_pending') {
         commitState({
           ...current,
-          data: createWorkoutSessionScreenData(result.session, restTimerStatus),
+          data: createWorkoutSessionScreenDataPreservingExerciseMedia(
+            current.data,
+            result.session,
+            restTimerStatus,
+          ),
           runtime: createWorkoutRuntimeSnapshot(
             result.session,
             restTimerStatus,
@@ -1545,6 +1635,65 @@ export function useWorkoutSessionScreen(
             result,
           };
           actionError = COMPANION_PERSIST_ERROR_MESSAGE;
+        }
+
+        if (exerciseResult?.runtime.phase === 'running') {
+          const nextExercise = exerciseResult.session.sessionExercises.find(
+            (candidate) =>
+              candidate.id === exerciseResult?.session.currentSessionExerciseId,
+          );
+
+          if (!nextExercise) {
+            pendingCompanionRecoveryRef.current = {
+              kind: 'exercise_completion',
+              result,
+            };
+            nextCompanionRuntime = {
+              ...exerciseResult.runtime,
+              phase: 'exercise_completion_pending',
+            };
+            actionError = COMPANION_PERSIST_ERROR_MESSAGE;
+          } else {
+            try {
+              const timer = await startRestTimer(
+                repositories,
+                {
+                  sessionId: exerciseResult.session.id,
+                  sessionExerciseId: nextExercise.id,
+                  durationSeconds: exercise?.currentRestSeconds ?? 0,
+                  startedAt: dependenciesRef.current.now(),
+                  previousSetNumber: result.workoutSet.setNumber,
+                  nextSetNumber: exerciseResult.session.currentSetNumber ?? 1,
+                },
+                {
+                  createRestTimerId: dependenciesRef.current.createRestTimerId,
+                },
+              );
+              restTimerStatus = 'running';
+              restRemainingSeconds = timer.originalDurationSeconds;
+              nextCompanionRuntime = {
+                ...exerciseResult.runtime,
+                phase: 'resting',
+                restRemainingSeconds,
+              };
+              nextSession =
+                (await repositories.workoutSessionRepository.findById(
+                  exerciseResult.session.id,
+                )) ?? exerciseResult.session;
+            } catch {
+              pendingCompanionRecoveryRef.current = {
+                kind: 'exercise_transition_rest',
+                exerciseResult,
+                previousSetNumber: result.workoutSet.setNumber,
+                durationSeconds: exercise?.currentRestSeconds ?? 0,
+              };
+              nextCompanionRuntime = {
+                ...exerciseResult.runtime,
+                phase: 'exercise_completion_pending',
+              };
+              actionError = COMPANION_PERSIST_ERROR_MESSAGE;
+            }
+          }
         }
 
         if (exerciseResult?.runtime.phase === 'completed') {
@@ -1585,7 +1734,8 @@ export function useWorkoutSessionScreen(
       );
       commitState({
         ...current,
-        data: createWorkoutSessionScreenData(
+        data: createWorkoutSessionScreenDataPreservingExerciseMedia(
+          current.data,
           nextSession,
           restTimerStatus,
           restRemainingSeconds,
@@ -1603,7 +1753,9 @@ export function useWorkoutSessionScreen(
             ? '训练已完成'
             : result.runtime.phase === 'resting'
               ? '本组已完成，开始休息'
-              : '动作已完成',
+              : nextCompanionRuntime.phase === 'resting'
+                ? '动作已完成，开始休息'
+                : '动作已完成',
         navigationIntent:
           nextCompanionRuntime.phase === 'completed' ? 'summary' : undefined,
         canRetryCompanionEvent:
@@ -1722,7 +1874,8 @@ export function useWorkoutSessionScreen(
             pendingCompanionRecoveryRef.current = undefined;
             commitState({
               ...latest,
-              data: createWorkoutSessionScreenData(
+              data: createWorkoutSessionScreenDataPreservingExerciseMedia(
+                latest.data,
                 session,
                 'running',
                 timer.originalDurationSeconds,
@@ -1735,6 +1888,63 @@ export function useWorkoutSessionScreen(
               isMutating: false,
               canRetryCompanionEvent: false,
               coachFeedback: '本组已完成，开始休息',
+            });
+            return;
+          }
+
+          if (recovery.kind === 'exercise_transition_rest') {
+            const nextExercise =
+              recovery.exerciseResult.session.sessionExercises.find(
+                (candidate) =>
+                  candidate.id ===
+                  recovery.exerciseResult.session.currentSessionExerciseId,
+              );
+
+            if (!nextExercise) {
+              throw new Error('Next SessionExercise is unavailable.');
+            }
+
+            const timer = await startRestTimer(
+              repositories,
+              {
+                sessionId: recovery.exerciseResult.session.id,
+                sessionExerciseId: nextExercise.id,
+                durationSeconds: recovery.durationSeconds,
+                startedAt: dependenciesRef.current.now(),
+                previousSetNumber: recovery.previousSetNumber,
+                nextSetNumber:
+                  recovery.exerciseResult.session.currentSetNumber ?? 1,
+              },
+              {
+                createRestTimerId: dependenciesRef.current.createRestTimerId,
+              },
+            );
+            const session =
+              (await repositories.workoutSessionRepository.findById(
+                recovery.exerciseResult.session.id,
+              )) ?? recovery.exerciseResult.session;
+            pendingCompanionRecoveryRef.current = undefined;
+            commitState({
+              ...latest,
+              data: createWorkoutSessionScreenDataPreservingExerciseMedia(
+                latest.data,
+                session,
+                'running',
+                timer.originalDurationSeconds,
+              ),
+              runtime: createWorkoutRuntimeSnapshot(session, 'running'),
+              companionRuntime: {
+                ...recovery.exerciseResult.runtime,
+                phase: 'resting',
+                restRemainingSeconds: timer.originalDurationSeconds,
+              },
+              setDraft: createDefaultSetDraft(
+                createWorkoutRuntimeSnapshot(session, 'running')
+                  .currentExercise,
+              ),
+              isMutating: false,
+              canRetryCompanionEvent: false,
+              coachFeedback: '动作已完成，开始休息',
             });
             return;
           }
@@ -1758,7 +1968,10 @@ export function useWorkoutSessionScreen(
               );
               commitState({
                 ...latest,
-                data: createWorkoutSessionScreenData(exerciseResult.session),
+                data: createWorkoutSessionScreenDataPreservingExerciseMedia(
+                  latest.data,
+                  exerciseResult.session,
+                ),
                 runtime,
                 companionRuntime: exerciseResult.runtime,
                 setDraft: createDefaultSetDraft(runtime.currentExercise),
@@ -1798,7 +2011,10 @@ export function useWorkoutSessionScreen(
           pendingCompanionRecoveryRef.current = undefined;
           commitState({
             ...latest,
-            data: createWorkoutSessionScreenData(completed),
+            data: createWorkoutSessionScreenDataPreservingExerciseMedia(
+              latest.data,
+              completed,
+            ),
             runtime: createWorkoutRuntimeSnapshot(completed),
             companionRuntime: {
               ...sessionRecovery.result.runtime,
@@ -1851,13 +2067,19 @@ export function useWorkoutSessionScreen(
           now: dependenciesRef.current.now(),
         });
         if (isMountedRef.current) {
+          startMockAutoRepCountdown(
+            current.runtime.currentExercise?.exerciseNameSnapshot,
+            current.isVoiceFeedbackEnabled,
+          );
+
           const runtime = createWorkoutRuntimeSnapshot(
             current.data.session,
             'completed',
           );
           commitState({
             ...current,
-            data: createWorkoutSessionScreenData(
+            data: createWorkoutSessionScreenDataPreservingExerciseMedia(
+              current.data,
               current.data.session,
               'completed',
               0,
@@ -1884,7 +2106,7 @@ export function useWorkoutSessionScreen(
         finishMutation();
       }
     },
-    [beginMutation, commitState, finishMutation],
+    [beginMutation, commitState, finishMutation, startMockAutoRepCountdown],
   );
 
   const finishRest = useCallback(
@@ -1956,6 +2178,7 @@ export function useWorkoutSessionScreen(
       current.runtime.status !== 'running' ||
       current.companionRuntime?.phase !== 'running' ||
       !current.runtime.currentExercise ||
+      mockAutoRepCountdownRef.current.isActive ||
       !isMockAutoRepCounterSource(activeWorkoutCompanionEventSource)
     ) {
       return;
@@ -1978,7 +2201,7 @@ export function useWorkoutSessionScreen(
       }
 
       activeWorkoutCompanionEventSource.emitNextRep();
-    }, 1000);
+    }, MOCK_AUTO_REP_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, [
@@ -1988,6 +2211,7 @@ export function useWorkoutSessionScreen(
     readyState?.data.session.status,
     readyState?.runtime.currentExercise?.id,
     readyState?.runtime.status,
+    mockAutoRepCountdownVersion,
   ]);
 
   const requestEndSession = useCallback((): void => {
@@ -2080,7 +2304,8 @@ export function useWorkoutSessionScreen(
 
         commitState({
           ...current,
-          data: createWorkoutSessionScreenData(
+          data: createWorkoutSessionScreenDataPreservingExerciseMedia(
+            current.data,
             nextSession,
             current.data.restTimerStatus,
           ),
@@ -2182,6 +2407,81 @@ export function useWorkoutSessionScreen(
       emitMockCompanionRep,
     },
   };
+}
+
+async function speakMockAutoRepCountdown(input: {
+  readonly exerciseNameSnapshot: string;
+  readonly isVoiceFeedbackEnabled: boolean;
+  readonly voiceAdapter: WorkoutVoiceFeedbackAdapter;
+  readonly timeoutMs: number;
+}): Promise<void> {
+  if (!input.exerciseNameSnapshot.trim()) {
+    return;
+  }
+
+  await speakWorkoutVoiceFeedbackEventWithTimeout(
+    createExerciseStartCountdownVoiceFeedbackEvent(input.exerciseNameSnapshot),
+    {
+      isEnabled: input.isVoiceFeedbackEnabled,
+      voiceAdapter: input.voiceAdapter,
+    },
+    input.timeoutMs,
+  );
+}
+
+async function speakWorkoutVoiceFeedbackEventsInOrder(
+  events: readonly WorkoutVoiceFeedbackEvent[],
+  state: Extract<WorkoutSessionScreenState, { readonly status: 'ready' }>,
+  dependencies: { readonly voiceAdapter: WorkoutVoiceFeedbackAdapter },
+): Promise<void> {
+  for (const event of events) {
+    await speakWorkoutVoiceFeedbackEventWithTimeout(
+      event,
+      {
+        isEnabled: state.isVoiceFeedbackEnabled,
+        voiceAdapter: dependencies.voiceAdapter,
+      },
+      COMPLETION_VOICE_FEEDBACK_TIMEOUT_MS,
+    );
+  }
+}
+
+async function speakWorkoutVoiceFeedbackEventWithTimeout(
+  event: WorkoutVoiceFeedbackEvent,
+  options: {
+    readonly isEnabled: boolean;
+    readonly voiceAdapter: WorkoutVoiceFeedbackAdapter;
+  },
+  timeoutMs: number,
+): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    await Promise.race([
+      speakWorkoutVoiceFeedbackEvent(event, options),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(resolve, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+function createWorkoutSessionScreenDataPreservingExerciseMedia(
+  previousData: WorkoutSessionScreenData,
+  session: WorkoutSession,
+  restTimerStatus?: WorkoutSessionScreenData['restTimerStatus'],
+  restRemainingSeconds?: number,
+): WorkoutSessionScreenData {
+  return createWorkoutSessionScreenData(
+    session,
+    restTimerStatus,
+    restRemainingSeconds,
+    previousData.exerciseImageUriBySessionExerciseId,
+  );
 }
 
 function createRuntimeSnapshotSyncKey(

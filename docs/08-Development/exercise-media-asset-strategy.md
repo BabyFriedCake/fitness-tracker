@@ -18,6 +18,7 @@
 - Exercise Domain 支持 `imageUri`。
 - Exercise Repository 会读写 `image_uri`。
 - Exercise Seed Dataset 在 Personal Use 模式下会把合法本地图片或动图写入 `imageUri`。
+- 动作库、训练中、暂停和休息页使用同一 `imageUri` 本地资源；GIF 在支持的资源上用于动作示意。
 - UI 使用 `apps/mobile/assets/images/exercise-placeholder.png` 作为离线占位图。
 - App 不会运行时读取 GitHub。
 
@@ -91,18 +92,18 @@ Exercise Library UI
 
 ## Recommended Asset Shape
 
-V1 推荐：
+Personal Beta 推荐：
 
-- 图片优先于 GIF。
+- 列表可优先使用图片；训练中、暂停和休息状态可使用同一动作的本地 GIF。
 - 每个动作最多 1 张主图。
 - 建议尺寸：至少 360x360。
 - 格式：PNG 或 WebP。
 - 命名：`exercise-slug.png` 或 `exercise-slug.webp`。
-- 不在 V1 打包大体积动作 GIF。
+- 不新增运行时网络媒体；GIF 仅使用已打包的本地资产。
 
 原因：
 
-- 图片更易控制授权和包体积。
+- 图片更易控制授权和包体积；GIF 仅用于个人 Beta 的训练动作示意。
 - Figma 当前重点是动作识别和页面氛围，不要求动画教学。
 - GIF 会显著增加包体积和性能风险。
 

@@ -37,13 +37,13 @@ Related Documents: PRD、Architecture、Domain Model、Database（如涉及）�
 
 ### 负责
 
-- 展示当前动作图片、名称、组数和目标次数。
+- 展示当前动作本地图片或 GIF、名称、组数和目标次数；暂停和休息状态继续展示同一动作媒体。
 - 展示 Companion Event 驱动的已完成次数。
 - 编辑当前组将要持久化的实际重量。
 - 展示 Runtime phase 和教练反馈。
 - 暂停、继续和恢复 Runtime。
 - 在 Runtime 达到目标时通过 Application Flow 立即持久化 WorkoutSet。
-- 推进休息、下一组、下一动作或总结。
+- 每组完成后进入可恢复的休息；动作完成后，在下一动作第一组前同样进入休息，再推进下一动作或总结。
 
 ### 不负责
 
@@ -62,7 +62,7 @@ Related Documents: PRD、Architecture、Domain Model、Database（如涉及）�
 
 ```text
 P003 → Workout Session → Companion Event → Runtime Progress
-     → Set Persistence → P005 / Next Exercise → P006
+     → Set Persistence → RestTimer → P005 / Next Exercise → P006
 ```
 
 ## 7. Entry & Exit
@@ -98,6 +98,7 @@ Paused：
 ```text
 训练已暂停
 调整一下呼吸。
+[当前动作 GIF]
 第 02 组 · 8 / 10 次 · 85 公斤
 [继续]
 [结束训练]

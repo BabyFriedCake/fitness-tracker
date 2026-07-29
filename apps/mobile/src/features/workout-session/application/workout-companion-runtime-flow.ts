@@ -168,9 +168,10 @@ export async function completeWorkoutCompanionExercise(
     { now: () => now },
   );
   const completedExercise = findSessionExercise(session, exercise.id);
+  const nextRuntime = advanceAfterCompletedExercise(runtime, session);
 
   return {
-    runtime: advanceAfterCompletedExercise(runtime, session),
+    runtime: nextRuntime,
     session,
     event: createExerciseCompletedFeedbackEvent({
       sessionId: session.id,
