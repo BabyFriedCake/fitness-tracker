@@ -75,7 +75,6 @@ describe('Exercise Detail screen', () => {
     );
 
     expect(getByText('杠铃卧推')).toBeTruthy();
-    expect(getByText('Barbell Bench Press')).toBeTruthy();
     expect(getByText('胸 · 杠铃')).toBeTruthy();
     expect(getByText('平板卧推，主要训练胸部推举力量。')).toBeTruthy();
     expect(getByText('肩胛骨后收并平躺。')).toBeTruthy();

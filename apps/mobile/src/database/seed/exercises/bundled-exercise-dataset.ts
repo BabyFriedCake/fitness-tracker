@@ -12,7 +12,8 @@ export const BUNDLED_EXERCISES =
 
 type CountRow = {
   readonly count: number;
-  readonly image_count: number;
+  readonly first_image_uri: string | null;
+  readonly first_name_zh: string | null;
 };
 
 export async function importBundledExerciseDataset(
@@ -22,9 +23,26 @@ export async function importBundledExerciseDataset(
   const importedRow = firstExercise
     ? await database.getFirstAsync<CountRow>(
         `SELECT COUNT(*) AS count,
-                SUM(CASE WHEN image_uri IS NOT NULL THEN 1 ELSE 0 END) AS image_count
+                (
+                  SELECT image_uri
+                  FROM exercises
+                  WHERE id = ? AND source_name = ? AND source_reference = ?
+                  LIMIT 1
+                ) AS first_image_uri,
+                (
+                  SELECT name_zh
+                  FROM exercises
+                  WHERE id = ? AND source_name = ? AND source_reference = ?
+                  LIMIT 1
+                ) AS first_name_zh
          FROM exercises
          WHERE source_name = ? AND source_reference = ?;`,
+        firstExercise.id,
+        firstExercise.sourceName,
+        firstExercise.sourceReference,
+        firstExercise.id,
+        firstExercise.sourceName,
+        firstExercise.sourceReference,
         firstExercise.sourceName,
         firstExercise.sourceReference,
       )
@@ -32,7 +50,8 @@ export async function importBundledExerciseDataset(
 
   if (
     importedRow?.count === BUNDLED_EXERCISES.length &&
-    importedRow?.image_count === BUNDLED_EXERCISES.length
+    importedRow?.first_image_uri === firstExercise.imageUri &&
+    importedRow?.first_name_zh === firstExercise.nameZh
   ) {
     return {
       seedVersion: BUNDLED_EXERCISE_DATASET_VERSION,

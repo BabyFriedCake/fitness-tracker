@@ -165,11 +165,6 @@ function ExerciseDetail({ exercise }: { readonly exercise: Exercise }) {
     <>
       <ThemedView style={styles.header}>
         <ThemedText type="subtitle">{exercise.nameZh}</ThemedText>
-        {exercise.nameEn && exercise.nameEn !== exercise.nameZh && (
-          <ThemedText type="small" themeColor="textSecondary">
-            {exercise.nameEn}
-          </ThemedText>
-        )}
         <ThemedText type="smallBold">
           {primaryMuscleGroup} · {equipment}
         </ThemedText>

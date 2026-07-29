@@ -17,7 +17,7 @@
 - `exercises.image_uri` 已存在。
 - Exercise Domain 支持 `imageUri`。
 - Exercise Repository 会读写 `image_uri`。
-- Exercise Seed Dataset 在 Personal Use 模式下会把合法本地图片写入 `imageUri`。
+- Exercise Seed Dataset 在 Personal Use 模式下会把合法本地图片或动图写入 `imageUri`。
 - UI 使用 `apps/mobile/assets/images/exercise-placeholder.png` 作为离线占位图。
 - App 不会运行时读取 GitHub。
 
@@ -151,8 +151,7 @@ V1 推荐：
 
 - 本地开发和本地调试。
 - 个人设备上的离线使用。
-- 将已确认可用于个人自用的动作图片打包进 `apps/mobile/assets/`。
-- 仅导入 `images/` 图片，不导入 `videos/` GIF。
+- 将已确认可用于个人自用的动作图片和动图打包进 `apps/mobile/assets/`。
 
 禁止：
 

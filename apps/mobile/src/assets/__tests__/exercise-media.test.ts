@@ -7,7 +7,7 @@ import {
 
 describe('exercise media assets', () => {
   it('maps the bundled dataset images to local assets', () => {
-    const imageUri = 'assets/images/exercises/0001-2gPfomN.jpg';
+    const imageUri = 'assets/images/exercises/0001-2gPfomN.gif';
 
     expect(Object.keys(EXERCISE_MEDIA_ASSET_MAP)).toHaveLength(1324);
     expect(EXERCISE_MEDIA_ASSET_MAP[imageUri]).toBeTruthy();

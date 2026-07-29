@@ -5,6 +5,12 @@ const DATASET_SOURCE_NAME = 'hasaneyldrm/exercises-dataset';
 const DATASET_SOURCE_LICENSE = 'MIT';
 const DATASET_SOURCE_REVISION = '7455efae41b330c265e7cd4b78dfa848e7ce5ebd';
 const DATASET_SOURCE_REFERENCE = `https://github.com/hasaneyldrm/exercises-dataset/tree/${DATASET_SOURCE_REVISION}`;
+const EXERCISE_NAME_ZH_MAP = require(
+  path.join(
+    __dirname,
+    '../src/database/seed/exercises/data/exercise-name-zh-map.json',
+  ),
+);
 
 const MUSCLE_BY_CATEGORY = {
   back: 'back',
@@ -54,7 +60,7 @@ function mapExerciseDataset(sourceRows) {
     return {
       id,
       slug,
-      nameZh: row.name.trim(),
+      nameZh: translateExerciseName(row.id, row.name),
       nameEn: row.name.trim(),
       type: row.category === 'cardio' ? 'cardio' : 'strength',
       primaryMuscleGroup,
@@ -65,7 +71,7 @@ function mapExerciseDataset(sourceRows) {
         normalizeText(row.instructions?.en) ??
         null,
       instructionSteps,
-      imageUri: buildImageUri(row.image),
+      imageUri: buildImageUri(row.gif_url ?? row.image),
       sourceName: DATASET_SOURCE_NAME,
       sourceReference: DATASET_SOURCE_REFERENCE,
       license: DATASET_SOURCE_LICENSE,
@@ -183,6 +189,12 @@ function buildImageUri(value) {
     'exercises',
     path.basename(normalized),
   );
+}
+
+function translateExerciseName(id, fallbackName) {
+  const translatedName = EXERCISE_NAME_ZH_MAP[id];
+
+  return normalizeText(translatedName) ?? fallbackName.trim();
 }
 
 function normalizeTimestamp(value) {

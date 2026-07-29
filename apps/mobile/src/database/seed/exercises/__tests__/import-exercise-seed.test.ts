@@ -98,13 +98,14 @@ describe('exercise seed import', () => {
     });
   });
 
-  it('refreshes bundled rows when the image assets are missing from an existing import', async () => {
+  it('refreshes bundled rows when the image assets are stale in an existing import', async () => {
     await importBundledExerciseDataset(database);
 
     await database.runAsync(
-      'UPDATE exercises SET source_name = ?, source_reference = ?, image_uri = NULL WHERE id = ?;',
+      'UPDATE exercises SET source_name = ?, source_reference = ?, image_uri = ? WHERE id = ?;',
       BUNDLED_EXERCISES[0].sourceName,
       BUNDLED_EXERCISES[0].sourceReference,
+      'assets/images/exercises/0001-2gPfomN.jpg',
       BUNDLED_EXERCISES[0].id,
     );
 

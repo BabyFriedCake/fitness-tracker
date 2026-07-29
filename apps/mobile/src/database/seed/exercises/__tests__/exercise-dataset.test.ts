@@ -33,7 +33,8 @@ describe('bundled exercise dataset', () => {
       BUNDLED_EXERCISES.every(
         (exercise) =>
           typeof exercise.imageUri === 'string' &&
-          exercise.imageUri.startsWith('assets/images/exercises/'),
+          exercise.imageUri.startsWith('assets/images/exercises/') &&
+          exercise.imageUri.endsWith('.gif'),
       ),
     ).toBe(true);
   });
@@ -46,6 +47,7 @@ describe('bundled exercise dataset', () => {
         category: 'waist',
         equipment: 'body weight',
         image: 'images/0001-2gPfomN.jpg',
+        gif_url: 'gifs/0001-2gPfomN.gif',
         instructions: { zh: '动作说明', en: 'Instructions' },
         instruction_steps: {
           zh: ['第一步', '第二步'],
@@ -60,9 +62,10 @@ describe('bundled exercise dataset', () => {
       expect.objectContaining({
         id: 'exercise-hased-0001',
         slug: '3-4-sit-up-0001',
+        nameZh: '3/4仰卧起坐',
         primaryMuscleGroup: 'core',
         equipment: 'bodyweight',
-        imageUri: 'assets/images/exercises/0001-2gPfomN.jpg',
+        imageUri: 'assets/images/exercises/0001-2gPfomN.gif',
         sourceName: DATASET_SOURCE_NAME,
         sourceReference: DATASET_SOURCE_REFERENCE,
         license: DATASET_SOURCE_LICENSE,

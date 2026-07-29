@@ -1,7 +1,6 @@
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Pressable,
   Modal,
   ScrollView,
@@ -10,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useState } from 'react';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -628,14 +628,11 @@ function ExerciseCard({
         <View style={styles.exerciseImageFrame}>
           <Image
             source={resolveExerciseImageSource(exercise.imageUri)}
-            resizeMode="cover"
+            contentFit="cover"
             accessibilityIgnoresInvertColors
             accessibilityLabel={`${exercise.nameZh}动作图片`}
             style={styles.exerciseImage}
           />
-          <ThemedText type="smallBold" style={styles.imageBadge}>
-            讲解
-          </ThemedText>
         </View>
         <ThemedText type="default" style={styles.exerciseCardTitle}>
           {exercise.nameZh}
@@ -807,7 +804,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F6F1',
   },
   muscleRail: {
-    width: 124,
+    width: 84,
+    flexGrow: 0,
+    flexShrink: 0,
     borderRightWidth: StyleSheet.hairlineWidth,
     borderRightColor: '#E0DDD4',
     backgroundColor: '#F6F3EC',
@@ -816,7 +815,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
   },
   muscleRailItem: {
-    minHeight: 64,
+    minHeight: 50,
     justifyContent: 'center',
     borderLeftWidth: 3,
     borderLeftColor: 'transparent',
@@ -828,8 +827,8 @@ const styles = StyleSheet.create({
   },
   muscleRailText: {
     textAlign: 'center',
-    fontSize: 18,
-    lineHeight: 26,
+    fontSize: 14,
+    lineHeight: 22,
   },
   resultsPane: {
     minWidth: 0,
@@ -876,7 +875,7 @@ const styles = StyleSheet.create({
   },
   exerciseCard: {
     flex: 1,
-    minHeight: 286,
+    // minHeight: 186,
     gap: Spacing.two,
     overflow: 'hidden',
     borderRadius: 28,
