@@ -65,7 +65,7 @@ function mapExerciseDataset(sourceRows) {
         normalizeText(row.instructions?.en) ??
         null,
       instructionSteps,
-      imageUri: null,
+      imageUri: buildImageUri(row.image),
       sourceName: DATASET_SOURCE_NAME,
       sourceReference: DATASET_SOURCE_REFERENCE,
       license: DATASET_SOURCE_LICENSE,
@@ -169,6 +169,20 @@ function mapEquipment(value) {
 
 function normalizeText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function buildImageUri(value) {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return null;
+  }
+
+  return path.posix.join(
+    'assets',
+    'images',
+    'exercises',
+    path.basename(normalized),
+  );
 }
 
 function normalizeTimestamp(value) {

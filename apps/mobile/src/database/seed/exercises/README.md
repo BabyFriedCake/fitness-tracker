@@ -10,8 +10,11 @@ Rules:
 - `sourceName`, `sourceReference`, and `license` are required so each seeded exercise remains traceable.
 - The bundled Sprint 6 dataset is pinned to upstream revision `7455efae`.
 - MIT-covered metadata and instructions are normalized during development.
-- Gym Visual images and GIFs are not bundled because reuse requires a separate
-  media license; `imageUri` remains null and the UI uses a placeholder.
+- In Personal Use mode, dataset `images/` may be bundled into local assets for
+  offline personal-device use; `videos/` GIFs stay out of the app. Commercial
+  Release still requires separate media authorization.
+- `imageUri` stores the bundled local asset path when an image is available;
+  the UI falls back to the placeholder when it is not.
 - Imports are idempotent: importing the same seed again updates the same row by `id` and does not create duplicates.
 - Future seed upgrades must keep existing IDs unchanged.
 

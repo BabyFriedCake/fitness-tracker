@@ -5,7 +5,10 @@
 
 ## Goal
 
-定义动作库图片资源策略，确保 Exercise Library 可以继续离线可用，同时不把未确认授权的第三方图片或 GIF 导入正式 App。
+定义动作库图片资源策略，确保 Exercise Library 可以继续离线可用，并把媒体使用场景区分为：
+
+- Personal Use：允许本地开发、个人设备使用和本地 assets 打包。
+- Commercial Release：保留未来商业发布的更严格授权要求。
 
 ## Current State
 
@@ -14,11 +17,11 @@
 - `exercises.image_uri` 已存在。
 - Exercise Domain 支持 `imageUri`。
 - Exercise Repository 会读写 `image_uri`。
-- Exercise Seed Dataset 中 `imageUri` 全部为 `null`。
+- Exercise Seed Dataset 在 Personal Use 模式下会把合法本地图片写入 `imageUri`。
 - UI 使用 `apps/mobile/assets/images/exercise-placeholder.png` 作为离线占位图。
 - App 不会运行时读取 GitHub。
 
-当前策略是安全的：无授权图片不进入 App，用户仍能离线浏览动作库。
+当前策略在 Personal Use 模式下允许本地导入已确认可用于个人自用的媒体，并继续保留占位图作为兜底。
 
 ## Source Review
 
@@ -31,13 +34,14 @@
 媒体限制：
 
 - 上游 README 说明该数据集包含缩略图和 GIF，但媒体版权归 Gym Visual。
-- 在没有单独媒体授权前，不得把这些图片或 GIF 复制、转换、压缩或打包进本 App。
+- 未来若进入 Commercial Release，仍必须重新确认媒体授权，不能默认沿用个人 Beta 的本地打包策略。
 - 不得在运行时从 GitHub 或第三方 CDN 拉取这些图片。
 
 结论：
 
-- 当前 Sprint 不导入该仓库媒体。
-- 当前占位图策略继续保留。
+- Personal Use 模式下，可将已确认可用于个人自用的图片导入本地 assets。
+- Commercial Release 模式下，仍需单独确认媒体授权后才能打包分发。
+- 当前占位图策略继续保留为兜底方案。
 
 ### 可接受的正式图片来源
 
@@ -117,15 +121,16 @@ V1 推荐：
 
 ## Current Placeholder Decision
 
-保留当前占位图策略。
+保留当前占位图策略作为兜底。
 
 原因：
 
 - 已满足离线优先原则。
-- 不引入授权风险。
+- Personal Use 模式下，本地 assets 可直接服务个人设备使用。
+- Commercial Release 仍然保留授权风险控制。
 - 不需要 Schema / Migration。
 - 与当前 `image_uri` 字段设计兼容。
-- 可在获得授权资源后无破坏替换。
+- 可在未来商业授权确认后无破坏替换。
 
 ## Follow-up Task Recommendation
 
@@ -139,5 +144,22 @@ V1 推荐：
 - 建立媒体 license manifest。
 - 导入少量合法图片作为试点。
 - 保持无授权图片继续使用占位图。
+
+### Personal Use 允许范围
+
+在当前 Personal Beta 阶段，允许：
+
+- 本地开发和本地调试。
+- 个人设备上的离线使用。
+- 将已确认可用于个人自用的动作图片打包进 `apps/mobile/assets/`。
+- 仅导入 `images/` 图片，不导入 `videos/` GIF。
+
+禁止：
+
+- 商业发布。
+- App Store / 商店发布。
+- 分发给第三方或开放给其他团队直接复用。
+
+如果未来需要进入 Commercial Release，必须重新审核媒体来源、授权证明、分发范围和可用平台。
 
 该任务必须先完成授权确认，再允许导入媒体文件。

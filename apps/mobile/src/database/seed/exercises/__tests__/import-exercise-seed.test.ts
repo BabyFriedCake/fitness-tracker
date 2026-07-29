@@ -24,6 +24,7 @@ type CountRow = {
 type ExerciseRow = {
   readonly id: string;
   readonly name_zh: string;
+  readonly image_uri: string | null;
   readonly source_reference: string;
   readonly source_license: string;
   readonly source_attribution: string | null;
@@ -52,7 +53,7 @@ describe('exercise seed import', () => {
       'SELECT COUNT(*) AS count FROM exercises;',
     );
     const sourceRow = await database.getFirstAsync<ExerciseRow>(
-      'SELECT id, name_zh, source_reference, source_license, source_attribution, updated_at FROM exercises WHERE id = ?;',
+      'SELECT id, name_zh, image_uri, source_reference, source_license, source_attribution, updated_at FROM exercises WHERE id = ?;',
       STARTER_EXERCISES[0].id,
     );
 
@@ -66,6 +67,7 @@ describe('exercise seed import', () => {
       expect.objectContaining({
         id: STARTER_EXERCISES[0].id,
         name_zh: STARTER_EXERCISES[0].nameZh,
+        image_uri: STARTER_EXERCISES[0].imageUri ?? null,
         source_reference: STARTER_EXERCISE_SEED_VERSION,
         source_license: STARTER_EXERCISE_LICENSE,
         source_attribution: null,
@@ -94,6 +96,26 @@ describe('exercise seed import', () => {
       attemptedRows: BUNDLED_EXERCISES.length,
       importedRows: 0,
     });
+  });
+
+  it('refreshes bundled rows when the image assets are missing from an existing import', async () => {
+    await importBundledExerciseDataset(database);
+
+    await database.runAsync(
+      'UPDATE exercises SET source_name = ?, source_reference = ?, image_uri = NULL WHERE id = ?;',
+      BUNDLED_EXERCISES[0].sourceName,
+      BUNDLED_EXERCISES[0].sourceReference,
+      BUNDLED_EXERCISES[0].id,
+    );
+
+    const result = await importBundledExerciseDataset(database);
+    const refreshedRow = await database.getFirstAsync<ExerciseRow>(
+      'SELECT id, name_zh, image_uri, source_reference, source_license, source_attribution, updated_at FROM exercises WHERE id = ?;',
+      BUNDLED_EXERCISES[0].id,
+    );
+
+    expect(result.importedRows).toBe(BUNDLED_EXERCISES.length);
+    expect(refreshedRow?.image_uri).toBe(BUNDLED_EXERCISES[0].imageUri ?? null);
   });
 
   it('rejects invalid seed rows before persistence with actionable errors', async () => {
@@ -160,7 +182,7 @@ describe('exercise seed import', () => {
       STARTER_EXERCISES[0].id,
     );
     const updatedRow = await database.getFirstAsync<ExerciseRow>(
-      'SELECT id, name_zh, source_reference, source_license, source_attribution, updated_at FROM exercises WHERE id = ?;',
+      'SELECT id, name_zh, image_uri, source_reference, source_license, source_attribution, updated_at FROM exercises WHERE id = ?;',
       STARTER_EXERCISES[0].id,
     );
 
@@ -168,6 +190,7 @@ describe('exercise seed import', () => {
     expect(updatedRow).toEqual({
       id: STARTER_EXERCISES[0].id,
       name_zh: '杠铃卧推（更新）',
+      image_uri: STARTER_EXERCISES[0].imageUri ?? null,
       source_reference: 'starter-v2',
       source_license: 'CC0-1.0',
       source_attribution: null,

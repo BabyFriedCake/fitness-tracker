@@ -37,8 +37,7 @@ import {
   type ExerciseLibraryScreenState,
 } from '@/features/exercise-library/application/use-exercise-library';
 import { useTheme } from '@/hooks/use-theme';
-
-const EXERCISE_PLACEHOLDER_IMAGE = require('../../../../assets/images/exercise-placeholder.png');
+import { resolveExerciseImageSource } from '../../../assets/exercise-media';
 
 export function ExerciseLibraryScreen() {
   const router = useRouter();
@@ -628,11 +627,7 @@ function ExerciseCard({
       >
         <View style={styles.exerciseImageFrame}>
           <Image
-            source={
-              exercise.imageUri
-                ? { uri: exercise.imageUri }
-                : EXERCISE_PLACEHOLDER_IMAGE
-            }
+            source={resolveExerciseImageSource(exercise.imageUri)}
             resizeMode="cover"
             accessibilityIgnoresInvertColors
             accessibilityLabel={`${exercise.nameZh}动作图片`}

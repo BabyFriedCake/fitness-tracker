@@ -21,8 +21,7 @@ import {
   type ExerciseDetailScreenState,
 } from '@/features/exercise-library/application/use-exercise-detail';
 import { useTheme } from '@/hooks/use-theme';
-
-const EXERCISE_PLACEHOLDER_IMAGE = require('../../../../assets/images/exercise-placeholder.png');
+import { resolveExerciseImageSource } from '../../../assets/exercise-media';
 
 export type ExerciseDetailScreenProps = {
   readonly exerciseId: string;
@@ -243,7 +242,7 @@ function ExerciseDetail({ exercise }: { readonly exercise: Exercise }) {
 function ExerciseMedia({ exercise }: { readonly exercise: Exercise }) {
   return (
     <Image
-      source={exercise.imageUri ?? EXERCISE_PLACEHOLDER_IMAGE}
+      source={resolveExerciseImageSource(exercise.imageUri)}
       contentFit="contain"
       accessibilityLabel={`${exercise.nameZh}动作图片`}
       style={styles.exerciseImage}
