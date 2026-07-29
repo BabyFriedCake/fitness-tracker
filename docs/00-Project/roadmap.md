@@ -777,6 +777,31 @@ Tag / Release：待创建
 
 ---
 
+## Sprint 16 - Local TTS Voice Coach（进行中）
+
+目标：
+
+把已经完成的 Voice Feedback Adapter 接入设备本地中文 TTS，使训练页能够在不影响
+Workout Runtime 和持久化事实的前提下播报真实训练反馈。
+
+范围：
+
+- [ ] S16-01 Local Chinese TTS Voice Adapter
+
+边界：
+
+- 只使用设备本地 TTS；不依赖网络。
+- 只在训练页前台播报；不实现后台播放或锁屏控制。
+- 不请求麦克风权限，不实现语音识别、Camera、Pose Detection 或 AI 计数。
+- 语音失败不得影响 Runtime、RestTimer 或 WorkoutSet 持久化。
+
+风险：
+
+- iOS 真机静音模式会抑制 `expo-speech` 声音，必须作为真机验收项验证。
+- 高频 Mock 自动计数必须避免语音队列滞后。
+
+---
+
 # Long Term Vision
 
 最终目标：

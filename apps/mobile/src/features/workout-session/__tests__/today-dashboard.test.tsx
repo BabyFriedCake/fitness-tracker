@@ -87,18 +87,26 @@ describe('Today Dashboard', () => {
   });
 
   it.each(['draft', 'in_progress'] as const)(
-    'prioritizes a recoverable %s session entry',
+    'prioritizes a recoverable %s session entry when it belongs to today plans',
     async (status) => {
       const session = buildSession(status);
       const result = await loadTodayDashboard({
         workoutSessionRepository: buildWorkoutSessionRepository({
           findRecoverableSession: jest.fn(async () => session),
           findLatestSession: jest.fn(async () => buildSession('completed')),
+          findById: jest.fn(async (id) => (id === SESSION_ID ? session : null)),
         }),
         workoutTemplateRepository: buildWorkoutTemplateRepository({
           list: jest.fn(async () => [buildTemplate()]),
         }),
-        todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository(),
+        todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository({
+          listByDate: jest.fn(async () => [
+            buildTodayPlan({
+              sessionId: SESSION_ID,
+              status: 'draft',
+            }),
+          ]),
+        }),
         exerciseRepository: buildExerciseRepository(),
         dailyStatusRepository: buildDailyStatusRepository(),
       });
@@ -114,6 +122,60 @@ describe('Today Dashboard', () => {
       });
     },
   );
+
+  it('keeps a completed today plan visible while ignoring an unrelated draft session', async () => {
+    const completedSession = buildSession('completed');
+    const orphanDraftSession = {
+      ...buildSession('draft'),
+      id: 'orphan-draft-session' as WorkoutSessionId,
+    };
+    const result = await loadTodayDashboard({
+      workoutSessionRepository: buildWorkoutSessionRepository({
+        findRecoverableSession: jest.fn(async () => orphanDraftSession),
+        findLatestSession: jest.fn(async () => completedSession),
+        findById: jest.fn(async (id) =>
+          id === SESSION_ID ? completedSession : null,
+        ),
+      }),
+      workoutTemplateRepository: buildWorkoutTemplateRepository({
+        list: jest.fn(async () => [buildTemplate()]),
+      }),
+      todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository({
+        listByDate: jest.fn(async () => [
+          buildTodayPlan({
+            sessionId: SESSION_ID,
+            status: 'draft',
+          }),
+        ]),
+        syncStatusFromSession: jest.fn(async (_planId, sessionStatus) =>
+          buildTodayPlan({
+            sessionId: SESSION_ID,
+            status: sessionStatus,
+          }),
+        ),
+      }),
+      exerciseRepository: buildExerciseRepository(),
+      dailyStatusRepository: buildDailyStatusRepository(),
+    });
+
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') {
+      throw new Error('Expected Today dashboard data.');
+    }
+
+    expect(result.data.sessionEntry).toMatchObject({
+      status: 'completed',
+      sessionId: SESSION_ID,
+      workoutName: 'Push',
+    });
+    expect(result.data.todayPlans).toEqual([
+      expect.objectContaining({
+        id: TODAY_PLAN_ID,
+        status: 'completed',
+        sessionId: SESSION_ID,
+      }),
+    ]);
+  });
 
   it.each(['completed', 'cancelled'] as const)(
     'shows a latest %s session as an ended disabled entry',

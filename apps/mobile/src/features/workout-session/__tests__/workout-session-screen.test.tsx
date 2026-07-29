@@ -164,7 +164,7 @@ describe('WorkoutSessionScreenContent', () => {
       />,
     );
 
-    expect(getByLabelText('当前动作示意图')).toBeTruthy();
+    expect(getByLabelText('当前动作示意图：杠铃卧推')).toBeTruthy();
     expect(getByText('次数进度')).toBeTruthy();
     expect(getByLabelText('训练控制')).toBeTruthy();
     expect(getByLabelText('上一个')).toBeTruthy();

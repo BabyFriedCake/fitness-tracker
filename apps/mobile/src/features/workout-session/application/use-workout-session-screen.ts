@@ -6,9 +6,11 @@ import {
   initializeApplicationDatabase,
   type DatabaseStartupResult,
 } from '@/database/bootstrap';
+import { createSqliteExerciseRepository } from '@/database/repositories/exercise';
 import { createSqliteRestTimerRepository } from '@/database/repositories/rest-timer';
 import { createSqliteWorkoutRuntimeSnapshotRepository } from '@/database/repositories/workout-runtime-snapshot';
 import { createSqliteWorkoutSessionRepository } from '@/database/repositories/workout-session';
+import type { ExerciseRepository } from '@/domain/exercise';
 import type {
   RestTimerRepository,
   SessionExercise,
@@ -180,6 +182,12 @@ export type UseWorkoutSessionScreenDependencies = {
       { readonly status: 'ready' }
     >['database'],
   ) => WorkoutSessionRepository;
+  readonly createExerciseRepository?: (
+    database: Extract<
+      DatabaseStartupResult,
+      { readonly status: 'ready' }
+    >['database'],
+  ) => ExerciseRepository;
   readonly createRestTimerRepository?: (
     database: Extract<
       DatabaseStartupResult,
@@ -219,6 +227,7 @@ export function useWorkoutSessionScreen(
   {
     initializeDatabase = initializeApplicationDatabase,
     createWorkoutSessionRepository = createSqliteWorkoutSessionRepository,
+    createExerciseRepository = createSqliteExerciseRepository,
     createRestTimerRepository = createSqliteRestTimerRepository,
     createWorkoutRuntimeSnapshotRepository = createSqliteWorkoutRuntimeSnapshotRepository,
     now = () => new Date().toISOString(),
@@ -254,6 +263,7 @@ export function useWorkoutSessionScreen(
   const dependenciesRef = useRef({
     initializeDatabase,
     createWorkoutSessionRepository,
+    createExerciseRepository,
     createRestTimerRepository,
     createWorkoutRuntimeSnapshotRepository,
     now,
@@ -357,6 +367,7 @@ export function useWorkoutSessionScreen(
     dependenciesRef.current = {
       initializeDatabase,
       createWorkoutSessionRepository,
+      createExerciseRepository,
       createRestTimerRepository,
       createWorkoutRuntimeSnapshotRepository,
       now,
@@ -369,6 +380,7 @@ export function useWorkoutSessionScreen(
     };
   }, [
     createRestTimerRepository,
+    createExerciseRepository,
     createWorkoutRuntimeSnapshotRepository,
     createWorkoutSessionRepository,
     createWorkoutSetId,
@@ -495,6 +507,10 @@ export function useWorkoutSessionScreen(
           repositories = {
             workoutSessionRepository:
               dependenciesRef.current.createWorkoutSessionRepository(
+                startupResult.database,
+              ),
+            exerciseRepository:
+              dependenciesRef.current.createExerciseRepository(
                 startupResult.database,
               ),
             restTimerRepository:

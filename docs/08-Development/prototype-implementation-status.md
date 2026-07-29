@@ -143,6 +143,7 @@ Sprint 5 已完成：
 缺：
 
 - 历史纠错标识和重算边界
+
 ## P009 Settings
 
 已完成：
@@ -179,14 +180,15 @@ Sprint 5 已完成：
 - 语音反馈事件
 - 训练页语音开关
 - 语音反馈失败降级
+- 训练页本地中文 TTS 播报（前台会话）
 - 训练页默认 Mock 自动计数输入源
 - 训练页进入后自动启动 draft Session 并自动推进 Rep
 
 缺：
 
-- 真实 Voice Engine
+- iOS / Android 真机播报与静音模式验收
 - 完整语音状态展示
-- 输入源切换和生命周期管理
+- 语音识别与真实输入源
 
 ---
 
@@ -237,7 +239,6 @@ Sprint 13 已完成 Final Release 硬化与发布收口：
 - 完成 Tag / Release / Changelog
 
 当前不再扩展原型范围，后续仅进入发布后稳定性观察与原型对齐。
-
 
 ## Prototype 与 Sprint 关系
 

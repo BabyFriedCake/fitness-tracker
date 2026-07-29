@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -29,6 +31,8 @@ import type {
   WorkoutRuntimeSnapshot,
 } from '@/features/workout-session/application/workout-runtime-engine';
 import { useTheme } from '@/hooks/use-theme';
+import { foregroundWorkoutVoiceFeedbackAdapter } from '@/services/expo-speech-workout-voice-adapter';
+import { resolveExerciseImageSource } from '../../../assets/exercise-media';
 
 export function WorkoutSessionScreen({
   routeParams,
@@ -40,6 +44,7 @@ export function WorkoutSessionScreen({
     useWorkoutCompanionSettings();
   const model = useWorkoutSessionScreen(routeParams, {
     voiceFeedbackEnabled,
+    voiceAdapter: foregroundWorkoutVoiceFeedbackAdapter,
     workoutCompanionEventSourceMode: inputSourceMode,
   });
   const navigationIntent =
@@ -61,6 +66,24 @@ export function WorkoutSessionScreen({
 
     router.dismissTo('/');
   }, [model.controls, navigationIntent, router, sessionId]);
+
+  useEffect(() => {
+    return () => {
+      void foregroundWorkoutVoiceFeedbackAdapter.stop().catch(() => undefined);
+    };
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') {
+        void foregroundWorkoutVoiceFeedbackAdapter
+          .stop()
+          .catch(() => undefined);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   return (
     <WorkoutSessionScreenContent {...model} onBack={() => router.back()} />
@@ -211,6 +234,9 @@ function ReadyState({
               runtime={state.runtime}
               completedReps={state.companionRuntime?.progress.completedReps}
               targetWeight={state.setDraft.weight}
+              exerciseImageUriBySessionExerciseId={
+                state.data.exerciseImageUriBySessionExerciseId ?? {}
+              }
             />
             {state.actionError && (
               <ThemedText
@@ -494,6 +520,11 @@ function RestingWorkoutState({
   const remainingSeconds = state.companionRuntime?.restRemainingSeconds ?? 0;
   const nextSetNumber =
     state.runtime.currentSetNumber ?? state.runtime.currentSet;
+  const imageSource = currentExercise
+    ? resolveExerciseImageSource(
+        state.data.exerciseImageUriBySessionExerciseId?.[currentExercise.id],
+      )
+    : undefined;
 
   return (
     <View
@@ -554,9 +585,18 @@ function RestingWorkoutState({
             accessible
             accessibilityLabel={`下一组动作示意图：${currentExercise.exerciseNameSnapshot}`}
           >
-            <ThemedText style={styles.nextSetThumbnailText}>
-              {currentExercise.exerciseNameSnapshot.slice(0, 1)}
-            </ThemedText>
+            {imageSource ? (
+              <Image
+                source={imageSource}
+                contentFit="cover"
+                style={styles.nextSetThumbnailImage}
+                accessibilityIgnoresInvertColors
+              />
+            ) : (
+              <ThemedText style={styles.nextSetThumbnailText}>
+                {currentExercise.exerciseNameSnapshot.slice(0, 1)}
+              </ThemedText>
+            )}
           </View>
         </View>
       )}
@@ -632,10 +672,14 @@ function CurrentExerciseSection({
   runtime,
   completedReps,
   targetWeight,
+  exerciseImageUriBySessionExerciseId,
 }: {
   readonly runtime: WorkoutRuntimeSnapshot;
   readonly completedReps?: number;
   readonly targetWeight: string;
+  readonly exerciseImageUriBySessionExerciseId: Readonly<
+    Record<string, string | undefined>
+  >;
 }) {
   const exercise = runtime.currentExercise;
 
@@ -645,14 +689,23 @@ function CurrentExerciseSection({
 
   const targetReps = getExerciseTargetReps(exercise);
   const repProgress = completedReps ?? 0;
+  const imageSource = resolveExerciseImageSource(
+    exerciseImageUriBySessionExerciseId[exercise.id],
+  );
 
   return (
     <View style={styles.primarySection}>
       <View
         style={styles.exerciseHeroImage}
         accessible
-        accessibilityLabel="当前动作示意图"
+        accessibilityLabel={`当前动作示意图：${exercise.exerciseNameSnapshot}`}
       >
+        <Image
+          source={imageSource}
+          contentFit="cover"
+          style={styles.exerciseHeroMedia}
+          accessibilityIgnoresInvertColors
+        />
         <View style={styles.exerciseHeroGlow} />
         <ThemedText style={styles.exerciseHeroInitial}>
           {exercise.exerciseNameSnapshot.slice(0, 1)}
@@ -1081,6 +1134,9 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     backgroundColor: '#20231E',
   },
+  exerciseHeroMedia: {
+    ...StyleSheet.absoluteFillObject,
+  },
   exerciseHeroGlow: {
     position: 'absolute',
     top: -40,
@@ -1301,6 +1357,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 22,
     backgroundColor: 'rgba(202, 255, 0, 0.18)',
+    overflow: 'hidden',
+  },
+  nextSetThumbnailImage: {
+    ...StyleSheet.absoluteFillObject,
   },
   nextSetThumbnailText: {
     color: '#FFFFFF',
