@@ -336,6 +336,23 @@ describe('WorkoutSession history entry', () => {
     expect(onReload).toHaveBeenCalledTimes(1);
   });
 
+  it('opens interval statistics from the history header', async () => {
+    const onOpenStatistics = jest.fn();
+    const { getByLabelText } = await render(
+      <WorkoutSessionHistoryScreenContent
+        state={{ status: 'empty' }}
+        onReload={jest.fn()}
+        onOpenDetail={jest.fn()}
+        onGoToday={jest.fn()}
+        onOpenStatistics={onOpenStatistics}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('打开训练统计'));
+
+    expect(onOpenStatistics).toHaveBeenCalledTimes(1);
+  });
+
   it('loads history through the application hook', async () => {
     jest.useFakeTimers();
     const repository = buildRepository({

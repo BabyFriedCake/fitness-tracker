@@ -13,6 +13,7 @@ import {
   type NavigationAction,
 } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -139,28 +140,25 @@ export function WorkoutTemplateCreateContent({
 }
 
 function Header({ onCancel }: { readonly onCancel: () => void }) {
-  const theme = useTheme();
-
   return (
     <ThemedView style={styles.header}>
+      <Pressable
+        onPress={onCancel}
+        accessibilityRole="button"
+        accessibilityLabel="退出创建训练模板"
+        style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+      >
+        <ThemedText type="default" style={styles.backIcon}>
+          ←
+        </ThemedText>
+      </Pressable>
       <ThemedView style={styles.headerCopy}>
         <ThemedText type="small" themeColor="textSecondary">
           新建模板
         </ThemedText>
         <ThemedText type="title">训练模板</ThemedText>
       </ThemedView>
-      <Pressable
-        onPress={onCancel}
-        accessibilityRole="button"
-        accessibilityLabel="退出创建训练模板"
-        style={({ pressed }) => [
-          styles.secondaryButton,
-          { borderColor: theme.backgroundSelected },
-          pressed && styles.pressed,
-        ]}
-      >
-        <ThemedText type="smallBold">← 取消</ThemedText>
-      </Pressable>
+      <ThemedView style={styles.headerSpacer} />
     </ThemedView>
   );
 }
@@ -395,15 +393,21 @@ function CreateForm({
         style={({ pressed }) => [
           styles.primaryButton,
           {
-            backgroundColor: theme.text,
             opacity: isSaveDisabled ? 0.56 : 1,
           },
           pressed && !isSaveDisabled && styles.pressed,
         ]}
       >
+        <LinearGradient
+          colors={['#6334E8', '#8B5CF6']}
+          end={{ x: 1, y: 1 }}
+          pointerEvents="none"
+          start={{ x: 0, y: 0 }}
+          style={styles.gradientFill}
+        />
         <ThemedText
           type="smallBold"
-          style={[styles.primaryButtonText, { color: theme.background }]}
+          style={[styles.primaryButtonText, { color: theme.actionOnPrimary }]}
         >
           {state.isSaving
             ? '保存中'
@@ -449,6 +453,7 @@ function DiscardConfirmModal({
               accessibilityLabel="继续编辑训练模板"
               style={({ pressed }) => [
                 styles.secondaryButton,
+                styles.modalSecondaryButton,
                 { borderColor: theme.backgroundSelected },
                 pressed && styles.pressed,
               ]}
@@ -461,6 +466,7 @@ function DiscardConfirmModal({
               accessibilityLabel="放弃创建训练模板"
               style={({ pressed }) => [
                 styles.dangerButton,
+                styles.modalDangerButton,
                 { borderColor: theme.backgroundSelected },
                 pressed && styles.pressed,
               ]}
@@ -492,14 +498,27 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     gap: Spacing.three,
-    paddingTop: Spacing.five,
+    paddingTop: Spacing.two,
   },
   headerCopy: {
     flex: 1,
     gap: Spacing.one,
+  },
+  headerSpacer: { width: 48, height: 48 },
+  backButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 2,
   },
   formContent: {
     gap: Spacing.three,
@@ -561,7 +580,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.one,
     borderRadius: 18,
-    backgroundColor: '#EFEEE8',
+    backgroundColor: '#F3EEFC',
     padding: Spacing.three,
   },
   emptyExerciseState: {
@@ -586,7 +605,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+    overflow: 'hidden',
   },
+  gradientFill: { ...StyleSheet.absoluteFillObject },
   primaryButtonText: {
     textAlign: 'center',
   },
@@ -599,11 +620,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
+  backIcon: { color: '#6D3DF5', fontSize: 32, lineHeight: 36 },
   dangerButton: {
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
@@ -612,21 +634,39 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.three,
-    backgroundColor: 'rgba(0, 0, 0, 0.36)',
+    padding: Spacing.four,
+    backgroundColor: 'rgba(31, 20, 58, 0.48)',
   },
   modalContent: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 400,
     gap: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: Spacing.three,
+    padding: Spacing.four,
+    shadowColor: '#27155A',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.2,
+    shadowRadius: 28,
+    elevation: 8,
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     gap: Spacing.two,
+  },
+  modalSecondaryButton: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 52,
+    borderRadius: 16,
+    backgroundColor: '#F8F6FC',
+  },
+  modalDangerButton: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 52,
+    borderRadius: 16,
+    backgroundColor: '#FFF2F1',
   },
   feedbackState: {
     flex: 1,

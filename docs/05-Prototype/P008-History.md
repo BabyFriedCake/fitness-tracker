@@ -35,6 +35,8 @@ Related Documents: PRD、Architecture、Domain Model、Database（如涉及）�
 - 时间筛选
 - 容量完成率趋势PR
 - 历史纠错标识
+- 从历史页右上角进入区间统计
+- 周、月、年区间的训练量、时长、完成组数与部位分布对比
 
 ### 不负责
 - 社交排名
@@ -49,6 +51,7 @@ Related Documents: PRD、Architecture、Domain Model、Database（如涉及）�
 ## 6. User Journey
 
 ```text
+历史列表 → 右上角统计 → 选择周/月/年 → 查看区间对比与部位分布
 历史列表 → Session详情 → Exercise趋势/PR → 可选纠错
 ```
 
@@ -85,6 +88,10 @@ Push · 38分钟 · 16组 · 10,200kg
 - Simple Chart
 - Edited Badge
 - Empty State
+- Statistics Entry Icon
+- Statistics Period Selector
+- Volume Trend Chart
+- Muscle Distribution List
 
 所有组件引用 `docs/07-Design-System/`，关键点击区域至少 44×44 pt。
 
@@ -119,6 +126,8 @@ Push · 38分钟 · 16组 · 10,200kg
 - 点击日期→更新选中日期训练列表
 - 点击Session→详情
 - 点击Exercise→趋势
+- 点击右上角统计图标→进入训练统计
+- 切换周/月/年→只重算区间派生数据，不修改历史
 - 编辑历史→纠错并标记
 - 空状态→P001
 
@@ -177,6 +186,7 @@ Analytics 不得未经明确隐私方案上传完整训练明细。
 - 简单趋势优先
 - 统计从Set重算
 - 不做羞辱式连续打卡
+- 统计页只展示可追溯历史事实，为未来 AI 推荐提供输入，不在统计页生成或执行推荐
 
 ## 21. Acceptance Criteria
 
@@ -189,6 +199,9 @@ Analytics 不得未经明确隐私方案上传完整训练明细。
 - [ ] 取消删除数据排除
 - [ ] 纠错重算PR
 - [ ] 数据不足不误导
+- [ ] 可从历史右上角进入统计页
+- [ ] 周、月、年统计只包含 completed Session 与已完成 WorkoutSet
+- [ ] 区间比较与肌群分布可追溯到历史 Session 快照
 
 ## 22. Future Extension
 

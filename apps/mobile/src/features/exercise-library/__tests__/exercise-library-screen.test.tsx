@@ -148,9 +148,8 @@ describe('Exercise Library screen', () => {
     expect(onOpenExercise).toHaveBeenCalledWith(exercise);
   });
 
-  it('renders actionable no-results copy and clear action', async () => {
-    const clearFilters = jest.fn();
-    const { getByText, getAllByLabelText } = await render(
+  it('renders no-results copy without a separate clear-filter action', async () => {
+    const { getByText, queryByLabelText } = await render(
       <ExerciseLibraryContent
         controls={buildControls({
           filters: {
@@ -158,7 +157,6 @@ describe('Exercise Library screen', () => {
             queryText: 'unknown',
           },
           hasActiveFilters: true,
-          clearFilters,
         })}
         selectionMode={buildBrowseMode()}
         onOpenExercise={jest.fn()}
@@ -172,11 +170,8 @@ describe('Exercise Library screen', () => {
     );
 
     expect(getByText('没有找到匹配动作')).toBeTruthy();
-    expect(getByText('换个关键词，或清除筛选后再试。')).toBeTruthy();
-
-    await fireEvent.press(getAllByLabelText('清除搜索和筛选条件')[0]);
-
-    expect(clearFilters).toHaveBeenCalled();
+    expect(getByText('换个关键词，或调整当前筛选条件后再试。')).toBeTruthy();
+    expect(queryByLabelText('清除搜索和筛选条件')).toBeNull();
   });
 
   it('submits controlled Chinese search text changes', async () => {
@@ -200,8 +195,8 @@ describe('Exercise Library screen', () => {
     expect(updateQuery).toHaveBeenCalledWith('卧推');
   });
 
-  it('keeps custom exercise creation explicitly unsupported in V1', async () => {
-    const { getByLabelText, getByText } = await render(
+  it('does not render a custom-exercise entry in the current library', async () => {
+    const { queryByLabelText } = await render(
       <ExerciseLibraryContent
         controls={buildControls()}
         selectionMode={buildBrowseMode()}
@@ -215,9 +210,7 @@ describe('Exercise Library screen', () => {
       />,
     );
 
-    await fireEvent.press(getByLabelText('创建自定义动作'));
-
-    expect(getByText('当前版本暂不支持自定义动作。')).toBeTruthy();
+    expect(queryByLabelText('创建自定义动作')).toBeNull();
   });
 
   it('toggles muscle-group and equipment filter chips', async () => {
@@ -258,7 +251,7 @@ describe('Exercise Library screen', () => {
     expect(toggleEquipment).toHaveBeenCalledWith('barbell');
   });
 
-  it('renders template selection mode with explicit add and cancel actions', async () => {
+  it('renders template selection mode without an instructional banner', async () => {
     const onOpenExercise = jest.fn();
     const onSelectExercise = jest.fn();
     const onCancelSelection = jest.fn();
@@ -268,7 +261,7 @@ describe('Exercise Library screen', () => {
       primaryMuscleGroup: 'chest',
       equipment: 'barbell',
     });
-    const { getByText, getByLabelText } = await render(
+    const { getByLabelText, queryByText } = await render(
       <ExerciseLibraryContent
         controls={buildControls()}
         selectionMode={buildSelectionMode({ context: 'template' })}
@@ -282,15 +275,14 @@ describe('Exercise Library screen', () => {
       />,
     );
 
-    expect(getByText('为训练模板选择动作')).toBeTruthy();
-    expect(getByText('选择一个标准动作返回来源页面。')).toBeTruthy();
+    expect(queryByText('为训练模板选择动作')).toBeNull();
+    expect(queryByText('选择一个标准动作返回来源页面。')).toBeNull();
 
     await fireEvent.press(getByLabelText('添加杠铃卧推'));
-    await fireEvent.press(getByLabelText('取消动作选择'));
 
     expect(onSelectExercise).toHaveBeenCalledWith(exercise);
     expect(onOpenExercise).not.toHaveBeenCalled();
-    expect(onCancelSelection).toHaveBeenCalled();
+    expect(onCancelSelection).not.toHaveBeenCalled();
   });
 
   it('renders session selection mode with already-selected exercises disabled', async () => {
@@ -306,7 +298,7 @@ describe('Exercise Library screen', () => {
       primaryMuscleGroup: 'back',
       equipment: 'machine',
     });
-    const { getByText, getByLabelText } = await render(
+    const { getByText, getByLabelText, queryByText } = await render(
       <ExerciseLibraryContent
         controls={buildControls()}
         selectionMode={buildSelectionMode({
@@ -323,7 +315,7 @@ describe('Exercise Library screen', () => {
       />,
     );
 
-    expect(getByText('为今日训练选择动作')).toBeTruthy();
+    expect(queryByText('为今日训练选择动作')).toBeNull();
     expect(getByText('已添加，不能重复选择。')).toBeTruthy();
     expect(
       getByLabelText('杠铃卧推已添加，不能重复选择').props.accessibilityState,

@@ -11,6 +11,7 @@
     "expo-font": "~14.0.12",
     "expo-glass-effect": "~0.1.10",
     "expo-image": "~3.0.11",
+    "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.12",
     "expo-router": "~6.0.24",
     "expo-speech": "~14.0.8",
@@ -63,6 +64,7 @@
     ],
     "moduleNameMapper": {
       "^expo-sqlite$": "<rootDir>/src/test/expo-sqlite-mock.ts",
+      "^react-native-safe-area-context$": "<rootDir>/src/test/react-native-safe-area-context-mock.tsx",
       "\\.css$": "<rootDir>/src/test/style-mock.ts",
       "^@/(.*)$": "<rootDir>/src/$1",
       "^@/assets/(.*)$": "<rootDir>/assets/$1"

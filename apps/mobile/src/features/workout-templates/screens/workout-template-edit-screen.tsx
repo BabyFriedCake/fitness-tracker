@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  View,
 } from 'react-native';
 import { useEffect, useRef } from 'react';
 import { useNavigation, useRouter, type Href } from 'expo-router';
@@ -13,6 +14,7 @@ import {
   type NavigationAction,
 } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -177,16 +179,8 @@ function Header({
   readonly isBusy: boolean;
   readonly onCancel: () => void;
 }) {
-  const theme = useTheme();
-
   return (
     <ThemedView style={styles.header}>
-      <ThemedView style={styles.headerCopy}>
-        <ThemedText type="small" themeColor="textSecondary">
-          编辑模板
-        </ThemedText>
-        <ThemedText type="title">训练模板</ThemedText>
-      </ThemedView>
       <Pressable
         disabled={isBusy}
         onPress={onCancel}
@@ -194,16 +188,22 @@ function Header({
         accessibilityState={{ disabled: isBusy }}
         accessibilityLabel="退出编辑训练模板"
         style={({ pressed }) => [
-          styles.secondaryButton,
-          {
-            borderColor: theme.backgroundSelected,
-            opacity: isBusy ? 0.56 : 1,
-          },
+          styles.backButton,
+          { opacity: isBusy ? 0.56 : 1 },
           pressed && !isBusy && styles.pressed,
         ]}
       >
-        <ThemedText type="smallBold">← 取消</ThemedText>
+        <ThemedText type="default" style={styles.backIcon}>
+          ←
+        </ThemedText>
       </Pressable>
+      <ThemedView style={styles.headerCopy}>
+        <ThemedText type="small" themeColor="textSecondary">
+          编辑模板
+        </ThemedText>
+        <ThemedText type="title">训练模板</ThemedText>
+      </ThemedView>
+      <ThemedView style={styles.headerSpacer} />
     </ThemedView>
   );
 }
@@ -281,8 +281,9 @@ function EditForm({
   const isArchiveDisabled = isFormDisabled;
 
   return (
-    <>
+    <View style={styles.editForm}>
       <ScrollView
+        style={styles.formScroll}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.formContent}
       >
@@ -470,15 +471,21 @@ function EditForm({
         style={({ pressed }) => [
           styles.primaryButton,
           {
-            backgroundColor: theme.text,
             opacity: isSaveDisabled ? 0.56 : 1,
           },
           pressed && !isSaveDisabled && styles.pressed,
         ]}
       >
+        <LinearGradient
+          colors={['#6334E8', '#8B5CF6']}
+          end={{ x: 1, y: 1 }}
+          pointerEvents="none"
+          start={{ x: 0, y: 0 }}
+          style={styles.gradientFill}
+        />
         <ThemedText
           type="smallBold"
-          style={[styles.primaryButtonText, { color: theme.background }]}
+          style={[styles.primaryButtonText, { color: theme.actionOnPrimary }]}
         >
           {state.isSaving
             ? '保存中'
@@ -489,7 +496,7 @@ function EditForm({
                 : '保存模板'}
         </ThemedText>
       </Pressable>
-    </>
+    </View>
   );
 }
 
@@ -825,6 +832,7 @@ function ConfirmModal({
               accessibilityLabel="继续编辑训练模板"
               style={({ pressed }) => [
                 styles.secondaryButton,
+                styles.modalSecondaryButton,
                 {
                   borderColor: theme.backgroundSelected,
                   opacity: cancelDisabled ? 0.56 : 1,
@@ -842,6 +850,7 @@ function ConfirmModal({
               accessibilityLabel={confirmAccessibilityLabel}
               style={({ pressed }) => [
                 styles.dangerButton,
+                styles.modalDangerButton,
                 {
                   borderColor: theme.backgroundSelected,
                   opacity: confirmDisabled ? 0.56 : 1,
@@ -876,19 +885,34 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     gap: Spacing.three,
-    paddingTop: Spacing.five,
+    paddingTop: Spacing.two,
   },
   headerCopy: {
     flex: 1,
     gap: Spacing.one,
   },
+  headerSpacer: { width: 48, height: 48 },
+  backButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 2,
+  },
   formContent: {
     gap: Spacing.three,
     paddingBottom: Spacing.three,
   },
+  editForm: { flex: 1, gap: Spacing.two },
+  formScroll: { flex: 1 },
   fieldGroup: {
     gap: Spacing.one,
   },
@@ -950,7 +974,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.one,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#DFDDD4',
+    borderTopColor: '#E4DDF1',
     paddingTop: Spacing.two,
   },
   configGrid: {
@@ -963,7 +987,7 @@ const styles = StyleSheet.create({
     minWidth: 128,
     gap: Spacing.one,
     borderRadius: 18,
-    backgroundColor: '#EFEEE8',
+    backgroundColor: '#F3EEFC',
     padding: Spacing.two,
   },
   configInput: {
@@ -1001,7 +1025,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+    overflow: 'hidden',
   },
+  gradientFill: { ...StyleSheet.absoluteFillObject },
   primaryButtonText: {
     textAlign: 'center',
   },
@@ -1014,6 +1040,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
+  backIcon: { color: '#6D3DF5', fontSize: 32, lineHeight: 36 },
   dangerButton: {
     minHeight: 44,
     alignItems: 'center',
@@ -1027,21 +1054,39 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.three,
-    backgroundColor: 'rgba(0, 0, 0, 0.36)',
+    padding: Spacing.four,
+    backgroundColor: 'rgba(31, 20, 58, 0.48)',
   },
   modalContent: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 400,
     gap: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: Spacing.three,
+    padding: Spacing.four,
+    shadowColor: '#27155A',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.2,
+    shadowRadius: 28,
+    elevation: 8,
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     gap: Spacing.two,
+  },
+  modalSecondaryButton: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 52,
+    borderRadius: 16,
+    backgroundColor: '#F8F6FC',
+  },
+  modalDangerButton: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 52,
+    borderRadius: 16,
+    backgroundColor: '#FFF2F1',
   },
   feedbackState: {
     flex: 1,

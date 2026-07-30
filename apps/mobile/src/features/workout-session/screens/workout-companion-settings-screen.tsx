@@ -71,9 +71,6 @@ export function WorkoutCompanionSettingsScreen({
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.pageHeader}>
           <View style={styles.headerRow}>
-            <ThemedText type="small" themeColor="textSecondary">
-              个人中心 · 偏好设置
-            </ThemedText>
             {onBack ? (
               <Pressable
                 onPress={onBack}
@@ -84,11 +81,15 @@ export function WorkoutCompanionSettingsScreen({
                   pressed && styles.pressed,
                 ]}
               >
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  返回
+                <ThemedText type="default" style={styles.backIcon}>
+                  ←
                 </ThemedText>
               </Pressable>
             ) : null}
+            <ThemedText type="small" themeColor="textSecondary">
+              个人中心 · 偏好设置
+            </ThemedText>
+            <View style={styles.headerSpacer} />
           </View>
           <ThemedText type="title">Companion 设置</ThemedText>
           <ThemedText type="default" themeColor="textSecondary">
@@ -223,7 +224,8 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     width: '100%',
     paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.four,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.four,
     gap: Spacing.four,
   },
   pageHeader: {
@@ -237,10 +239,20 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   backButton: {
-    minHeight: 44,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.two,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 2,
   },
+  backIcon: { color: '#6D3DF5', fontSize: 32, lineHeight: 36 },
+  headerSpacer: { width: 48, height: 48 },
   section: {
     gap: Spacing.three,
   },
@@ -272,7 +284,7 @@ const styles = StyleSheet.create({
   },
   optionButtonSelected: {
     borderWidth: 1,
-    borderColor: '#0f172a',
+    borderColor: '#211735',
   },
   optionCopy: {
     flex: 1,
@@ -286,14 +298,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(15, 23, 42, 0.3)',
   },
   optionDotSelected: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#211735',
   },
   resetButton: {
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: '#1B2016',
+    backgroundColor: '#211735',
     paddingHorizontal: Spacing.four,
   },
   resetButtonDisabled: {

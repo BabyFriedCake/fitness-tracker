@@ -8,11 +8,21 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SymbolView } from 'expo-symbols';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  BottomTabInset,
+  Fonts,
+  MaxContentWidth,
+  Spacing,
+} from '@/constants/theme';
 import {
   DAILY_STATUS_VALUES,
   type DailyStatusValue,
@@ -91,46 +101,41 @@ export function TodayDashboardScreenContent({
   onOpenHistory,
   onOpenProfile,
 }: TodayDashboardScreenContentProps) {
+  const insets = useSafeAreaInsets();
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
+        {onOpenProfile ? (
+          <Pressable
+            onPress={onOpenProfile}
+            accessibilityRole="button"
+            accessibilityLabel="打开个人中心"
+            style={({ pressed }) => [
+              styles.profileButton,
+              { top: insets.top + Spacing.three },
+              pressed && styles.pressed,
+            ]}
+          >
+            <SymbolView
+              name="person.crop.circle.fill"
+              size={28}
+              weight="semibold"
+              tintColor="#6D3DF5"
+            />
+          </Pressable>
+        ) : null}
         <ThemedView style={styles.content}>
-          <View style={styles.header}>
-            <View style={styles.headerTopRow}>
-              <ThemedText type="small" themeColor="textSecondary">
-                7 月 23 日 · 星期四
-              </ThemedText>
-              {onOpenProfile ? (
-                <Pressable
-                  onPress={onOpenProfile}
-                  accessibilityRole="button"
-                  accessibilityLabel="打开个人中心"
-                  style={({ pressed }) => [
-                    styles.profileButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <ThemedText type="smallBold" style={styles.profileInitials}>
-                    我
-                  </ThemedText>
-                </Pressable>
-              ) : null}
-            </View>
-            <ThemedText type="title">专注每一次动作。</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              选择模板开始训练，或继续已保存的训练。
-            </ThemedText>
-          </View>
-
-          {state.status === 'loading' && <LoadingState />}
-          {state.status === 'error' && (
-            <ErrorState message={state.message} onReload={controls.reload} />
-          )}
-          {state.status === 'ready' && (
-            <ScrollView
-              contentContainerStyle={styles.readyScrollContent}
-              keyboardShouldPersistTaps="handled"
-            >
+          <ScrollView
+            contentContainerStyle={styles.dashboardScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <DashboardHeader />
+            {state.status === 'loading' && <LoadingState />}
+            {state.status === 'error' && (
+              <ErrorState message={state.message} onReload={controls.reload} />
+            )}
+            {state.status === 'ready' && (
               <ReadyState
                 state={state}
                 controls={controls}
@@ -140,11 +145,28 @@ export function TodayDashboardScreenContent({
                 onOpenWorkoutSession={onOpenWorkoutSession}
                 onOpenHistory={onOpenHistory}
               />
-            </ScrollView>
-          )}
+            )}
+          </ScrollView>
         </ThemedView>
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+function DashboardHeader() {
+  return (
+    <View style={styles.header}>
+      <ThemedText
+        adjustsFontSizeToFit
+        numberOfLines={1}
+        style={styles.pageTitle}
+      >
+        专注每一次动作。
+      </ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        选择模板开始训练，或继续已保存的训练。
+      </ThemedText>
+    </View>
   );
 }
 
@@ -317,12 +339,22 @@ function DailyStatusSelector({
                 {
                   backgroundColor: selected
                     ? theme.backgroundSelected
-                    : theme.background,
+                    : theme.backgroundElement,
                   borderColor: theme.backgroundSelected,
                 },
                 pressed && styles.pressed,
               ]}
             >
+              <View style={styles.statusIconWrap}>
+                <SymbolView
+                  name={getDailyStatusIcon(status)}
+                  size={20}
+                  tintColor={
+                    selected ? theme.actionPrimary : theme.textSecondary
+                  }
+                  weight="medium"
+                />
+              </View>
               <ThemedText type="smallBold">{label}</ThemedText>
             </Pressable>
           );
@@ -420,19 +452,11 @@ function SessionEntryCard({
   readonly isContinuing: boolean;
   readonly onContinue: (sessionId: WorkoutSessionId) => Promise<void>;
 }) {
-  const theme = useTheme();
-
   if (entry.status === 'none') {
     return (
       <ThemedView
         type="backgroundElement"
-        style={[
-          styles.sessionCard,
-          {
-            backgroundColor: theme.workoutSurface,
-            borderColor: 'rgba(255, 255, 255, 0.12)',
-          },
-        ]}
+        style={[styles.sessionCard, styles.emptySessionCard]}
       >
         <ThemedText style={styles.sessionBadge}>接下来</ThemedText>
         <ThemedText type="subtitle" style={styles.sessionHeroTitle}>
@@ -453,15 +477,11 @@ function SessionEntryCard({
   const progressLabel = `${entry.completedSetCount} / ${entry.totalTargetSetCount} 组`;
 
   return (
-    <ThemedView
-      type="backgroundElement"
-      style={[
-        styles.sessionCard,
-        {
-          backgroundColor: theme.workoutSurface,
-          borderColor: 'rgba(255, 255, 255, 0.12)',
-        },
-      ]}
+    <LinearGradient
+      colors={['#8B5CF6', '#5B32CF']}
+      end={{ x: 1, y: 1 }}
+      start={{ x: 0, y: 0 }}
+      style={styles.sessionCard}
     >
       <ThemedText style={styles.sessionBadge}>
         {formatSessionStatus(entry.status)}
@@ -476,13 +496,23 @@ function SessionEntryCard({
       <ThemedText style={styles.sessionHeroMeta}>
         {entry.workoutName} · 已完成 {progressLabel}
       </ThemedText>
-      <PrimaryButton
-        label={isContinuing ? '正在恢复' : getSessionActionLabel(entry.status)}
-        accessibilityLabel={`${getSessionActionLabel(entry.status)}${entry.workoutName}`}
+      <Pressable
         disabled={!canContinue || isContinuing}
         onPress={() => void onContinue(entry.sessionId)}
-      />
-    </ThemedView>
+        accessibilityRole="button"
+        accessibilityLabel={`${getSessionActionLabel(entry.status)}${entry.workoutName}`}
+        accessibilityState={{ disabled: !canContinue || isContinuing }}
+        style={({ pressed }) => [
+          styles.sessionActionButton,
+          pressed && canContinue && styles.pressed,
+          (!canContinue || isContinuing) && styles.disabled,
+        ]}
+      >
+        <ThemedText type="smallBold" style={styles.sessionActionText}>
+          {isContinuing ? '正在恢复' : getSessionActionLabel(entry.status)}
+        </ThemedText>
+      </Pressable>
+    </LinearGradient>
   );
 }
 
@@ -735,7 +765,12 @@ function TodayPlanPickerModal({
               <ThemedText type="subtitle">×</ThemedText>
             </Pressable>
           </View>
-          <View style={styles.pickerList}>
+          <ScrollView
+            style={styles.pickerList}
+            contentContainerStyle={styles.pickerListContent}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator
+          >
             {templates.map((template) => {
               const isAdded = plannedTemplateIds.has(template.id);
               const isSelected = selectedTemplateIds.includes(template.id);
@@ -780,7 +815,7 @@ function TodayPlanPickerModal({
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
           <PrimaryButton
             label={isSubmitting ? '正在更新' : '更新训练计划'}
             accessibilityLabel="更新今日训练计划"
@@ -820,7 +855,14 @@ function PrimaryButton({
         disabled && styles.disabled,
       ]}
     >
-      <ThemedText type="smallBold" style={{ color: theme.background }}>
+      <LinearGradient
+        colors={['#6334E8', '#8B5CF6']}
+        end={{ x: 1, y: 1 }}
+        pointerEvents="none"
+        start={{ x: 0, y: 0 }}
+        style={styles.gradientFill}
+      />
+      <ThemedText type="smallBold" style={{ color: theme.actionOnPrimary }}>
         {label}
       </ThemedText>
     </Pressable>
@@ -901,6 +943,19 @@ function formatDailyStatus(status: DailyStatusValue): string {
   }
 }
 
+function getDailyStatusIcon(status: DailyStatusValue) {
+  switch (status) {
+    case 'normal':
+      return 'face.smiling';
+    case 'fatigued':
+      return 'cloud.rain';
+    case 'menstrual':
+      return 'drop';
+    case 'unwell':
+      return 'exclamationmark.circle';
+  }
+}
+
 function formatVolume(value: number): string {
   return new Intl.NumberFormat(undefined, {
     maximumFractionDigits: 2,
@@ -914,6 +969,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     paddingBottom: BottomTabInset + Spacing.three,
+    position: 'relative',
   },
   content: {
     flex: 1,
@@ -922,36 +978,46 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.four,
   },
   header: { gap: Spacing.one },
-  headerTopRow: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
+  pageTitle: {
+    fontFamily: Fonts.sans,
+    fontSize: 40,
+    lineHeight: 48,
+    fontWeight: '800',
   },
   profileButton: {
+    position: 'absolute',
+    zIndex: 1,
+    right: Spacing.four,
     width: 48,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#DCD8CE',
+    borderColor: '#E4DDF1',
     borderRadius: 24,
-    backgroundColor: '#F7F6F1',
+    backgroundColor: '#FFFFFF',
   },
-  profileInitials: { color: '#1B2016' },
-  readyScrollContent: { paddingBottom: Spacing.four },
+  dashboardScrollContent: { gap: Spacing.four, paddingBottom: Spacing.four },
   readyContent: { gap: Spacing.four },
   statusSection: { gap: Spacing.two },
   statusOptions: { flexDirection: 'row', gap: Spacing.one },
   statusOption: {
-    minHeight: 44,
+    minHeight: 72,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 18,
     paddingHorizontal: Spacing.one,
+    gap: Spacing.one,
+  },
+  statusIconWrap: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
   },
   insightSection: {
     gap: Spacing.one,
@@ -965,19 +1031,24 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   sessionCard: {
-    minHeight: 260,
+    minHeight: 248,
     justifyContent: 'space-between',
     gap: Spacing.three,
-    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 28,
     padding: Spacing.four,
+    overflow: 'hidden',
+  },
+  emptySessionCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#3D2E55',
+    backgroundColor: '#29203A',
   },
   sessionBadge: {
     alignSelf: 'flex-start',
     overflow: 'hidden',
     borderRadius: 999,
-    backgroundColor: '#CAFF00',
-    color: '#1B2016',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    color: '#3E227B',
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
@@ -986,6 +1057,10 @@ const styles = StyleSheet.create({
   },
   sessionHeroTitle: {
     color: '#FFFFFF',
+    fontFamily: Fonts.sans,
+    fontSize: 36,
+    lineHeight: 44,
+    fontWeight: '800',
   },
   sessionHeroMeta: {
     color: 'rgba(255, 255, 255, 0.62)',
@@ -993,6 +1068,15 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: '600',
   },
+  sessionActionButton: {
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: Spacing.three,
+  },
+  sessionActionText: { color: '#3E227B' },
   templateSection: { gap: Spacing.three },
   sectionHeader: {
     flexDirection: 'row',
@@ -1004,15 +1088,20 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     borderRadius: 22,
-    backgroundColor: '#1B2016',
+    backgroundColor: '#6D3DF5',
     paddingHorizontal: Spacing.three,
   },
-  accentText: { color: '#CAFF00' },
+  accentText: { color: '#FFFFFF' },
   emptyPlanCard: {
     gap: Spacing.one,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 28,
     padding: Spacing.four,
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
   },
   templateCard: {
     minHeight: 104,
@@ -1023,6 +1112,11 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 28,
     padding: Spacing.three,
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
   },
   templatePreview: {
     minHeight: 76,
@@ -1038,7 +1132,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: '#E8F6B8',
+    backgroundColor: '#EFE7FF',
   },
   templateStartButton: {
     minWidth: 52,
@@ -1049,7 +1143,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
   },
   templateStartButtonActive: {
-    backgroundColor: '#1B2016',
+    backgroundColor: '#6D3DF5',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.14,
@@ -1057,11 +1151,11 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   templateStartButtonCompleted: {
-    backgroundColor: '#8D8A81',
+    backgroundColor: '#C9C0D9',
   },
   templateStartButtonDisabled: { opacity: 1 },
-  templateStartTextActive: { color: '#CAFF00' },
-  templateStartTextCompleted: { color: '#D9D8D1' },
+  templateStartTextActive: { color: '#FFFFFF' },
+  templateStartTextCompleted: { color: '#6A6179' },
   modalScrim: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -1069,9 +1163,10 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
   planPicker: {
+    maxHeight: '88%',
     gap: Spacing.four,
     borderRadius: 28,
-    backgroundColor: '#F7F5EF',
+    backgroundColor: '#FFFFFF',
     padding: Spacing.four,
   },
   modalCloseButton: {
@@ -1081,7 +1176,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 22,
   },
-  pickerList: { gap: Spacing.two },
+  pickerList: { maxHeight: 460 },
+  pickerListContent: { gap: Spacing.two },
   pickerRow: {
     minHeight: 86,
     flexDirection: 'row',
@@ -1090,13 +1186,13 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 24,
-    borderColor: '#DAD7CE',
+    borderColor: '#E4DDF1',
     backgroundColor: '#FFFFFF',
     padding: Spacing.three,
   },
   pickerRowSelected: {
-    borderColor: '#1B2016',
-    backgroundColor: '#F8FFE6',
+    borderColor: '#6D3DF5',
+    backgroundColor: '#F6F1FF',
   },
   pickerRadio: {
     width: 36,
@@ -1105,27 +1201,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 18,
-    borderColor: '#C9C5BA',
+    borderColor: '#D7CFF0',
   },
   pickerRadioSelected: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#CAFF00',
+    backgroundColor: '#6D3DF5',
   },
   primaryButton: {
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     paddingHorizontal: Spacing.three,
+    overflow: 'hidden',
   },
+  gradientFill: { ...StyleSheet.absoluteFillObject },
   secondaryButton: {
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     paddingHorizontal: Spacing.three,
   },
   feedbackState: {

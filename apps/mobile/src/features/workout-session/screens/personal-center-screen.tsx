@@ -17,9 +17,6 @@ export function PersonalCenterScreen({
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.topBar}>
-            <ThemedText type="small" themeColor="textSecondary">
-              个人中心
-            </ThemedText>
             <Pressable
               onPress={onBack}
               accessibilityRole="button"
@@ -29,10 +26,14 @@ export function PersonalCenterScreen({
                 pressed && styles.pressed,
               ]}
             >
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                返回
+              <ThemedText type="default" style={styles.backIcon}>
+                ←
               </ThemedText>
             </Pressable>
+            <ThemedText type="small" themeColor="textSecondary">
+              个人中心
+            </ThemedText>
+            <View style={styles.headerSpacer} />
           </View>
 
           <ThemedText type="title">我的</ThemedText>
@@ -116,7 +117,7 @@ const styles = StyleSheet.create({
   content: {
     gap: Spacing.five,
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.two,
     paddingBottom: BottomTabInset + Spacing.five,
   },
   topBar: {
@@ -126,17 +127,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   backButton: {
-    minHeight: 44,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.two,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 2,
   },
+  backIcon: { color: '#6D3DF5', fontSize: 32, lineHeight: 36 },
+  headerSpacer: { width: 48, height: 48 },
   profileCard: {
     minHeight: 168,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
     borderRadius: 32,
-    backgroundColor: '#1B2016',
+    backgroundColor: '#211735',
     padding: Spacing.four,
   },
   avatar: {
@@ -145,9 +156,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 48,
-    backgroundColor: '#CAFF00',
+    backgroundColor: '#6D3DF5',
   },
-  avatarText: { color: '#1B2016', fontSize: 44, lineHeight: 48 },
+  avatarText: { color: '#211735', fontSize: 44, lineHeight: 48 },
   profileCopy: { flex: 1, gap: Spacing.one },
   profileTitle: {
     color: '#FFFFFF',
@@ -164,16 +175,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.three,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#DCD8CE',
+    borderColor: '#E4DDF1',
     borderRadius: 24,
-    backgroundColor: '#F7F6F1',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: Spacing.three,
   },
   settingsCopy: { flex: 1, gap: Spacing.one },
   unconfiguredCard: {
     gap: Spacing.one,
     borderRadius: 24,
-    backgroundColor: '#EAE8E1',
+    backgroundColor: '#EEE9F8',
     padding: Spacing.three,
   },
   pressed: { opacity: 0.72 },

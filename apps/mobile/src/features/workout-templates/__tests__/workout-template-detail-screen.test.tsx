@@ -66,7 +66,7 @@ describe('Workout Template detail screen', () => {
     expect(getByText('杠铃深蹲')).toBeTruthy();
     expect(getByText('4 组 · 8-10 次 · 90 秒 · 80 公斤')).toBeTruthy();
 
-    await fireEvent.press(getByLabelText('编辑此次训练'));
+    await fireEvent.press(getByLabelText('编辑模板'));
     await fireEvent.press(getByLabelText('查看动作杠铃深蹲'));
 
     expect(onEditTemplate).toHaveBeenCalledWith(TEMPLATE_ID);

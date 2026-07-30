@@ -74,8 +74,8 @@ export function TodayPlanDetailContent({
               pressed && styles.pressed,
             ]}
           >
-            <ThemedText type="default" themeColor="textSecondary">
-              ← 训练模板
+            <ThemedText type="default" style={styles.backIcon}>
+              ←
             </ThemedText>
           </Pressable>
           {state.status === 'ready' &&
@@ -300,14 +300,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
   },
   backButton: {
-    minHeight: 44,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 2,
   },
+  backIcon: { color: '#6D3DF5', fontSize: 32, lineHeight: 36 },
   editButton: {
     minHeight: 48,
     justifyContent: 'center',
     borderRadius: 24,
-    backgroundColor: '#1B2016',
+    backgroundColor: '#6D3DF5',
     paddingHorizontal: Spacing.three,
   },
   scrollContent: {
@@ -319,7 +329,7 @@ const styles = StyleSheet.create({
   heroTitle: { fontSize: 64, lineHeight: 70 },
   metricBand: {
     borderRadius: 24,
-    backgroundColor: '#E8E5DC',
+    backgroundColor: '#EEE9F8',
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
   },
@@ -336,16 +346,16 @@ const styles = StyleSheet.create({
     minHeight: 72,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 28,
-    backgroundColor: '#1B2016',
+    borderRadius: 999,
+    backgroundColor: '#6D3DF5',
   },
-  accentText: { color: '#CAFF00' },
+  accentText: { color: '#FFFFFF' },
   reloadButton: {
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     paddingHorizontal: Spacing.three,
   },
   feedbackState: {

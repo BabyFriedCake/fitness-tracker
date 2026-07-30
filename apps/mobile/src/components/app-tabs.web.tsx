@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   innerContainer: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.five,
-    borderRadius: Spacing.five,
+    borderRadius: 999,
     flexDirection: 'row',
     alignItems: 'center',
     flexGrow: 1,
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   tabButtonView: {
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: 999,
   },
   compactInnerContainer: {
     paddingHorizontal: Spacing.one,

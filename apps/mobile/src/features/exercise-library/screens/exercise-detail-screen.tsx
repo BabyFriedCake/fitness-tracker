@@ -7,7 +7,10 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -55,11 +58,22 @@ export function ExerciseDetailContent({
   onBack,
   onReload,
 }: ExerciseDetailContentProps) {
+  const insets = useSafeAreaInsets();
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
+        {onBack && (
+          <View
+            style={[
+              styles.fixedBackButton,
+              { top: insets.top + Spacing.three },
+            ]}
+          >
+            <BackButton onBack={onBack} />
+          </View>
+        )}
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {onBack && <BackButton onBack={onBack} />}
           {state.status === 'loading' && <LoadingState />}
           {state.status === 'not-found' && <NotFoundState />}
           {state.status === 'error' && (
@@ -82,8 +96,8 @@ function BackButton({ onBack }: { readonly onBack: () => void }) {
       accessibilityLabel="返回动作库"
       style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
     >
-      <ThemedText type="default" themeColor="textSecondary">
-        ←　动作资料库
+      <ThemedText type="default" style={styles.backIcon}>
+        ←
       </ThemedText>
     </Pressable>
   );
@@ -348,30 +362,44 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: MaxContentWidth,
+    position: 'relative',
   },
   scrollContent: {
     flexGrow: 1,
     gap: Spacing.four,
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.two,
+    paddingTop: Spacing.five + 48,
     paddingBottom: BottomTabInset + Spacing.three,
   },
-  backButton: {
-    minHeight: 44,
-    alignSelf: 'flex-start',
-    justifyContent: 'center',
-    paddingRight: Spacing.two,
+  fixedBackButton: {
+    position: 'absolute',
+    zIndex: 1,
+    left: Spacing.four,
   },
+  backButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  backIcon: { color: '#6D3DF5', fontSize: 32, lineHeight: 36 },
   header: { gap: Spacing.two },
-  exerciseTitle: { fontSize: 52, lineHeight: 58 },
+  exerciseTitle: { fontSize: 44, lineHeight: 52 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   chip: {
     borderRadius: 20,
-    backgroundColor: '#EAE8E1',
+    backgroundColor: '#EEE9F8',
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
-  chipText: { color: '#1B2016' },
+  chipText: { color: '#211735' },
   imagePlaceholder: {
     minHeight: 160,
     alignItems: 'center',
@@ -384,13 +412,25 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1.6,
     borderRadius: 28,
-    backgroundColor: '#EAE8E1',
+    backgroundColor: '#EEE9F8',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
   },
   section: {
     gap: Spacing.two,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E1DED6',
-    paddingTop: Spacing.four,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E4DDF1',
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    padding: Spacing.four,
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 1,
   },
   sectionBody: {
     gap: Spacing.two,
@@ -427,7 +467,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
