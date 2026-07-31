@@ -469,6 +469,7 @@ function ExerciseList({
     <FlatList
       ref={listRef}
       data={exercises}
+      showsVerticalScrollIndicator={false}
       numColumns={2}
       keyExtractor={(exercise) => exercise.id}
       renderItem={({ item }) => (

@@ -129,6 +129,7 @@ export function TodayDashboardScreenContent({
           <ScrollView
             contentContainerStyle={styles.dashboardScrollContent}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
             <DashboardHeader />
             {state.status === 'loading' && <LoadingState />}
@@ -768,8 +769,8 @@ function TodayPlanPickerModal({
           <ScrollView
             style={styles.pickerList}
             contentContainerStyle={styles.pickerListContent}
+            showsVerticalScrollIndicator={false}
             nestedScrollEnabled
-            showsVerticalScrollIndicator
           >
             {templates.map((template) => {
               const isAdded = plannedTemplateIds.has(template.id);

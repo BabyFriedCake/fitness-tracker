@@ -232,6 +232,7 @@ function HistoryList({
     <ScrollView
       contentContainerStyle={styles.listContent}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
       accessibilityLabel="历史训练列表"
     >
       <HistoryOverview

@@ -15,7 +15,10 @@ export function PersonalCenterScreen({
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.topBar}>
             <Pressable
               onPress={onBack}

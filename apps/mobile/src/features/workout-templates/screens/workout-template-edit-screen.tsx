@@ -285,6 +285,7 @@ function EditForm({
       <ScrollView
         style={styles.formScroll}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.formContent}
       >
         {isArchived && (

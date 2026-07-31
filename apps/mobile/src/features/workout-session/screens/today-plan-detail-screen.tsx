@@ -153,6 +153,7 @@ function PlanDetail({
     <ScrollView
       contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
       <View style={styles.hero}>
         <ThemedText type="small" themeColor="textSecondary">

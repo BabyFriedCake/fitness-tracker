@@ -131,6 +131,7 @@ function ReadyState({
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         <ThemedText type="small" themeColor="textSecondary">
           编辑此次训练

@@ -153,6 +153,7 @@ function TemplateList({
   return (
     <FlatList
       data={templates}
+      showsVerticalScrollIndicator={false}
       keyExtractor={(template) => template.id}
       renderItem={({ item }) => (
         <TemplateCard template={item} onOpenTemplate={onOpenTemplate} />

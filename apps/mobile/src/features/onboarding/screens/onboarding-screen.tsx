@@ -120,6 +120,7 @@ function ReadyState({
     <ScrollView
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
         <ThemedText type="small" themeColor="textSecondary">

@@ -229,6 +229,7 @@ function CreateForm({
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.formContent}
+        showsVerticalScrollIndicator={false}
       >
         <ThemedView style={styles.fieldGroup}>
           <ThemedText type="smallBold">名称</ThemedText>

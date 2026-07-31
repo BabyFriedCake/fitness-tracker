@@ -226,6 +226,7 @@ function ReadyState({
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         <SessionHeader data={data} />
         {currentExercise ? (

@@ -73,7 +73,10 @@ export function ExerciseDetailContent({
             <BackButton onBack={onBack} />
           </View>
         )}
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           {state.status === 'loading' && <LoadingState />}
           {state.status === 'not-found' && <NotFoundState />}
           {state.status === 'error' && (

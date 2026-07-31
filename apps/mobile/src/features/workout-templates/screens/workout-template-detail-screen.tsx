@@ -120,6 +120,7 @@ function TemplateDetail({
       <ScrollView
         style={styles.detailScroll}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.hero}>
