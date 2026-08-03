@@ -1,6 +1,6 @@
 # S16-01 Local Chinese TTS Voice Adapter
 
-状态：In Progress
+状态：Completed with Warnings
 
 ## Goal
 

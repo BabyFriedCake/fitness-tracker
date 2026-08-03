@@ -733,7 +733,7 @@ Exit Review：
 
 ---
 
-## Sprint 15 - Product Experience Refinement（✅ 主要范围已完成）
+## Sprint 15 - Product Experience Refinement（✅ 已完成）
 
 目标：
 
@@ -742,7 +742,7 @@ Exit Review：
 
 完成时间：2026-07-28
 
-Exit Review：待执行
+Exit Review：PASS WITH WARNINGS
 
 Tag / Release：待创建
 
@@ -753,7 +753,8 @@ Tag / Release：待创建
 - [x] S15-02 Template Weight Capability
 - [x] S15-03 Settings Development Reset
 - [x] S15-04 Exercise Picker Bottom Sheet
-- [ ] S15-05 Sprint Exit Review
+- [x] S15-05 Sprint Exit Review
+- [x] S15-06 Exercise Media License and Import（Personal Use）
 
 已完成能力：
 
@@ -766,8 +767,7 @@ Tag / Release：待创建
 
 挂起：
 
-- S15-06 Exercise Media License and Import
-  - 原因：动作图片资源必须先完成授权和离线打包策略确认，不允许运行时依赖 GitHub 或直接打包未确认授权资源。
+- 商业发布前重新确认动作图片/GIF 的媒体授权和分发范围。
 
 主要风险：
 
@@ -777,7 +777,7 @@ Tag / Release：待创建
 
 ---
 
-## Sprint 16 - Local TTS Voice Coach（进行中）
+## Sprint 16 - Local TTS Voice Coach（✅ 代码完成，真机验收待完成）
 
 目标：
 
@@ -786,7 +786,7 @@ Workout Runtime 和持久化事实的前提下播报真实训练反馈。
 
 范围：
 
-- [ ] S16-01 Local Chinese TTS Voice Adapter
+- [x] S16-01 Local Chinese TTS Voice Adapter
 
 边界：
 
@@ -800,6 +800,10 @@ Workout Runtime 和持久化事实的前提下播报真实训练反馈。
 
 - iOS 真机静音模式会抑制 `expo-speech` 声音，必须作为真机验收项验证。
 - 高频 Mock 自动计数必须避免语音队列滞后。
+
+Exit Review：PASS WITH WARNINGS
+
+警告：iPhone 真机 Release、静音模式和切后台行为尚未形成自动化验证证据。
 
 ---
 

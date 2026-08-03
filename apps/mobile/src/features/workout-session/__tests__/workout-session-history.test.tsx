@@ -237,6 +237,9 @@ describe('WorkoutSession history entry', () => {
   });
 
   it('renders grouped history rows with duration and volume', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 6, 23, 12));
+
     const onOpenDetail = jest.fn();
     const { getAllByText, getByLabelText, getByText, queryByText } =
       await render(

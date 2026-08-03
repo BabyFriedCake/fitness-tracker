@@ -1,6 +1,6 @@
 # Sprint 15 - Product Experience Refinement
 
-状态：In Progress
+状态：Completed with Warnings
 
 ## 执行顺序
 
@@ -9,7 +9,8 @@
 - [x] `S15-02-template-weight-capability.md`
 - [x] `S15-03-settings-development-reset.md`
 - [x] `S15-04-exercise-picker-bottom-sheet.md`
-- [ ] `S15-05-sprint-exit-review.md`
+- [x] `S15-05-sprint-exit-review.md`
+- [x] `S15-06-exercise-media-license-and-import.md`（Personal Use 模式）
 
 ## 原则
 
@@ -26,7 +27,7 @@
 - Settings 开发环境数据重置
 - Today / 模板动作选择改为底部上拉选择器
 
-## 挂起任务
+## 已知警告
 
-- `S15-06-exercise-media-license-and-import.md`
-  - 原因：动作图片资源必须先完成授权与离线资源策略确认，不在当前实现中绕过。
+- 动作图片已按 Personal Use 策略导入本地 assets，支持个人设备离线使用。
+- Personal Use 不等于商业分发授权；未来 App Store 或第三方分发前必须重新确认媒体授权。
