@@ -38,6 +38,7 @@ export type TodayDashboardTemplateItem = {
   readonly name: string;
   readonly exerciseCount: number;
   readonly totalTargetSets: number;
+  readonly weightSummary?: string;
 };
 
 export type TodayDashboardPlanItem = {
@@ -48,6 +49,7 @@ export type TodayDashboardPlanItem = {
   readonly status: TodayWorkoutPlanStatus;
   readonly exerciseCount: number;
   readonly totalTargetSets: number;
+  readonly weightSummary?: string;
 };
 
 export type TodayDashboardSessionEntry =
@@ -169,10 +171,10 @@ export async function loadTodayDashboard(
       localDate,
     );
     const { completedSessions, dailyStatus } = supplementalData;
-    const session =
-      recoverableSession ??
-      (await repositories.workoutSessionRepository.findLatestSession());
-    const sortedCompletedSessions = [...completedSessions]
+    const syncedPlans = await syncTodayPlanStatuses(repositories, plans, now);
+    const latestSession =
+      await repositories.workoutSessionRepository.findLatestSession();
+    const completedSession = [...completedSessions]
       .filter(
         (
           completedSession,
@@ -184,7 +186,14 @@ export async function loadTodayDashboard(
       .sort(
         (first, second) =>
           Date.parse(second.endedAt) - Date.parse(first.endedAt),
-      );
+      )[0];
+    const session = pickTodayDashboardSessionEntry(
+      recoverableSession,
+      latestSession,
+      completedSession,
+      syncedPlans,
+    );
+    const sortedCompletedSessions = completedSession ? [completedSession] : [];
     const recentWorkout = sortedCompletedSessions[0]
       ? toTodayDashboardRecentWorkout(sortedCompletedSessions[0])
       : undefined;
@@ -199,7 +208,7 @@ export async function loadTodayDashboard(
         sessionEntry: session
           ? toTodayDashboardSessionEntry(session)
           : { status: 'none' },
-        todayPlans: toTodayDashboardPlanItems(plans, templates),
+        todayPlans: toTodayDashboardPlanItems(syncedPlans, templates),
         templates: templates.map(toTodayDashboardTemplateItem),
         dailyStatus: dailyStatus?.status,
         recentWorkout,
@@ -454,6 +463,87 @@ function getExerciseSnapshotName(exercise: Exercise): string {
   return exercise.nameZh || exercise.nameEn || exercise.slug;
 }
 
+async function syncTodayPlanStatuses(
+  repositories: Pick<
+    TodayDashboardRepositories,
+    'todayWorkoutPlanRepository' | 'workoutSessionRepository'
+  >,
+  plans: readonly TodayWorkoutPlan[],
+  now: Date,
+): Promise<readonly TodayWorkoutPlan[]> {
+  const syncedPlans: TodayWorkoutPlan[] = [];
+
+  for (const plan of plans) {
+    if (!plan.sessionId) {
+      syncedPlans.push(plan);
+      continue;
+    }
+
+    const session = await repositories.workoutSessionRepository.findById(
+      plan.sessionId,
+    );
+
+    if (!session) {
+      syncedPlans.push(plan);
+      continue;
+    }
+
+    if (plan.status !== session.status) {
+      const syncedPlan =
+        await repositories.todayWorkoutPlanRepository.syncStatusFromSession(
+          plan.id,
+          session.status,
+          now.toISOString(),
+        );
+      syncedPlans.push(syncedPlan);
+      continue;
+    }
+
+    syncedPlans.push(plan);
+  }
+
+  return syncedPlans;
+}
+
+function pickTodayDashboardSessionEntry(
+  recoverableSession: WorkoutSession | null,
+  latestSession: WorkoutSession | null,
+  latestCompletedSession: WorkoutSession | undefined,
+  plans: readonly TodayWorkoutPlan[],
+): WorkoutSession | null {
+  if (recoverableSession?.status === 'in_progress') {
+    return recoverableSession;
+  }
+
+  if (
+    recoverableSession?.status === 'draft' &&
+    isRecoverableTodayPlanSession(recoverableSession, plans)
+  ) {
+    return recoverableSession;
+  }
+
+  if (latestSession?.status === 'draft') {
+    return latestCompletedSession ?? null;
+  }
+
+  if (latestSession?.status === 'in_progress') {
+    return latestSession;
+  }
+
+  if (latestSession) {
+    return latestSession;
+  }
+
+  return latestCompletedSession ?? null;
+}
+
+function isRecoverableTodayPlanSession(
+  session: WorkoutSession,
+  plans: readonly TodayWorkoutPlan[],
+): boolean {
+  return plans.some((plan) => plan.sessionId === session.id);
+}
+
 function toTodayDashboardTemplateItem(
   template: WorkoutTemplate,
 ): TodayDashboardTemplateItem {
@@ -465,6 +555,7 @@ function toTodayDashboardTemplateItem(
       (total, exercise) => total + exercise.targetSets,
       0,
     ),
+    ...formatTemplateWeightSummary(template.exercises),
   };
 }
 
@@ -491,6 +582,7 @@ function toTodayDashboardPlanItems(
           (total, exercise) => total + exercise.targetSets,
           0,
         ) ?? 0,
+      ...formatTemplateWeightSummary(template?.exercises ?? []),
     };
   });
 }
@@ -535,6 +627,34 @@ function toTodayDashboardRecentWorkout(
       0,
     ),
   };
+}
+
+function formatTemplateWeightSummary(
+  exercises: readonly Pick<WorkoutTemplate['exercises'][number], 'weight'>[],
+): { readonly weightSummary?: string } {
+  const weights = exercises.flatMap((exercise) =>
+    exercise.weight === undefined ? [] : [exercise.weight],
+  );
+
+  if (weights.length === 0) {
+    return {};
+  }
+
+  const uniqueWeights = [...new Set(weights)].sort(
+    (first, second) => Number(first) - Number(second),
+  );
+
+  return {
+    weightSummary: uniqueWeights
+      .map((weight) => `${formatWeight(weight)} 公斤`)
+      .join(' · '),
+  };
+}
+
+function formatWeight(weight: number): string {
+  return Number.isInteger(weight)
+    ? String(weight)
+    : String(Number(weight.toFixed(2)));
 }
 
 export function toLocalDateKey(date: Date): string {

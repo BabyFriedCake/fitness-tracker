@@ -1,9 +1,22 @@
 /// <reference types="jest" />
 
 import { fireEvent, render } from '@testing-library/react-native';
+import { Text } from 'react-native';
+
+import {
+  ApplicationResetProvider,
+  useApplicationReset,
+} from '@/features/application-reset';
+import { deleteDatabaseAsync } from 'expo-sqlite';
 
 import { WorkoutCompanionSettingsProvider } from '@/features/workout-session/application/workout-companion-settings';
 import { WorkoutCompanionSettingsScreen } from '@/features/workout-session/screens/workout-companion-settings-screen';
+
+jest.mock('expo-sqlite', () => ({
+  deleteDatabaseAsync: jest.fn(async () => undefined),
+}));
+
+const mockedDeleteDatabaseAsync = jest.mocked(deleteDatabaseAsync);
 
 describe('WorkoutCompanionSettingsScreen', () => {
   it('shows the current source mode and toggles the session settings', async () => {
@@ -28,5 +41,33 @@ describe('WorkoutCompanionSettingsScreen', () => {
     expect(voiceSwitch.props.value).toBe(true);
     await fireEvent(voiceSwitch, 'valueChange', false);
     expect(getByLabelText('切换语音教练').props.value).toBe(false);
+  });
+
+  it('resets the development database and bumps the reset version', async () => {
+    const resetVersions: number[] = [];
+
+    function ResetVersionProbe() {
+      const { resetVersion } = useApplicationReset();
+
+      resetVersions.push(resetVersion);
+
+      return <Text accessibilityLabel="reset-version">{resetVersion}</Text>;
+    }
+
+    const { getByLabelText, getByText } = await render(
+      <ApplicationResetProvider>
+        <WorkoutCompanionSettingsProvider>
+          <WorkoutCompanionSettingsScreen />
+          <ResetVersionProbe />
+        </WorkoutCompanionSettingsProvider>
+      </ApplicationResetProvider>,
+    );
+
+    expect(getByText('0')).toBeTruthy();
+
+    await fireEvent.press(getByLabelText('重置开发环境数据'));
+
+    expect(mockedDeleteDatabaseAsync).toHaveBeenCalled();
+    expect(resetVersions.at(-1)).toBe(1);
   });
 });

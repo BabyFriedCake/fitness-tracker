@@ -297,6 +297,10 @@ describe('Workout Companion Runtime Flow', () => {
       }),
     );
     expect(completed.session.sessionExercises[0].isCompleted).toBe(true);
+    expect(completed.session.currentSessionExerciseId).toBe(
+      completed.session.sessionExercises[1].id,
+    );
+    expect(completed.session.currentSetNumber).toBe(1);
     expect(completed.runtime).toEqual(
       expect.objectContaining({
         phase: 'running',

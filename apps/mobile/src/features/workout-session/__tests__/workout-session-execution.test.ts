@@ -331,6 +331,33 @@ describe('WorkoutSession execution flow', () => {
     expect(update).toHaveBeenCalledWith(next);
   });
 
+  it('moves the persisted position to the next executable exercise when completing an exercise', async () => {
+    const nextExercise = buildSessionExercise({
+      id: OTHER_SESSION_EXERCISE_ID,
+      sourceExerciseId: 'exercise-row' as ExerciseId,
+      exerciseNameSnapshot: '杠铃划船',
+      position: 2,
+    });
+    const active = buildInProgressSession({
+      sessionExercises: [buildSessionExercise(), nextExercise],
+      currentSessionExerciseId: SESSION_EXERCISE_ID,
+      currentSetNumber: 3,
+    });
+    const repository = buildRepository({ findById: async () => active });
+
+    const next = await completeSessionExercise(
+      repository,
+      buildExerciseExecutionInput(),
+      buildExecutionOptions(),
+    );
+
+    expect(next.sessionExercises[0]).toEqual(
+      expect.objectContaining({ isCompleted: true }),
+    );
+    expect(next.currentSessionExerciseId).toBe(OTHER_SESSION_EXERCISE_ID);
+    expect(next.currentSetNumber).toBe(1);
+  });
+
   it.each([
     ['skip', skipSessionExercise],
     ['resume', resumeSessionExercise],

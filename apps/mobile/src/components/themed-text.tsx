@@ -63,16 +63,16 @@ const styles = StyleSheet.create({
     fontWeight: 500,
   },
   title: {
-    fontFamily: Fonts.serif,
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
+    fontFamily: Fonts.sans,
+    fontSize: 40,
+    fontWeight: 800,
+    lineHeight: 48,
   },
   subtitle: {
-    fontFamily: Fonts.serif,
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
+    fontFamily: Fonts.sans,
+    fontSize: 28,
+    lineHeight: 36,
+    fontWeight: 700,
   },
   link: {
     fontFamily: Fonts.sans,
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     lineHeight: 30,
     fontSize: 14,
-    color: '#3c87f7',
+    color: '#6D3DF5',
   },
   code: {
     fontFamily: Fonts.mono,

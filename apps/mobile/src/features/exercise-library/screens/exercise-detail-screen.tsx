@@ -3,10 +3,14 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  View,
 } from 'react-native';
 import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -21,8 +25,7 @@ import {
   type ExerciseDetailScreenState,
 } from '@/features/exercise-library/application/use-exercise-detail';
 import { useTheme } from '@/hooks/use-theme';
-
-const EXERCISE_PLACEHOLDER_IMAGE = require('../../../../assets/images/exercise-placeholder.png');
+import { resolveExerciseImageSource } from '../../../assets/exercise-media';
 
 export type ExerciseDetailScreenProps = {
   readonly exerciseId: string;
@@ -55,11 +58,25 @@ export function ExerciseDetailContent({
   onBack,
   onReload,
 }: ExerciseDetailContentProps) {
+  const insets = useSafeAreaInsets();
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {onBack && <BackButton onBack={onBack} />}
+        {onBack && (
+          <View
+            style={[
+              styles.fixedBackButton,
+              { top: insets.top + Spacing.three },
+            ]}
+          >
+            <BackButton onBack={onBack} />
+          </View>
+        )}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           {state.status === 'loading' && <LoadingState />}
           {state.status === 'not-found' && <NotFoundState />}
           {state.status === 'error' && (
@@ -75,20 +92,16 @@ export function ExerciseDetailContent({
 }
 
 function BackButton({ onBack }: { readonly onBack: () => void }) {
-  const theme = useTheme();
-
   return (
     <Pressable
       onPress={onBack}
       accessibilityRole="button"
       accessibilityLabel="返回动作库"
-      style={({ pressed }) => [
-        styles.backButton,
-        { borderColor: theme.backgroundSelected },
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
     >
-      <ThemedText type="smallBold">返回动作库</ThemedText>
+      <ThemedText type="default" style={styles.backIcon}>
+        ←
+      </ThemedText>
     </Pressable>
   );
 }
@@ -164,24 +177,27 @@ function ExerciseDetail({ exercise }: { readonly exercise: Exercise }) {
 
   return (
     <>
+      <ExerciseMedia exercise={exercise} />
+
       <ThemedView style={styles.header}>
-        <ThemedText type="subtitle">{exercise.nameZh}</ThemedText>
-        {exercise.nameEn && exercise.nameEn !== exercise.nameZh && (
-          <ThemedText type="small" themeColor="textSecondary">
-            {exercise.nameEn}
-          </ThemedText>
-        )}
-        <ThemedText type="smallBold">
+        <ThemedText type="small" themeColor="textSecondary">
           {primaryMuscleGroup} · {equipment}
         </ThemedText>
+        <ThemedText type="title" style={styles.exerciseTitle}>
+          {exercise.nameZh}
+        </ThemedText>
+        <View style={styles.chipRow}>
+          <ExerciseChip label={equipment} />
+          <ExerciseChip
+            label={exercise.type === 'strength' ? '力量' : '有氧'}
+          />
+        </View>
         {exercise.status === 'inactive' && (
           <ThemedText type="small" themeColor="textSecondary">
             状态：停用，仅用于历史记录兼容。
           </ThemedText>
         )}
       </ThemedView>
-
-      <ExerciseMedia exercise={exercise} />
 
       <DetailSection title="动作说明">
         <ThemedText type="default">
@@ -240,10 +256,20 @@ function ExerciseDetail({ exercise }: { readonly exercise: Exercise }) {
   );
 }
 
+function ExerciseChip({ label }: { readonly label: string }) {
+  return (
+    <View style={styles.chip}>
+      <ThemedText type="small" style={styles.chipText}>
+        {label}
+      </ThemedText>
+    </View>
+  );
+}
+
 function ExerciseMedia({ exercise }: { readonly exercise: Exercise }) {
   return (
     <Image
-      source={exercise.imageUri ?? EXERCISE_PLACEHOLDER_IMAGE}
+      source={resolveExerciseImageSource(exercise.imageUri)}
       contentFit="contain"
       accessibilityLabel={`${exercise.nameZh}动作图片`}
       style={styles.exerciseImage}
@@ -339,27 +365,44 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: MaxContentWidth,
+    position: 'relative',
   },
   scrollContent: {
     flexGrow: 1,
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
+    gap: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.five + 48,
     paddingBottom: BottomTabInset + Spacing.three,
   },
+  fixedBackButton: {
+    position: 'absolute',
+    zIndex: 1,
+    left: Spacing.four,
+  },
   backButton: {
-    minHeight: 44,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: Spacing.two,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  backIcon: { color: '#6D3DF5', fontSize: 32, lineHeight: 36 },
+  header: { gap: Spacing.two },
+  exerciseTitle: { fontSize: 44, lineHeight: 52 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  chip: {
+    borderRadius: 20,
+    backgroundColor: '#EEE9F8',
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
-  header: {
-    gap: Spacing.one,
-  },
+  chipText: { color: '#211735' },
   imagePlaceholder: {
     minHeight: 160,
     alignItems: 'center',
@@ -371,9 +414,26 @@ const styles = StyleSheet.create({
   exerciseImage: {
     width: '100%',
     aspectRatio: 1.6,
+    borderRadius: 28,
+    backgroundColor: '#EEE9F8',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
   },
   section: {
     gap: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E4DDF1',
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    padding: Spacing.four,
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 1,
   },
   sectionBody: {
     gap: Spacing.two,
@@ -410,7 +470,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,

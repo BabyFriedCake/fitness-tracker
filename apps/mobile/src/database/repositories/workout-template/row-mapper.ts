@@ -25,6 +25,7 @@ export type TemplateExerciseRow = {
   readonly target_reps_min: number;
   readonly target_reps_max: number;
   readonly rest_seconds: number;
+  readonly weight: number | null;
   readonly created_at: string;
   readonly updated_at: string;
 };
@@ -84,6 +85,7 @@ function toTemplateExerciseInput(
     targetRepsMin: row.target_reps_min,
     targetRepsMax: row.target_reps_max,
     restSeconds: row.rest_seconds,
+    ...(row.weight === null ? {} : { weight: row.weight }),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

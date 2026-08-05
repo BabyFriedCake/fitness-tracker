@@ -63,6 +63,35 @@ describe('SQLite TodayWorkoutPlanRepository', () => {
     ]);
   });
 
+  it('lists the most recently added plan first', async () => {
+    const newerTemplateId = 'template-push' as WorkoutTemplateId;
+    const newerPlanId = 'today-plan-push' as TodayWorkoutPlanId;
+    await insertTemplate(newerTemplateId, '上肢力量训练');
+    await repository.addFromTemplate({
+      id: PLAN_ID,
+      localDate: '2026-07-23',
+      sourceTemplateId: TEMPLATE_ID,
+      titleSnapshot: '下肢力量训练',
+      position: 1,
+      createdAt: CREATED_AT,
+      updatedAt: CREATED_AT,
+    });
+    await repository.addFromTemplate({
+      id: newerPlanId,
+      localDate: '2026-07-23',
+      sourceTemplateId: newerTemplateId,
+      titleSnapshot: '上肢力量训练',
+      position: 2,
+      createdAt: UPDATED_AT,
+      updatedAt: UPDATED_AT,
+    });
+
+    await expect(repository.listByDate('2026-07-23')).resolves.toMatchObject([
+      { id: newerPlanId, position: 2 },
+      { id: PLAN_ID, position: 1 },
+    ]);
+  });
+
   it('rejects duplicate same-date template and allows another date', async () => {
     await addPlan(PLAN_ID, '2026-07-23');
 

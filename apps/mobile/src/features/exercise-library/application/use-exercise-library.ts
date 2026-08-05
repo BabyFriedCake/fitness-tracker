@@ -53,9 +53,10 @@ export function useExerciseLibrary(): ExerciseLibraryScreenModel {
     status: 'loading',
   });
   const [repository, setRepository] = useState<ExerciseRepository | null>(null);
-  const [filters, setFilters] = useState<ExerciseLibraryFilters>(
-    EMPTY_EXERCISE_LIBRARY_FILTERS,
-  );
+  const [filters, setFilters] = useState<ExerciseLibraryFilters>({
+    ...EMPTY_EXERCISE_LIBRARY_FILTERS,
+    muscleGroups: ['chest'],
+  });
 
   useEffect(() => {
     let isMounted = true;

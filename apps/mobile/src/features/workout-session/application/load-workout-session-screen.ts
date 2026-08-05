@@ -5,6 +5,7 @@ import type {
   WorkoutSessionId,
   WorkoutSessionRepository,
 } from '@/domain/workout-session';
+import type { ExerciseRepository } from '@/domain/exercise';
 
 import { getRestTimerState } from './workout-session-rest-timer';
 import {
@@ -21,12 +22,16 @@ export type WorkoutSessionScreenData = {
   readonly session: WorkoutSession;
   readonly restTimerStatus?: WorkoutSessionTimerDisplayStatus;
   readonly restRemainingSeconds?: number;
+  readonly exerciseImageUriBySessionExerciseId?: Readonly<
+    Record<string, string | undefined>
+  >;
 };
 
 export type WorkoutSessionScreenRepositories = {
   readonly workoutSessionRepository: WorkoutSessionRepository;
   readonly restTimerRepository: RestTimerRepository;
   readonly workoutRuntimeSnapshotRepository: WorkoutRuntimeSnapshotRepository;
+  readonly exerciseRepository?: ExerciseRepository;
 };
 
 export type LoadWorkoutSessionScreenResult =
@@ -68,6 +73,12 @@ export async function loadWorkoutSessionScreen(
   );
   const nextRuntime =
     runtime ?? createWorkoutRuntimeSnapshot(session, persistedRestTimerStatus);
+  const exerciseImageUriBySessionExerciseId = repositories.exerciseRepository
+    ? await loadExerciseImageUriBySessionExerciseId(
+        repositories.exerciseRepository,
+        session,
+      )
+    : {};
 
   if (session.status !== 'in_progress') {
     await repositories.workoutRuntimeSnapshotRepository.clear(session.id);
@@ -79,6 +90,7 @@ export async function loadWorkoutSessionScreen(
       session,
       restTimerStatus,
       restTimer.status === 'not_found' ? undefined : restTimer.remainingSeconds,
+      exerciseImageUriBySessionExerciseId,
     ),
     runtime: nextRuntime,
   };
@@ -88,12 +100,50 @@ export function createWorkoutSessionScreenData(
   session: WorkoutSession,
   restTimerStatus?: WorkoutSessionTimerDisplayStatus,
   restRemainingSeconds?: number,
+  exerciseImageUriBySessionExerciseId: Readonly<
+    Record<string, string | undefined>
+  > = {},
 ): WorkoutSessionScreenData {
   return {
     session,
     restTimerStatus,
     restRemainingSeconds,
+    exerciseImageUriBySessionExerciseId,
   };
+}
+
+async function loadExerciseImageUriBySessionExerciseId(
+  exerciseRepository: ExerciseRepository,
+  session: WorkoutSession,
+): Promise<Readonly<Record<string, string | undefined>>> {
+  const sourceExerciseIds = [
+    ...new Set(
+      session.sessionExercises.map(
+        (sessionExercise) => sessionExercise.sourceExerciseId,
+      ),
+    ),
+  ];
+
+  if (sourceExerciseIds.length === 0) {
+    return {};
+  }
+
+  const exercises =
+    await exerciseRepository.getSelectedByIds(sourceExerciseIds);
+  const imageUriByExerciseId = new Map(
+    exercises.map((exercise) => [exercise.id, exercise.imageUri] as const),
+  );
+  const exerciseImageUriBySessionExerciseId: Record<
+    string,
+    string | undefined
+  > = {};
+
+  for (const sessionExercise of session.sessionExercises) {
+    exerciseImageUriBySessionExerciseId[sessionExercise.id] =
+      imageUriByExerciseId.get(sessionExercise.sourceExerciseId);
+  }
+
+  return exerciseImageUriBySessionExerciseId;
 }
 
 function isDisplayableTimerStatus(

@@ -143,11 +143,32 @@ export async function completeSessionExercise(
   input: SessionExerciseExecutionInput,
   options: SessionExerciseExecutionOptions,
 ): Promise<InProgressWorkoutSession> {
-  return updateSessionExerciseState(repository, input, options, (exercise) => ({
+  const { session, exercise } = await loadExecutionTarget(repository, input);
+  const completedExercise: SessionExercise = {
     ...exercise,
     isSkipped: false,
     isCompleted: true,
-  }));
+  };
+  const completedSession = replaceSessionExercise(
+    session,
+    completedExercise,
+    options.now(),
+  );
+  const nextExercise = findNextExecutableExercise(
+    completedSession.sessionExercises,
+    completedExercise.position,
+  );
+  const nextSession = nextExercise
+    ? {
+        ...completedSession,
+        currentSessionExerciseId: nextExercise.id,
+        currentSetNumber: getNextSetNumber(nextExercise.sets),
+      }
+    : completedSession;
+
+  await repository.update(nextSession);
+
+  return nextSession;
 }
 
 async function updateSessionExerciseState(
@@ -208,6 +229,21 @@ function replaceSessionExercise(
     ),
     updatedAt,
   };
+}
+
+function findNextExecutableExercise(
+  exercises: readonly SessionExercise[],
+  completedPosition: number,
+): SessionExercise | undefined {
+  return [...exercises]
+    .sort((left, right) => left.position - right.position)
+    .find(
+      (exercise) =>
+        exercise.position > completedPosition &&
+        exercise.isEnabled &&
+        !exercise.isSkipped &&
+        !exercise.isCompleted,
+    );
 }
 
 function assertValidWorkoutSetValues(input: RecordWorkoutSetInput): void {

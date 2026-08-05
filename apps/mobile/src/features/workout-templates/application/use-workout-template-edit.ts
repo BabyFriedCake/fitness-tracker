@@ -80,7 +80,12 @@ export type WorkoutTemplateEditScreenControls = {
   readonly updateDescription: (description: string) => void;
   readonly updateExerciseConfig: (
     exerciseId: ExerciseId,
-    field: 'targetSets' | 'targetRepsMin' | 'targetRepsMax' | 'restSeconds',
+    field:
+      | 'targetSets'
+      | 'targetRepsMin'
+      | 'targetRepsMax'
+      | 'restSeconds'
+      | 'weight',
     value: string,
   ) => void;
   readonly moveExerciseUp: (exerciseId: ExerciseId) => void;
@@ -373,7 +378,12 @@ export function useWorkoutTemplateEdit(
   const updateExerciseConfig = useCallback(
     (
       exerciseId: ExerciseId,
-      field: 'targetSets' | 'targetRepsMin' | 'targetRepsMax' | 'restSeconds',
+      field:
+        | 'targetSets'
+        | 'targetRepsMin'
+        | 'targetRepsMax'
+        | 'restSeconds'
+        | 'weight',
       value: string,
     ) => {
       setState((currentState) => {
@@ -893,6 +903,7 @@ function toExerciseDraft(
     targetRepsMin: String(exercise.targetReps.min),
     targetRepsMax: String(exercise.targetReps.max),
     restSeconds: String(exercise.restSeconds),
+    weight: exercise.weight === undefined ? '' : String(exercise.weight),
     createdAt: exercise.createdAt,
   };
 }
@@ -1030,6 +1041,7 @@ function createDraftKey(draft: WorkoutTemplateEditDraftState): string {
       targetRepsMin: exercise.targetRepsMin,
       targetRepsMax: exercise.targetRepsMax,
       restSeconds: exercise.restSeconds,
+      weight: exercise.weight,
     })),
   });
 }

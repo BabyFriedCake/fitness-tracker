@@ -123,7 +123,6 @@ describe('Workout Template list screen', () => {
 
     expect(getByText('Push')).toBeTruthy();
     expect(getByText('2 个动作 · 7 组')).toBeTruthy();
-    expect(getByText('可使用')).toBeTruthy();
     expect(
       getByLabelText('查看训练模板Push，2 个动作，7 组，可使用'),
     ).toBeTruthy();

@@ -235,6 +235,7 @@ describe('WorkoutTemplate domain', () => {
       targetRepsMin: 12,
       targetRepsMax: 8,
       restSeconds: -1,
+      weight: -1,
       createdAt: 'today',
       updatedAt: '2026-07-16',
     });
@@ -262,6 +263,9 @@ describe('WorkoutTemplate domain', () => {
           code: 'template_exercise_rest_seconds_invalid',
         }),
         expect.objectContaining({
+          code: 'template_exercise_weight_invalid',
+        }),
+        expect.objectContaining({
           code: 'template_exercise_created_at_invalid',
         }),
         expect.objectContaining({
@@ -271,7 +275,7 @@ describe('WorkoutTemplate domain', () => {
     });
   });
 
-  it('allows fixed rep targets and zero rest while keeping target weight out of the template', () => {
+  it('allows optional template weight while keeping it out when omitted', () => {
     const templateExercise = createTemplateExercise({
       ...VALID_TEMPLATE_EXERCISE_INPUT,
       targetRepsMin: 10,
@@ -285,7 +289,19 @@ describe('WorkoutTemplate domain', () => {
     });
     expect(templateExercise.restSeconds).toBe(0);
     expect(templateExercise).not.toHaveProperty('weight');
-    expect(templateExercise).not.toHaveProperty('targetWeight');
+  });
+
+  it('keeps template weight when it is provided', () => {
+    const templateExercise = createTemplateExercise({
+      ...VALID_TEMPLATE_EXERCISE_INPUT,
+      weight: 80,
+    });
+
+    expect(templateExercise).toEqual(
+      expect.objectContaining({
+        weight: 80,
+      }),
+    );
   });
 
   it('requires at least one active template exercise before starting a workout', () => {

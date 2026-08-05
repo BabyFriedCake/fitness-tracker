@@ -14,7 +14,18 @@ Today
 - Training Plans
 - Exercise Library
 - History
-- Settings
+
+## Personal Center
+
+Today 右上角头像
+
+↓
+
+个人中心
+
+↓
+
+偏好设置
 
 ## Workout Flow
 

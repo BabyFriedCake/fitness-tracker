@@ -1,9 +1,19 @@
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Switch,
+  View,
+} from 'react-native';
+import { deleteDatabaseAsync } from 'expo-sqlite';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { APPLICATION_DATABASE_NAME } from '@/database/constants';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useApplicationReset } from '@/features/application-reset';
 
 import {
   useWorkoutCompanionSettings,
@@ -27,21 +37,60 @@ const INPUT_SOURCE_OPTIONS: {
   },
 ];
 
-export function WorkoutCompanionSettingsScreen() {
+export function WorkoutCompanionSettingsScreen({
+  onBack,
+}: {
+  readonly onBack?: () => void;
+}) {
   const {
     voiceFeedbackEnabled,
     inputSourceMode,
     setVoiceFeedbackEnabled,
     setInputSourceMode,
   } = useWorkoutCompanionSettings();
+  const { requestApplicationReset } = useApplicationReset();
+  const [isResetting, setIsResetting] = useState(false);
+
+  async function resetDevelopmentData(): Promise<void> {
+    if (isResetting) {
+      return;
+    }
+
+    setIsResetting(true);
+
+    try {
+      await deleteDatabaseAsync(APPLICATION_DATABASE_NAME);
+      requestApplicationReset();
+    } finally {
+      setIsResetting(false);
+    }
+  }
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.pageHeader}>
-          <ThemedText type="small" themeColor="textSecondary">
-            当前训练会话
-          </ThemedText>
+          <View style={styles.headerRow}>
+            {onBack ? (
+              <Pressable
+                onPress={onBack}
+                accessibilityRole="button"
+                accessibilityLabel="返回个人中心"
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <ThemedText type="default" style={styles.backIcon}>
+                  ←
+                </ThemedText>
+              </Pressable>
+            ) : null}
+            <ThemedText type="small" themeColor="textSecondary">
+              个人中心 · 偏好设置
+            </ThemedText>
+            <View style={styles.headerSpacer} />
+          </View>
           <ThemedText type="title">Companion 设置</ThemedText>
           <ThemedText type="default" themeColor="textSecondary">
             这里只影响当前应用会话，不会写入用户设置或训练历史。
@@ -116,6 +165,31 @@ export function WorkoutCompanionSettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <ThemedText type="subtitle">开发环境</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            仅用于本地调试和真机验证。重置后会清空本地训练数据并重新初始化。
+          </ThemedText>
+          <Pressable
+            onPress={() => void resetDevelopmentData()}
+            disabled={isResetting}
+            accessibilityRole="button"
+            accessibilityLabel="重置开发环境数据"
+            accessibilityState={{ disabled: isResetting }}
+            style={({ pressed }) => [
+              styles.resetButton,
+              pressed && !isResetting && styles.pressed,
+              isResetting && styles.resetButtonDisabled,
+            ]}
+          >
+            {isResetting ? (
+              <ActivityIndicator />
+            ) : (
+              <ThemedText type="smallBold">重置开发环境数据</ThemedText>
+            )}
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
           <ThemedText type="subtitle">音频权限</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             当前版本只显示权限边界，不请求系统音频权限。后续会在真实 Voice/TTS
@@ -150,12 +224,35 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     width: '100%',
     paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.four,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.four,
     gap: Spacing.four,
   },
   pageHeader: {
     gap: Spacing.one,
   },
+  headerRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  backButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  backIcon: { color: '#6D3DF5', fontSize: 32, lineHeight: 36 },
+  headerSpacer: { width: 48, height: 48 },
   section: {
     gap: Spacing.three,
   },
@@ -187,7 +284,7 @@ const styles = StyleSheet.create({
   },
   optionButtonSelected: {
     borderWidth: 1,
-    borderColor: '#0f172a',
+    borderColor: '#211735',
   },
   optionCopy: {
     flex: 1,
@@ -201,7 +298,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(15, 23, 42, 0.3)',
   },
   optionDotSelected: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#211735',
+  },
+  resetButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: '#211735',
+    paddingHorizontal: Spacing.four,
+  },
+  resetButtonDisabled: {
+    opacity: 0.7,
   },
   pressed: {
     opacity: 0.75,

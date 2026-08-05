@@ -42,6 +42,7 @@ import type {
 import { TodayDashboardScreenContent } from '@/features/workout-session/screens/today-dashboard-screen';
 
 const TEMPLATE_ID = 'template-push' as WorkoutTemplateId;
+const SECOND_TEMPLATE_ID = 'template-pull' as WorkoutTemplateId;
 const TODAY_PLAN_ID = 'today-plan-push' as TodayWorkoutPlanId;
 const SESSION_ID = 'session-push' as WorkoutSessionId;
 const SESSION_EXERCISE_ID = 'session-exercise-bench' as SessionExerciseId;
@@ -86,18 +87,26 @@ describe('Today Dashboard', () => {
   });
 
   it.each(['draft', 'in_progress'] as const)(
-    'prioritizes a recoverable %s session entry',
+    'prioritizes a recoverable %s session entry when it belongs to today plans',
     async (status) => {
       const session = buildSession(status);
       const result = await loadTodayDashboard({
         workoutSessionRepository: buildWorkoutSessionRepository({
           findRecoverableSession: jest.fn(async () => session),
           findLatestSession: jest.fn(async () => buildSession('completed')),
+          findById: jest.fn(async (id) => (id === SESSION_ID ? session : null)),
         }),
         workoutTemplateRepository: buildWorkoutTemplateRepository({
           list: jest.fn(async () => [buildTemplate()]),
         }),
-        todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository(),
+        todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository({
+          listByDate: jest.fn(async () => [
+            buildTodayPlan({
+              sessionId: SESSION_ID,
+              status: 'draft',
+            }),
+          ]),
+        }),
         exerciseRepository: buildExerciseRepository(),
         dailyStatusRepository: buildDailyStatusRepository(),
       });
@@ -113,6 +122,60 @@ describe('Today Dashboard', () => {
       });
     },
   );
+
+  it('keeps a completed today plan visible while ignoring an unrelated draft session', async () => {
+    const completedSession = buildSession('completed');
+    const orphanDraftSession = {
+      ...buildSession('draft'),
+      id: 'orphan-draft-session' as WorkoutSessionId,
+    };
+    const result = await loadTodayDashboard({
+      workoutSessionRepository: buildWorkoutSessionRepository({
+        findRecoverableSession: jest.fn(async () => orphanDraftSession),
+        findLatestSession: jest.fn(async () => completedSession),
+        findById: jest.fn(async (id) =>
+          id === SESSION_ID ? completedSession : null,
+        ),
+      }),
+      workoutTemplateRepository: buildWorkoutTemplateRepository({
+        list: jest.fn(async () => [buildTemplate()]),
+      }),
+      todayWorkoutPlanRepository: buildTodayWorkoutPlanRepository({
+        listByDate: jest.fn(async () => [
+          buildTodayPlan({
+            sessionId: SESSION_ID,
+            status: 'draft',
+          }),
+        ]),
+        syncStatusFromSession: jest.fn(async (_planId, sessionStatus) =>
+          buildTodayPlan({
+            sessionId: SESSION_ID,
+            status: sessionStatus,
+          }),
+        ),
+      }),
+      exerciseRepository: buildExerciseRepository(),
+      dailyStatusRepository: buildDailyStatusRepository(),
+    });
+
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') {
+      throw new Error('Expected Today dashboard data.');
+    }
+
+    expect(result.data.sessionEntry).toMatchObject({
+      status: 'completed',
+      sessionId: SESSION_ID,
+      workoutName: 'Push',
+    });
+    expect(result.data.todayPlans).toEqual([
+      expect.objectContaining({
+        id: TODAY_PLAN_ID,
+        status: 'completed',
+        sessionId: SESSION_ID,
+      }),
+    ]);
+  });
 
   it.each(['completed', 'cancelled'] as const)(
     'shows a latest %s session as an ended disabled entry',
@@ -408,6 +471,111 @@ describe('Today Dashboard', () => {
     expect(createSessionFromTemplate).not.toHaveBeenCalled();
   });
 
+  it('selects templates in the add plan modal before updating today plan', async () => {
+    const addTodayPlanFromTemplate = jest.fn(async () => true);
+    const { getByLabelText } = await render(
+      <TodayDashboardScreenContent
+        state={buildReadyState({
+          sessionEntry: { status: 'none' },
+          todayPlans: [],
+          templates: [
+            {
+              id: TEMPLATE_ID,
+              name: 'Push',
+              exerciseCount: 1,
+              totalTargetSets: 4,
+            },
+            {
+              id: SECOND_TEMPLATE_ID,
+              name: 'Pull',
+              exerciseCount: 2,
+              totalTargetSets: 6,
+            },
+          ],
+        })}
+        controls={buildControls({ addTodayPlanFromTemplate })}
+        onCreateTemplate={jest.fn()}
+        onOpenTemplate={jest.fn()}
+        onOpenTodayPlan={jest.fn()}
+        onOpenWorkoutSession={jest.fn()}
+        onOpenHistory={jest.fn()}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('添加训练计划'));
+    expect(getByLabelText('更新今日训练计划').props.accessibilityState).toEqual(
+      {
+        disabled: true,
+      },
+    );
+
+    await fireEvent.press(getByLabelText('选择Push加入今日计划'));
+    await fireEvent.press(getByLabelText('选择Pull加入今日计划'));
+    expect(
+      getByLabelText('取消选择Push加入今日计划').props.accessibilityState,
+    ).toEqual({
+      disabled: false,
+      selected: true,
+    });
+
+    await fireEvent.press(getByLabelText('更新今日训练计划'));
+
+    expect(addTodayPlanFromTemplate).toHaveBeenCalledTimes(2);
+    expect(addTodayPlanFromTemplate).toHaveBeenNthCalledWith(1, TEMPLATE_ID);
+    expect(addTodayPlanFromTemplate).toHaveBeenNthCalledWith(
+      2,
+      SECOND_TEMPLATE_ID,
+    );
+  });
+
+  it('keeps already planned templates disabled in the add plan modal', async () => {
+    const addTodayPlanFromTemplate = jest.fn(async () => true);
+    const { getByLabelText } = await render(
+      <TodayDashboardScreenContent
+        state={buildReadyState({
+          sessionEntry: { status: 'none' },
+          todayPlans: [
+            {
+              id: TODAY_PLAN_ID,
+              templateId: TEMPLATE_ID,
+              name: 'Push',
+              status: 'planned',
+              exerciseCount: 1,
+              totalTargetSets: 4,
+            },
+          ],
+          templates: [
+            {
+              id: TEMPLATE_ID,
+              name: 'Push',
+              exerciseCount: 1,
+              totalTargetSets: 4,
+            },
+          ],
+        })}
+        controls={buildControls({ addTodayPlanFromTemplate })}
+        onCreateTemplate={jest.fn()}
+        onOpenTemplate={jest.fn()}
+        onOpenTodayPlan={jest.fn()}
+        onOpenWorkoutSession={jest.fn()}
+        onOpenHistory={jest.fn()}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('添加训练计划'));
+
+    expect(
+      getByLabelText('Push已添加到今日计划').props.accessibilityState,
+    ).toEqual({
+      disabled: true,
+      selected: false,
+    });
+    await fireEvent.press(getByLabelText('Push已添加到今日计划'));
+    await fireEvent.press(getByLabelText('更新今日训练计划'));
+
+    expect(addTodayPlanFromTemplate).not.toHaveBeenCalled();
+  });
+
   it.each(['draft', 'in_progress'] as const)(
     'continues a %s session from the resume entry',
     async (status) => {
@@ -436,7 +604,7 @@ describe('Today Dashboard', () => {
       );
 
       expect(
-        getByText(status === 'draft' ? '可恢复的训练草稿' : '进行中的训练'),
+        getByText(status === 'draft' ? '待开始训练草稿' : '进行中的训练'),
       ).toBeTruthy();
       await fireEvent.press(getByLabelText('继续训练Push'));
 
@@ -500,6 +668,30 @@ describe('Today Dashboard', () => {
 
     await fireEvent.press(getByLabelText('查看历史训练'));
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the personal center from the Today header avatar', async () => {
+    const onOpenProfile = jest.fn();
+    const { getByLabelText } = await render(
+      <TodayDashboardScreenContent
+        state={buildReadyState({
+          sessionEntry: { status: 'none' },
+          todayPlans: [],
+          templates: [],
+        })}
+        controls={buildControls()}
+        onCreateTemplate={jest.fn()}
+        onOpenTemplate={jest.fn()}
+        onOpenTodayPlan={jest.fn()}
+        onOpenWorkoutSession={jest.fn()}
+        onOpenHistory={jest.fn()}
+        onOpenProfile={onOpenProfile}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('打开个人中心'));
+
+    expect(onOpenProfile).toHaveBeenCalledTimes(1);
   });
 
   it('renders and updates DailyStatus with weekly and recent facts', async () => {

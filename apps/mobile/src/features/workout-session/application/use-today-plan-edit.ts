@@ -36,8 +36,7 @@ export type TodayPlanEditExerciseDraft = {
   readonly sourceExerciseId: ExerciseId;
   readonly name: string;
   readonly targetSets: string;
-  readonly targetRepsMin: string;
-  readonly targetRepsMax: string;
+  readonly targetReps: string;
   readonly restSeconds: string;
 };
 
@@ -66,7 +65,7 @@ export type TodayPlanEditControls = {
   readonly reload: () => void;
   readonly updateExerciseConfig: (
     sessionExerciseId: SessionExerciseId,
-    field: 'targetSets' | 'targetRepsMin' | 'targetRepsMax' | 'restSeconds',
+    field: 'targetSets' | 'targetReps' | 'restSeconds',
     value: string,
   ) => void;
   readonly createExerciseSelectionHref: () => Href;
@@ -126,6 +125,10 @@ const DEFAULT_TARGET_REPS_MIN = 8;
 const DEFAULT_TARGET_REPS_MAX = 10;
 const DEFAULT_REST_SECONDS = 90;
 
+function getCurrentTimestamp(): string {
+  return new Date().toISOString();
+}
+
 export function useTodayPlanEdit(
   routeParams: TodayPlanEditRouteParams,
   {
@@ -134,7 +137,7 @@ export function useTodayPlanEdit(
     createWorkoutTemplateRepository = createSqliteWorkoutTemplateRepository,
     createWorkoutSessionRepository = createSqliteWorkoutSessionRepository,
     createExerciseRepository = createSqliteExerciseRepository,
-    now = () => new Date().toISOString(),
+    now = getCurrentTimestamp,
     createId = createDefaultWorkoutSessionId,
   }: UseTodayPlanEditDependencies = {},
 ): {
@@ -267,7 +270,7 @@ export function useTodayPlanEdit(
   const updateExerciseConfig = useCallback(
     (
       sessionExerciseId: SessionExerciseId,
-      field: 'targetSets' | 'targetRepsMin' | 'targetRepsMax' | 'restSeconds',
+      field: 'targetSets' | 'targetReps' | 'restSeconds',
       value: string,
     ): void => {
       setState((current) => {
@@ -567,8 +570,7 @@ function createTodayPlanEditDraft(
         sourceExerciseId: exercise.sourceExerciseId,
         name: exercise.exerciseNameSnapshot,
         targetSets: String(exercise.targetSets),
-        targetRepsMin: String(exercise.targetRepsMin),
-        targetRepsMax: String(exercise.targetRepsMax),
+        targetReps: String(exercise.targetRepsMax),
         restSeconds: String(exercise.currentRestSeconds),
       })),
   };
@@ -593,8 +595,8 @@ function createSessionFromDraft(
         ...existing,
         position: index,
         targetSets: Number(exercise.targetSets),
-        targetRepsMin: Number(exercise.targetRepsMin),
-        targetRepsMax: Number(exercise.targetRepsMax),
+        targetRepsMin: Number(exercise.targetReps),
+        targetRepsMax: Number(exercise.targetReps),
         currentRestSeconds: Number(exercise.restSeconds),
       };
     }),
@@ -614,29 +616,15 @@ function validateDraft(draft: TodayPlanEditDraft): {
 
   for (const exercise of draft.exercises) {
     const targetSets = parsePositiveInteger(exercise.targetSets);
-    const targetRepsMin = parsePositiveInteger(exercise.targetRepsMin);
-    const targetRepsMax = parsePositiveInteger(exercise.targetRepsMax);
+    const targetReps = parsePositiveInteger(exercise.targetReps);
     const restSeconds = parseNonNegativeInteger(exercise.restSeconds);
 
     if (targetSets === null) {
       fieldErrors[`${exercise.id}:targetSets`] = '组数必须是正整数。';
     }
 
-    if (targetRepsMin === null) {
-      fieldErrors[`${exercise.id}:targetRepsMin`] = '次数必须是正整数。';
-    }
-
-    if (targetRepsMax === null) {
-      fieldErrors[`${exercise.id}:targetRepsMax`] = '次数必须是正整数。';
-    }
-
-    if (
-      targetRepsMin !== null &&
-      targetRepsMax !== null &&
-      targetRepsMax < targetRepsMin
-    ) {
-      fieldErrors[`${exercise.id}:targetRepsMax`] =
-        '最大次数不能小于最小次数。';
+    if (targetReps === null) {
+      fieldErrors[`${exercise.id}:targetReps`] = '次数必须是正整数。';
     }
 
     if (restSeconds === null) {

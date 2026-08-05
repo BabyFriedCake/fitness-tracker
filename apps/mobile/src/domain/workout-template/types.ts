@@ -24,6 +24,10 @@ export type RestDurationSeconds = number & {
   readonly __brand: 'RestDurationSeconds';
 };
 
+export type TemplateWeight = number & {
+  readonly __brand: 'TemplateWeight';
+};
+
 export const WORKOUT_TEMPLATE_STATUSES = ['active', 'archived'] as const;
 
 export type WorkoutTemplateStatus = (typeof WORKOUT_TEMPLATE_STATUSES)[number];
@@ -41,6 +45,7 @@ export type TemplateExercise = {
   readonly targetSets: TargetSetCount;
   readonly targetReps: TargetRepRange;
   readonly restSeconds: RestDurationSeconds;
+  readonly weight?: TemplateWeight;
   readonly createdAt: string;
   readonly updatedAt: string;
 };
@@ -65,6 +70,7 @@ export type TemplateExerciseInput = {
   readonly targetRepsMin: number;
   readonly targetRepsMax: number;
   readonly restSeconds: number;
+  readonly weight?: number | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 };

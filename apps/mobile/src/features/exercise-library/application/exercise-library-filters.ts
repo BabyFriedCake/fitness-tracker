@@ -26,9 +26,11 @@ export function toggleExerciseLibraryMuscleGroup(
   filters: ExerciseLibraryFilters,
   muscleGroup: MuscleGroup,
 ): ExerciseLibraryFilters {
+  const isSelected = filters.muscleGroups.includes(muscleGroup);
+
   return {
     ...filters,
-    muscleGroups: toggleValue(filters.muscleGroups, muscleGroup),
+    muscleGroups: isSelected ? [] : [muscleGroup],
   };
 }
 

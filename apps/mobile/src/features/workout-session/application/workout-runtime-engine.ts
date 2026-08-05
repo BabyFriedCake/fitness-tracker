@@ -132,6 +132,7 @@ export class WorkoutCompanionRuntimeUnavailableError extends Error {
 
 export function createWorkoutCompanionRuntimeState(
   session: Extract<WorkoutSession, { readonly status: 'in_progress' }>,
+  currentSetNumber?: number,
 ): WorkoutCompanionRuntimeState {
   const orderedExercises = [...session.sessionExercises].sort(
     (left, right) => left.position - right.position,
@@ -154,7 +155,11 @@ export function createWorkoutCompanionRuntimeState(
     progress: {
       sessionId: session.id,
       currentExerciseIndex,
-      currentSetIndex: getSessionExerciseNextSetNumber(currentExercise) - 1,
+      currentSetIndex:
+        Math.max(
+          1,
+          currentSetNumber ?? getSessionExerciseNextSetNumber(currentExercise),
+        ) - 1,
       completedReps: 0,
     },
     orderedExercises,
@@ -323,8 +328,9 @@ export function createWorkoutRuntimeState(
       : orderedExercises[currentExerciseIndex];
   const currentSetNumber = currentExercise
     ? Math.max(
-        session.currentSetNumber ?? 1,
-        getSessionExerciseNextSetNumber(currentExercise),
+        1,
+        session.currentSetNumber ??
+          getSessionExerciseNextSetNumber(currentExercise),
       )
     : undefined;
   const completedSetCount = countCompletedSets(orderedExercises);
@@ -364,8 +370,9 @@ export function createWorkoutRuntimeSnapshot(
       : orderedExercises[currentExerciseIndex];
   const currentSetNumber = currentExercise
     ? Math.max(
-        session.currentSetNumber ?? 1,
-        getSessionExerciseNextSetNumber(currentExercise),
+        1,
+        session.currentSetNumber ??
+          getSessionExerciseNextSetNumber(currentExercise),
       )
     : undefined;
   const completedSetCount = countCompletedSets(orderedExercises);

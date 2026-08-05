@@ -68,8 +68,8 @@ export function TodayPlanEditContent({
               pressed && styles.pressed,
             ]}
           >
-            <ThemedText type="default" themeColor="textSecondary">
-              ← 取消
+            <ThemedText type="default" style={styles.backIcon}>
+              ←
             </ThemedText>
           </Pressable>
           {state.status === 'ready' && (
@@ -131,6 +131,7 @@ function ReadyState({
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         <ThemedText type="small" themeColor="textSecondary">
           编辑此次训练
@@ -247,22 +248,11 @@ function ExerciseEditCard({
           onChangeText={(value) => onUpdate(exercise.id, 'targetSets', value)}
         />
         <ConfigInput
-          label="最少次数"
-          value={exercise.targetRepsMin}
-          error={fieldErrors[`${exercise.id}:targetRepsMin`]}
+          label="次数"
+          value={exercise.targetReps}
+          error={fieldErrors[`${exercise.id}:targetReps`]}
           editable={!isSaving}
-          onChangeText={(value) =>
-            onUpdate(exercise.id, 'targetRepsMin', value)
-          }
-        />
-        <ConfigInput
-          label="最多次数"
-          value={exercise.targetRepsMax}
-          error={fieldErrors[`${exercise.id}:targetRepsMax`]}
-          editable={!isSaving}
-          onChangeText={(value) =>
-            onUpdate(exercise.id, 'targetRepsMax', value)
-          }
+          onChangeText={(value) => onUpdate(exercise.id, 'targetReps', value)}
         />
         <ConfigInput
           label="休息"
@@ -422,15 +412,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
   },
-  topButton: { minHeight: 44, justifyContent: 'center' },
+  topButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  backIcon: { color: '#6D3DF5', fontSize: 32, lineHeight: 36 },
   saveButton: {
     minHeight: 48,
     justifyContent: 'center',
     borderRadius: 24,
-    backgroundColor: '#1B2016',
+    backgroundColor: '#6D3DF5',
     paddingHorizontal: Spacing.three,
   },
-  accentText: { color: '#CAFF00' },
+  accentText: { color: '#FFFFFF' },
   scrollContent: {
     gap: Spacing.four,
     paddingHorizontal: Spacing.four,
@@ -444,7 +447,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   addButton: { minHeight: 44, justifyContent: 'center' },
-  addButtonText: { color: '#4F7900' },
+  addButtonText: { color: '#6D3DF5' },
   exerciseCard: {
     gap: Spacing.three,
     borderRadius: 24,
@@ -473,7 +476,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: Spacing.one,
     borderRadius: 16,
-    backgroundColor: '#EDEBE4',
+    backgroundColor: '#F3EEFC',
     padding: Spacing.two,
   },
   input: {
@@ -515,7 +518,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     paddingHorizontal: Spacing.three,
   },
   feedbackState: {

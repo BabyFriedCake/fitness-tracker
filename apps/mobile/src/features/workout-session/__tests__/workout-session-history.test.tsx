@@ -237,6 +237,9 @@ describe('WorkoutSession history entry', () => {
   });
 
   it('renders grouped history rows with duration and volume', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 6, 23, 12));
+
     const onOpenDetail = jest.fn();
     const { getAllByText, getByLabelText, getByText, queryByText } =
       await render(
@@ -334,6 +337,23 @@ describe('WorkoutSession history entry', () => {
     );
     await fireEvent.press(getByLabelText('重新加载历史训练'));
     expect(onReload).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens interval statistics from the history header', async () => {
+    const onOpenStatistics = jest.fn();
+    const { getByLabelText } = await render(
+      <WorkoutSessionHistoryScreenContent
+        state={{ status: 'empty' }}
+        onReload={jest.fn()}
+        onOpenDetail={jest.fn()}
+        onGoToday={jest.fn()}
+        onOpenStatistics={onOpenStatistics}
+      />,
+    );
+
+    await fireEvent.press(getByLabelText('打开训练统计'));
+
+    expect(onOpenStatistics).toHaveBeenCalledTimes(1);
   });
 
   it('loads history through the application hook', async () => {

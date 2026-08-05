@@ -15,6 +15,7 @@ export type WorkoutTemplateEditExerciseDraft = {
   readonly targetRepsMin: string;
   readonly targetRepsMax: string;
   readonly restSeconds: string;
+  readonly weight: string;
   readonly createdAt?: string;
 };
 
@@ -137,6 +138,7 @@ function buildUpdateWorkoutTemplateInput(
       targetRepsMin: requirePositiveInteger(exercise.targetRepsMin),
       targetRepsMax: requirePositiveInteger(exercise.targetRepsMax),
       restSeconds: requireNonNegativeInteger(exercise.restSeconds),
+      weight: requireOptionalNonNegativeNumber(exercise.weight),
       createdAt: exercise.createdAt ?? timestamp,
       updatedAt: timestamp,
     })),
@@ -150,6 +152,7 @@ function validateExerciseConfig(
   const targetRepsMin = parsePositiveInteger(exercise.targetRepsMin);
   const targetRepsMax = parsePositiveInteger(exercise.targetRepsMax);
   const restSeconds = parseNonNegativeInteger(exercise.restSeconds);
+  const weight = parseOptionalNonNegativeNumber(exercise.weight);
 
   if (targetSets === null) {
     return '目标组数必须大于 0。';
@@ -169,6 +172,10 @@ function validateExerciseConfig(
 
   if (restSeconds === null) {
     return '休息时间不能为负数。';
+  }
+
+  if (weight === 'invalid') {
+    return '重量必须是非负数字。';
   }
 
   return undefined;
@@ -220,6 +227,24 @@ function parseNonNegativeInteger(value: string): number | null {
   return Number(value.trim());
 }
 
+function parseOptionalNonNegativeNumber(
+  value: string,
+): number | null | 'invalid' {
+  const normalized = value.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const parsedValue = Number(normalized);
+
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    return 'invalid';
+  }
+
+  return parsedValue;
+}
+
 function requirePositiveInteger(value: string): number {
   const parsedValue = parsePositiveInteger(value);
 
@@ -235,6 +260,16 @@ function requireNonNegativeInteger(value: string): number {
 
   if (parsedValue === null) {
     throw new Error('Expected valid non-negative integer draft field.');
+  }
+
+  return parsedValue;
+}
+
+function requireOptionalNonNegativeNumber(value: string): number | null {
+  const parsedValue = parseOptionalNonNegativeNumber(value);
+
+  if (parsedValue === 'invalid') {
+    throw new Error('Expected valid non-negative number draft field.');
   }
 
   return parsedValue;

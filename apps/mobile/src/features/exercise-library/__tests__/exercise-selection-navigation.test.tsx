@@ -95,10 +95,25 @@ describe('ExerciseLibraryScreen selection navigation', () => {
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
-  it('returns to the existing create screen with dismissTo after canceling selection', async () => {
+  it('returns to the existing create screen with dismissTo after closing selection', async () => {
     const { getByLabelText } = await render(<ExerciseLibraryScreen />);
 
-    await fireEvent.press(getByLabelText('取消动作选择'));
+    await fireEvent.press(getByLabelText('关闭动作选择'));
+
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith({
+      pathname: '/templates/new',
+      params: {
+        draftName: 'Push',
+        selectedIds: 'exercise-bench',
+      },
+    });
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
+  it('returns to the existing screen after closing the bottom sheet', async () => {
+    const { getByLabelText } = await render(<ExerciseLibraryScreen />);
+
+    await fireEvent.press(getByLabelText('关闭动作选择弹层'));
 
     expect(mockRouter.dismissTo).toHaveBeenCalledWith({
       pathname: '/templates/new',

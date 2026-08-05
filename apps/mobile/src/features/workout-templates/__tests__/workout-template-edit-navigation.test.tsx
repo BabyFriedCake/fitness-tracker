@@ -345,6 +345,7 @@ function buildEditModel(
             targetRepsMin: '8',
             targetRepsMax: '10',
             restSeconds: '90',
+            weight: '',
             createdAt: '2026-07-16T00:10:00.000Z',
           },
         ],

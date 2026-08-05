@@ -1,14 +1,15 @@
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Pressable,
+  Modal,
   ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
-import { useState } from 'react';
+import { useRef } from 'react';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -36,8 +37,7 @@ import {
   type ExerciseLibraryScreenState,
 } from '@/features/exercise-library/application/use-exercise-library';
 import { useTheme } from '@/hooks/use-theme';
-
-const EXERCISE_PLACEHOLDER_IMAGE = require('../../../../assets/images/exercise-placeholder.png');
+import { resolveExerciseImageSource } from '../../../assets/exercise-media';
 
 export function ExerciseLibraryScreen() {
   const router = useRouter();
@@ -49,8 +49,7 @@ export function ExerciseLibraryScreen() {
     selectedIds?: string | string[];
   }>();
   const selectionMode = parseExerciseLibrarySelectionMode(params);
-
-  return (
+  const content = (
     <ExerciseLibraryContent
       {...useExerciseLibrary()}
       selectionMode={selectionMode}
@@ -92,6 +91,61 @@ export function ExerciseLibraryScreen() {
       }}
     />
   );
+
+  if (selectionMode.status !== 'selecting') {
+    return content;
+  }
+
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      onRequestClose={() => {
+        router.dismissTo({
+          pathname: selectionMode.returnTo,
+          params: selectionMode.returnParams,
+        } as Href);
+      }}
+    >
+      <View style={styles.sheetBackdrop}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="关闭动作选择弹层"
+          onPress={() => {
+            router.dismissTo({
+              pathname: selectionMode.returnTo,
+              params: selectionMode.returnParams,
+            } as Href);
+          }}
+          style={styles.sheetScrim}
+        />
+        <View style={styles.sheetPanel}>
+          <View style={styles.selectionSheetHeader}>
+            <Pressable
+              onPress={() => {
+                router.dismissTo({
+                  pathname: selectionMode.returnTo,
+                  params: selectionMode.returnParams,
+                } as Href);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="关闭动作选择"
+              style={({ pressed }) => [
+                styles.selectionCloseButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <ThemedText type="default" style={styles.selectionCloseText}>
+                ×
+              </ThemedText>
+            </Pressable>
+          </View>
+          {content}
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 export type ExerciseLibraryContentProps = {
@@ -111,20 +165,10 @@ export function ExerciseLibraryContent({
   onSelectExercise,
   onCancelSelection,
 }: ExerciseLibraryContentProps) {
-  const [unsupportedMessage, setUnsupportedMessage] = useState<string | null>(
-    null,
-  );
-
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.content}>
-          {selectionMode.status === 'selecting' && (
-            <SelectionBanner
-              selectionMode={selectionMode}
-              onCancelSelection={onCancelSelection}
-            />
-          )}
           {selectionMode.status === 'invalid' && (
             <InvalidSelectionState
               message={selectionMode.message}
@@ -139,59 +183,12 @@ export function ExerciseLibraryContent({
               controls={controls}
               exercises={state.exercises}
               selectionMode={selectionMode}
-              unsupportedMessage={unsupportedMessage}
               onOpenExercise={onOpenExercise}
               onSelectExercise={onSelectExercise}
-              onUnsupportedCustomExercise={() => {
-                setUnsupportedMessage('当前版本暂不支持自定义动作。');
-              }}
             />
           )}
         </ThemedView>
       </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-function SelectionBanner({
-  selectionMode,
-  onCancelSelection,
-}: {
-  readonly selectionMode: Extract<
-    ExerciseLibrarySelectionMode,
-    { readonly status: 'selecting' }
-  >;
-  readonly onCancelSelection: () => void;
-}) {
-  const theme = useTheme();
-  const contextLabel =
-    selectionMode.context === 'template' ? '训练模板' : '今日训练';
-  const title = `为${contextLabel}选择动作`;
-
-  return (
-    <ThemedView
-      type="backgroundElement"
-      style={[
-        styles.selectionBanner,
-        { borderColor: theme.backgroundSelected },
-      ]}
-    >
-      <ThemedText type="smallBold">{title}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        选择一个标准动作返回来源页面。
-      </ThemedText>
-      <Pressable
-        onPress={onCancelSelection}
-        accessibilityRole="button"
-        accessibilityLabel="取消动作选择"
-        style={({ pressed }) => [
-          styles.clearButton,
-          { borderColor: theme.backgroundSelected },
-          pressed && styles.pressed,
-        ]}
-      >
-        <ThemedText type="smallBold">取消</ThemedText>
-      </Pressable>
     </ThemedView>
   );
 }
@@ -247,46 +244,42 @@ function ExerciseLibraryReadyState({
   controls,
   exercises,
   selectionMode,
-  unsupportedMessage,
   onOpenExercise,
   onSelectExercise,
-  onUnsupportedCustomExercise,
 }: {
   readonly controls: ExerciseLibraryScreenControls;
   readonly exercises: readonly Exercise[];
   readonly selectionMode: ExerciseLibrarySelectionMode;
-  readonly unsupportedMessage: string | null;
   readonly onOpenExercise: (exercise: Exercise) => void;
   readonly onSelectExercise: (exercise: Exercise) => void;
-  readonly onUnsupportedCustomExercise: () => void;
 }) {
-  const selectedMuscleGroup = controls.filters.muscleGroups[0];
+  const exerciseListRef = useRef<FlatList<Exercise>>(null);
 
   return (
     <View style={styles.libraryShell}>
-      <ExerciseLibraryTopBar
-        controls={controls}
-        unsupportedMessage={unsupportedMessage}
-        onUnsupportedCustomExercise={onUnsupportedCustomExercise}
-      />
+      <ExerciseLibraryTopBar controls={controls} />
       <View style={styles.libraryBody}>
-        <MuscleGroupRail controls={controls} />
+        <MuscleGroupRail
+          controls={controls}
+          onSelectMuscleGroup={() => {
+            exerciseListRef.current?.scrollToOffset({
+              offset: 0,
+              animated: true,
+            });
+          }}
+        />
         <View style={styles.resultsPane}>
           <EquipmentChips controls={controls} />
-          <ThemedText type="title" style={styles.resultsTitle}>
-            {selectedMuscleGroup
-              ? `${formatMuscleGroup(selectedMuscleGroup)}动作`
-              : '全部动作'}
-          </ThemedText>
           {exercises.length > 0 ? (
             <ExerciseList
               exercises={exercises}
               selectionMode={selectionMode}
+              listRef={exerciseListRef}
               onOpenExercise={onOpenExercise}
               onSelectExercise={onSelectExercise}
             />
           ) : (
-            <NoResultsState onClearFilters={controls.clearFilters} />
+            <NoResultsState />
           )}
         </View>
       </View>
@@ -296,12 +289,8 @@ function ExerciseLibraryReadyState({
 
 function ExerciseLibraryTopBar({
   controls,
-  unsupportedMessage,
-  onUnsupportedCustomExercise,
 }: {
   readonly controls: ExerciseLibraryScreenControls;
-  readonly unsupportedMessage: string | null;
-  readonly onUnsupportedCustomExercise: () => void;
 }) {
   const theme = useTheme();
 
@@ -318,58 +307,21 @@ function ExerciseLibraryTopBar({
           style={[
             styles.searchInput,
             {
-              backgroundColor: theme.backgroundElement,
               color: theme.text,
             },
           ]}
         />
-        {controls.hasActiveFilters && (
-          <Pressable
-            onPress={controls.clearFilters}
-            accessibilityRole="button"
-            accessibilityLabel="清除搜索和筛选条件"
-            style={({ pressed }) => [
-              styles.inlineClearButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              清除
-            </ThemedText>
-          </Pressable>
-        )}
       </View>
-      <Pressable
-        onPress={onUnsupportedCustomExercise}
-        accessibilityRole="button"
-        accessibilityLabel="创建自定义动作"
-        style={({ pressed }) => [
-          styles.addExerciseButton,
-          pressed && styles.pressed,
-        ]}
-      >
-        <ThemedText type="title" style={styles.addExerciseText}>
-          +
-        </ThemedText>
-      </Pressable>
-      {unsupportedMessage && (
-        <ThemedText
-          type="small"
-          themeColor="textSecondary"
-          accessibilityRole="alert"
-          style={styles.unsupportedText}
-        >
-          {unsupportedMessage}
-        </ThemedText>
-      )}
     </View>
   );
 }
 
 function MuscleGroupRail({
   controls,
+  onSelectMuscleGroup,
 }: {
   readonly controls: ExerciseLibraryScreenControls;
+  readonly onSelectMuscleGroup: () => void;
 }) {
   return (
     <ScrollView
@@ -384,7 +336,10 @@ function MuscleGroupRail({
         return (
           <Pressable
             key={muscleGroup}
-            onPress={() => controls.toggleMuscleGroup(muscleGroup)}
+            onPress={() => {
+              controls.toggleMuscleGroup(muscleGroup);
+              onSelectMuscleGroup();
+            }}
             accessibilityRole="button"
             accessibilityState={{ selected: isSelected }}
             accessibilityLabel={`按肌群筛选：${label}`}
@@ -395,7 +350,7 @@ function MuscleGroupRail({
             ]}
           >
             <ThemedText
-              type="default"
+              type={isSelected ? 'smallBold' : 'default'}
               themeColor={isSelected ? 'text' : 'textSecondary'}
               style={styles.muscleRailText}
             >
@@ -413,8 +368,6 @@ function EquipmentChips({
 }: {
   readonly controls: ExerciseLibraryScreenControls;
 }) {
-  const theme = useTheme();
-
   return (
     <View style={styles.equipmentSection}>
       <ScrollView
@@ -450,20 +403,6 @@ function EquipmentChips({
           );
         })}
       </ScrollView>
-      {controls.hasActiveFilters && (
-        <Pressable
-          onPress={controls.clearFilters}
-          accessibilityRole="button"
-          accessibilityLabel="清除搜索和筛选条件"
-          style={({ pressed }) => [
-            styles.clearButton,
-            { borderColor: theme.backgroundSelected },
-            pressed && styles.pressed,
-          ]}
-        >
-          <ThemedText type="smallBold">清除筛选</ThemedText>
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -483,13 +422,7 @@ function EmptyState() {
   );
 }
 
-function NoResultsState({
-  onClearFilters,
-}: {
-  readonly onClearFilters: () => void;
-}) {
-  const theme = useTheme();
-
+function NoResultsState() {
   return (
     <ThemedView style={styles.feedbackState}>
       <ThemedText type="default">没有找到匹配动作</ThemedText>
@@ -498,20 +431,8 @@ function NoResultsState({
         themeColor="textSecondary"
         style={styles.centerText}
       >
-        换个关键词，或清除筛选后再试。
+        换个关键词，或调整当前筛选条件后再试。
       </ThemedText>
-      <Pressable
-        onPress={onClearFilters}
-        accessibilityRole="button"
-        accessibilityLabel="清除搜索和筛选条件"
-        style={({ pressed }) => [
-          styles.clearButton,
-          { borderColor: theme.backgroundSelected },
-          pressed && styles.pressed,
-        ]}
-      >
-        <ThemedText type="smallBold">清除筛选</ThemedText>
-      </Pressable>
     </ThemedView>
   );
 }
@@ -534,17 +455,21 @@ function ErrorState({ message }: { readonly message: string }) {
 function ExerciseList({
   exercises,
   selectionMode,
+  listRef,
   onOpenExercise,
   onSelectExercise,
 }: {
   readonly exercises: readonly Exercise[];
   readonly selectionMode: ExerciseLibrarySelectionMode;
+  readonly listRef: React.RefObject<FlatList<Exercise> | null>;
   readonly onOpenExercise: (exercise: Exercise) => void;
   readonly onSelectExercise: (exercise: Exercise) => void;
 }) {
   return (
     <FlatList
+      ref={listRef}
       data={exercises}
+      showsVerticalScrollIndicator={false}
       numColumns={2}
       keyExtractor={(exercise) => exercise.id}
       renderItem={({ item }) => (
@@ -595,18 +520,12 @@ function ExerciseCard({
       >
         <View style={styles.exerciseImageFrame}>
           <Image
-            source={
-              exercise.imageUri
-                ? { uri: exercise.imageUri }
-                : EXERCISE_PLACEHOLDER_IMAGE
-            }
+            source={resolveExerciseImageSource(exercise.imageUri)}
+            contentFit="cover"
             accessibilityIgnoresInvertColors
             accessibilityLabel={`${exercise.nameZh}动作图片`}
             style={styles.exerciseImage}
           />
-          <ThemedText type="smallBold" style={styles.imageBadge}>
-            讲解
-          </ThemedText>
         </View>
         <ThemedText type="default" style={styles.exerciseCardTitle}>
           {exercise.nameZh}
@@ -632,7 +551,12 @@ function ExerciseCard({
             action.disabled && styles.disabled,
           ]}
         >
-          <ThemedText type="smallBold">{action.label}</ThemedText>
+          <ThemedText
+            type="smallBold"
+            style={action.disabled ? undefined : styles.exerciseActionText}
+          >
+            {action.label}
+          </ThemedText>
         </Pressable>
       )}
       {action?.disabledHint && (
@@ -685,6 +609,41 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: Spacing.three,
   },
+  sheetBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.36)',
+  },
+  sheetScrim: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sheetPanel: {
+    height: '86%',
+    borderTopLeftRadius: Spacing.five,
+    borderTopRightRadius: Spacing.five,
+    backgroundColor: '#F8F6FC',
+    overflow: 'hidden',
+  },
+  selectionSheetHeader: {
+    height: 56,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
+  },
+  selectionCloseButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  selectionCloseText: { color: '#6D3DF5', fontSize: 28, lineHeight: 32 },
   listContent: {
     gap: Spacing.two,
     paddingBottom: Spacing.three,
@@ -698,85 +657,66 @@ const styles = StyleSheet.create({
   },
   libraryShell: { flex: 1, gap: Spacing.three },
   topControls: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: Spacing.two,
     paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.two,
   },
   searchWrap: {
-    minWidth: 0,
-    flex: 1,
+    height: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 28,
+    borderRadius: 20,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
+    shadowColor: '#6D3DF5',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 2,
   },
   searchInput: {
-    minHeight: 72,
+    minHeight: 40,
     minWidth: 0,
     flex: 1,
+    backgroundColor: 'transparent',
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+    paddingVertical: 0,
     fontSize: 16,
     lineHeight: 24,
     fontWeight: 500,
-  },
-  inlineClearButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.two,
-  },
-  addExerciseButton: {
-    width: 72,
-    height: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 36,
-    backgroundColor: '#E6F0FF',
-  },
-  addExerciseText: {
-    color: '#1677EF',
-    fontSize: 48,
-    lineHeight: 54,
-  },
-  unsupportedText: {
-    width: '100%',
-    paddingLeft: Spacing.one,
   },
   libraryBody: {
     flex: 1,
     flexDirection: 'row',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E0DDD4',
+    borderTopColor: '#E4DDF1',
+    backgroundColor: '#F8F6FC',
   },
   muscleRail: {
-    width: 118,
+    width: 84,
+    flexGrow: 0,
+    flexShrink: 0,
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: '#E0DDD4',
+    borderRightColor: '#E4DDF1',
+    backgroundColor: '#F3EEFC',
   },
   muscleRailContent: {
     paddingVertical: Spacing.two,
   },
   muscleRailItem: {
-    minHeight: 64,
+    minHeight: 50,
     justifyContent: 'center',
     borderLeftWidth: 3,
     borderLeftColor: 'transparent',
     paddingHorizontal: Spacing.three,
   },
   muscleRailItemSelected: {
-    borderLeftColor: '#1677EF',
+    borderLeftColor: '#6D3DF5',
+    backgroundColor: '#F1EBFF',
   },
   muscleRailText: {
     textAlign: 'center',
-    fontSize: 18,
-    lineHeight: 26,
+    fontSize: 14,
+    lineHeight: 22,
   },
   resultsPane: {
     minWidth: 0,
@@ -801,11 +741,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
   },
   filterChipSelected: {
-    backgroundColor: '#E6F0FF',
-  },
-  resultsTitle: {
-    fontSize: 46,
-    lineHeight: 54,
+    backgroundColor: '#F1EBFF',
   },
   listColumns: {
     gap: Spacing.two,
@@ -822,16 +758,16 @@ const styles = StyleSheet.create({
   },
   exerciseCard: {
     flex: 1,
-    minHeight: 286,
+    // minHeight: 186,
     gap: Spacing.two,
     overflow: 'hidden',
-    borderRadius: 24,
+    borderRadius: 28,
     backgroundColor: '#FFFFFF',
     padding: Spacing.two,
-    shadowColor: '#000000',
+    shadowColor: '#6D3DF5',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
     elevation: 2,
   },
   exerciseCardPressable: {
@@ -841,8 +777,8 @@ const styles = StyleSheet.create({
     height: 176,
     justifyContent: 'flex-end',
     overflow: 'hidden',
-    borderRadius: 22,
-    backgroundColor: '#DCE9AD',
+    borderRadius: 24,
+    backgroundColor: '#EEE7FF',
   },
   exerciseImage: {
     ...StyleSheet.absoluteFillObject,
@@ -860,14 +796,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderTopLeftRadius: 22,
     borderBottomRightRadius: 12,
-    backgroundColor: '#1677EF',
+    backgroundColor: '#6D3DF5',
     color: '#FFFFFF',
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
   },
   exerciseCardTitle: {
-    fontSize: 18,
-    lineHeight: 26,
+    fontSize: 17,
+    lineHeight: 24,
   },
   attributes: {
     flexShrink: 1,
@@ -876,9 +812,12 @@ const styles = StyleSheet.create({
     minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 19,
-    backgroundColor: '#E8F6B8',
+    borderRadius: 18,
+    backgroundColor: '#6D3DF5',
     paddingHorizontal: Spacing.two,
+  },
+  exerciseActionText: {
+    color: '#FFFFFF',
   },
   pressed: {
     opacity: 0.72,

@@ -32,7 +32,7 @@ Last Updated: 2026-07-22
 8 / 10
 
 训练中
-第 8 次，很好，再坚持 2 次
+8
 
 [上一动作] [暂停] [下一动作]
 已完成 0 / 18 组
@@ -54,14 +54,14 @@ Last Updated: 2026-07-22
 
 ## 5. Runtime Status
 
-| Runtime phase | UI | Interaction |
-| --- | --- | --- |
-| `running` | 训练中、Rep 进度、教练反馈 | 可暂停 |
-| `paused` | 全屏暂停状态 | 可继续、可结束训练 |
-| `set_completion_pending` | 正在确认本组完成 | 禁止训练操作 |
-| `resting` | 休息倒计时和下一组信息 | 可执行休息控制 |
-| `exercise_completion_pending` | 正在保存训练结果 | 禁止训练操作 |
-| `completed` | 完成结果 | 进入总结 |
+| Runtime phase                 | UI                         | Interaction        |
+| ----------------------------- | -------------------------- | ------------------ |
+| `running`                     | 训练中、Rep 进度、教练反馈 | 可暂停             |
+| `paused`                      | 全屏暂停状态               | 可继续、可结束训练 |
+| `set_completion_pending`      | 正在确认本组完成           | 禁止训练操作       |
+| `resting`                     | 休息倒计时和下一组信息     | 可执行休息控制     |
+| `exercise_completion_pending` | 正在保存训练结果           | 禁止训练操作       |
+| `completed`                   | 完成结果                   | 进入总结           |
 
 状态不得只通过颜色表达。pending 状态必须有稳定文案，且不得通过
 本地乐观状态跳过持久化。
@@ -69,6 +69,7 @@ Last Updated: 2026-07-22
 ## 6. Coach Feedback
 
 - 计数反馈与已接受的 `RepCompleted` 顺序一致。
+- 本地 TTS 对次数播报简短数字，例如“1”“2”；Mock 自动计数间隔为 2 秒。
 - `SetCompleted` 只在真实 WorkoutSet 持久化后提示。
 - `ExerciseCompleted` 只在真实 SessionExercise 完成后提示。
 - 语音失败不得回滚或阻断已完成的持久化。
@@ -80,7 +81,8 @@ Last Updated: 2026-07-22
 - 上一/下一动作不可通过本地状态直接改写 WorkoutSet。
 - 当前版本不展示独立“跳过动作”或“恢复动作”入口；跳到其他动作使用上一/下一动作控制。
 - 已完成 WorkoutSet 必须保留，不得因动作切换被修改或删除。
-- 结束训练不得与训练主控制靠得过近，并保留现有二次确认流程。
+- running 状态不在右上角展示结束训练；保存退出放在页面底部。
+- 暂停状态保留结束训练入口，并保留现有二次确认流程。
 
 ## 8. Rest Timer
 
@@ -100,6 +102,8 @@ Last Updated: 2026-07-22
 - 休息使用持久化的绝对时间，不通过每秒写库恢复。
 - 返回 App 时直接展示当前真实状态。
 - 已完成 WorkoutSet 不得因休息操作改变。
+- 当前动作最后一组完成后，若仍有可训练动作，先展示下一动作第一组的休息状态；不得直接跳过动作间休息。
+- 使用 Mock 自动计数时，休息结束后先播报“动作名称，3，2，1，开始”，再开始下一组计数；该提示不创建 WorkoutSet 或 Companion Event。
 
 ## 9. Background Feedback
 

@@ -312,11 +312,12 @@ async function replaceTemplateExerciseRows(
         target_reps_min,
         target_reps_max,
         rest_seconds,
+        weight,
         group_key,
         created_at,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
       `,
       exercise.id,
       exercise.templateId,
@@ -326,6 +327,7 @@ async function replaceTemplateExerciseRows(
       exercise.targetReps.min,
       exercise.targetReps.max,
       exercise.restSeconds,
+      exercise.weight ?? null,
       null,
       exercise.createdAt,
       exercise.updatedAt,
@@ -389,6 +391,7 @@ function selectTemplateExerciseRowsSql(): string {
       target_reps_min,
       target_reps_max,
       rest_seconds,
+      weight,
       created_at,
       updated_at
     FROM workout_template_exercises
@@ -491,6 +494,7 @@ function toTemplateExerciseInput(exercise: TemplateExercise): {
   readonly targetRepsMin: number;
   readonly targetRepsMax: number;
   readonly restSeconds: number;
+  readonly weight: number | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 } {
@@ -503,6 +507,7 @@ function toTemplateExerciseInput(exercise: TemplateExercise): {
     targetRepsMin: exercise.targetReps.min,
     targetRepsMax: exercise.targetReps.max,
     restSeconds: exercise.restSeconds,
+    weight: exercise.weight ?? null,
     createdAt: exercise.createdAt,
     updatedAt: exercise.updatedAt,
   };

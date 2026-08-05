@@ -5,6 +5,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,6 +43,9 @@ export function WorkoutSessionHistoryScreen() {
       onGoToday={() => {
         router.dismissTo('/');
       }}
+      onOpenStatistics={() => {
+        router.push('/history/statistics');
+      }}
     />
   );
 }
@@ -51,20 +55,27 @@ export function WorkoutSessionHistoryScreenContent({
   onReload,
   onOpenDetail,
   onGoToday,
+  onOpenStatistics,
 }: {
   readonly state: WorkoutSessionHistoryScreenState;
   readonly onReload: () => void;
   readonly onOpenDetail: (sessionId: WorkoutSessionId) => void;
   readonly onGoToday: () => void;
+  readonly onOpenStatistics?: () => void;
 }) {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.content}>
           <View style={styles.header}>
-            <ThemedText type="small" themeColor="textSecondary">
-              训练记录
-            </ThemedText>
+            <View style={styles.headerTopRow}>
+              <ThemedText type="small" themeColor="textSecondary">
+                训练记录
+              </ThemedText>
+              {onOpenStatistics ? (
+                <HistoryStatisticsButton onPress={onOpenStatistics} />
+              ) : null}
+            </View>
             <ThemedText type="title">训练日历</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               最近完成和取消的训练。
@@ -85,6 +96,34 @@ export function WorkoutSessionHistoryScreenContent({
         </ThemedView>
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+function HistoryStatisticsButton({
+  onPress,
+}: {
+  readonly onPress: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="打开训练统计"
+      style={({ pressed }) => [
+        styles.statisticsButton,
+        { borderColor: theme.backgroundSelected },
+        pressed && styles.pressed,
+      ]}
+    >
+      <SymbolView
+        name="chart.bar.xaxis"
+        size={20}
+        weight="semibold"
+        tintColor={theme.text}
+      />
+    </Pressable>
   );
 }
 
@@ -193,6 +232,7 @@ function HistoryList({
     <ScrollView
       contentContainerStyle={styles.listContent}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
       accessibilityLabel="历史训练列表"
     >
       <HistoryOverview
@@ -605,13 +645,40 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.four,
   },
   header: { gap: Spacing.one },
+  headerTopRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  statisticsButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 2,
+  },
   listContent: { paddingBottom: Spacing.four },
   overview: { gap: Spacing.three, paddingBottom: Spacing.four },
   summaryBand: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: Spacing.three,
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 2,
   },
   historyMetric: {
     minWidth: 96,
@@ -623,9 +690,14 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#DFDDD4',
-    backgroundColor: '#F7F6F1',
+    borderColor: '#E4DDF1',
+    backgroundColor: '#FFFFFF',
     padding: Spacing.four,
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
+    elevation: 2,
   },
   calendarHeader: {
     minHeight: 44,
@@ -639,7 +711,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 22,
-    backgroundColor: '#E8E5DC',
+    backgroundColor: '#EEE9F8',
   },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   calendarDay: {
@@ -652,10 +724,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   calendarDaySelected: {
-    backgroundColor: '#E8E5DC',
+    backgroundColor: '#EEE9F8',
   },
   calendarMuscleLabel: {
-    color: '#587C00',
+    color: '#6D3DF5',
     fontSize: 10,
     lineHeight: 12,
   },
@@ -672,8 +744,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.three,
     borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E4DDF1',
     borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     padding: Spacing.four,
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 2,
   },
   rowMain: { flex: 1, gap: Spacing.one },
   rowMetrics: { alignItems: 'flex-end', gap: Spacing.one },

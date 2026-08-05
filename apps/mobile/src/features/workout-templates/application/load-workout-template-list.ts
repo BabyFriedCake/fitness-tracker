@@ -9,6 +9,7 @@ export type WorkoutTemplateListItem = {
   readonly status: WorkoutTemplate['status'];
   readonly exerciseCount: number;
   readonly totalTargetSets: number;
+  readonly weightSummary?: string;
 };
 
 export type WorkoutTemplateListLoadResult =
@@ -57,5 +58,34 @@ function toWorkoutTemplateListItem(
     status: template.status,
     exerciseCount: template.exercises.length,
     totalTargetSets,
+    ...formatTemplateWeightSummary(template.exercises),
   };
+}
+
+function formatTemplateWeightSummary(exercises: WorkoutTemplate['exercises']): {
+  readonly weightSummary?: string;
+} {
+  const weights = exercises.flatMap((exercise) =>
+    exercise.weight === undefined ? [] : [exercise.weight],
+  );
+
+  if (weights.length === 0) {
+    return {};
+  }
+
+  const uniqueWeights = [...new Set(weights)].sort(
+    (first, second) => Number(first) - Number(second),
+  );
+
+  return {
+    weightSummary: uniqueWeights
+      .map((weight) => `${formatWeight(weight)} 公斤`)
+      .join(' · '),
+  };
+}
+
+function formatWeight(weight: number): string {
+  return Number.isInteger(weight)
+    ? String(weight)
+    : String(Number(weight.toFixed(2)));
 }

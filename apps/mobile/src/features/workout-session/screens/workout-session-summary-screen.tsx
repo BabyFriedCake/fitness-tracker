@@ -85,66 +85,93 @@ export function WorkoutSessionSummaryScreenContent({
           </ThemedView>
         )}
         {state.status === 'ready' && (
-          <ScrollView contentContainerStyle={styles.content}>
-            <View style={styles.header}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {state.summary.status === 'completed'
-                  ? '训练完成'
-                  : '训练已取消'}
-              </ThemedText>
-              <ThemedText type="subtitle" numberOfLines={2}>
-                {state.summary.workoutName}
-              </ThemedText>
-              <ThemedText themeColor="textSecondary">
-                {formatDateTime(state.summary.startedAt)} –{' '}
-                {formatDateTime(state.summary.endedAt)}
-              </ThemedText>
-            </View>
-            <View style={styles.metrics}>
-              <SummaryMetric
-                label="总时长"
-                value={formatDuration(state.summary.durationSeconds)}
-              />
-              <SummaryMetric
-                label="完成动作"
-                value={`${state.summary.completedExerciseCount} 个`}
-              />
-              <SummaryMetric
-                label="完成组数"
-                value={`${state.summary.completedSetCount} 组`}
-              />
-              <SummaryMetric
-                label="总训练量"
-                value={`${formatVolume(state.summary.totalVolume)} kg`}
-              />
-            </View>
-            <View style={styles.exerciseHistory}>
-              <ThemedText type="smallBold">动作记录</ThemedText>
-              {state.summary.exercises.map((exercise, index) => (
-                <ExerciseHistory
-                  key={`${index}-${exercise.exerciseName}`}
-                  exercise={exercise}
-                />
-              ))}
-            </View>
-            {state.summary.notes && (
-              <View style={styles.notes}>
-                <ThemedText type="smallBold">训练备注</ThemedText>
-                <ThemedText>{state.summary.notes}</ThemedText>
-              </View>
-            )}
-            <SummaryButton
-              label="完成"
-              accessibilityLabel="完成查看训练历史详情"
-              primary
+          <View style={styles.readyRoot}>
+            <Pressable
               onPress={onDone}
-            />
-            <SummaryButton
-              label="查看历史"
-              accessibilityLabel="从训练历史详情查看历史训练"
-              onPress={onOpenHistory}
-            />
-          </ScrollView>
+              accessibilityRole="button"
+              accessibilityLabel="返回今天"
+              style={({ pressed }) => [
+                styles.backButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <ThemedText style={styles.backArrow}>‹</ThemedText>
+            </Pressable>
+            <ScrollView
+              contentContainerStyle={styles.content}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.hero}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  {state.summary.status === 'completed'
+                    ? '训练完成'
+                    : '训练已取消'}
+                </ThemedText>
+                <ThemedText type="title" style={styles.heroTitle}>
+                  {state.summary.workoutName}
+                </ThemedText>
+                <ThemedText themeColor="textSecondary" style={styles.dateLine}>
+                  ◷ {formatDateTime(state.summary.startedAt)} –{' '}
+                  {formatDateTime(state.summary.endedAt)}
+                </ThemedText>
+              </View>
+              <View style={styles.metrics}>
+                <SummaryMetric
+                  icon="◷"
+                  label="总时长"
+                  value={formatDuration(state.summary.durationSeconds)}
+                />
+                <SummaryMetric
+                  icon="▥"
+                  label="完成动作"
+                  value={`${state.summary.completedExerciseCount} 个`}
+                />
+                <SummaryMetric
+                  icon="▰"
+                  label="完成组数"
+                  value={`${state.summary.completedSetCount} 组`}
+                />
+                <SummaryMetric
+                  icon="kg"
+                  label="总训练量"
+                  value={`${formatVolume(state.summary.totalVolume)} kg`}
+                />
+              </View>
+              <View style={styles.sectionHeader}>
+                <ThemedText style={styles.sectionIcon}>▤</ThemedText>
+                <ThemedText type="subtitle" style={styles.sectionTitle}>
+                  动作记录
+                </ThemedText>
+              </View>
+              <View style={styles.exerciseHistory}>
+                {state.summary.exercises.map((exercise, index) => (
+                  <ExerciseHistory
+                    key={`${index}-${exercise.exerciseName}`}
+                    exercise={exercise}
+                  />
+                ))}
+              </View>
+              {state.summary.notes && (
+                <View style={styles.notes}>
+                  <ThemedText type="smallBold">训练备注</ThemedText>
+                  <ThemedText>{state.summary.notes}</ThemedText>
+                </View>
+              )}
+              <SummaryButton
+                label="查看历史"
+                accessibilityLabel="从训练历史详情查看历史训练"
+                onPress={onOpenHistory}
+              />
+            </ScrollView>
+            <View style={styles.bottomAction}>
+              <SummaryButton
+                label="完成"
+                accessibilityLabel="完成查看训练历史详情"
+                primary
+                onPress={onDone}
+              />
+            </View>
+          </View>
         )}
       </SafeAreaView>
     </ThemedView>
@@ -159,7 +186,14 @@ function ExerciseHistory({
   return (
     <View style={styles.exercise}>
       <View style={styles.exerciseHeader}>
-        <ThemedText type="default">{exercise.exerciseName}</ThemedText>
+        <View style={styles.exerciseIdentity}>
+          <View style={styles.exerciseIcon}>
+            <ThemedText style={styles.exerciseIconText}>⌁</ThemedText>
+          </View>
+          <ThemedText type="subtitle" style={styles.exerciseName}>
+            {exercise.exerciseName}
+          </ThemedText>
+        </View>
         <ThemedText type="small" themeColor="textSecondary">
           {exercise.skipped
             ? '已跳过'
@@ -186,7 +220,7 @@ function ExerciseHistory({
           没有已完成组。
         </ThemedText>
       )}
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="default" themeColor="textSecondary">
         训练量 {formatVolume(exercise.totalVolume)} kg
       </ThemedText>
     </View>
@@ -194,18 +228,27 @@ function ExerciseHistory({
 }
 
 function SummaryMetric({
+  icon,
   label,
   value,
 }: {
+  readonly icon: string;
   readonly label: string;
   readonly value: string;
 }) {
   return (
     <View style={styles.metric} accessibilityLabel={`${label}：${value}`}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-      <ThemedText type="subtitle">{value}</ThemedText>
+      <View style={styles.metricIcon}>
+        <ThemedText style={styles.metricIconText}>{icon}</ThemedText>
+      </View>
+      <View style={styles.metricCopy}>
+        <ThemedText type="small" themeColor="textSecondary">
+          {label}
+        </ThemedText>
+        <ThemedText type="subtitle" style={styles.metricValue}>
+          {value}
+        </ThemedText>
+      </View>
     </View>
   );
 }
@@ -272,23 +315,86 @@ function formatVolume(value: number): string {
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center' },
   safeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth },
+  readyRoot: { flex: 1 },
   content: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    gap: Spacing.five,
+    gap: Spacing.four,
     padding: Spacing.four,
+    paddingTop: 92,
+    paddingBottom: 116,
   },
-  header: { gap: Spacing.two },
+  hero: { gap: Spacing.two, paddingTop: Spacing.four },
+  heroTitle: { fontSize: 48, lineHeight: 56, color: '#211735' },
+  dateLine: { fontSize: 18, lineHeight: 26 },
+  backButton: {
+    position: 'absolute',
+    zIndex: 2,
+    top: Spacing.three,
+    left: Spacing.three,
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6D3DF5',
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  backArrow: { color: '#6D3DF5', fontSize: 42, lineHeight: 46 },
   metrics: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    padding: Spacing.three,
+    shadowColor: '#6D3DF5',
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
   },
+  metric: {
+    width: '50%',
+    minHeight: 122,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.two,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: '#EAE3F6',
+  },
+  metricIcon: {
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 26,
+    backgroundColor: '#F0EAFB',
+  },
+  metricIconText: { color: '#6D3DF5', fontSize: 24, fontWeight: '800' },
+  metricCopy: { flex: 1, gap: 2 },
+  metricValue: { fontSize: 26, lineHeight: 34, color: '#211735' },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+  },
+  sectionIcon: { color: '#6D3DF5', fontSize: 28 },
+  sectionTitle: { fontSize: 26, lineHeight: 34 },
   exerciseHistory: { gap: Spacing.three },
   exercise: {
     gap: Spacing.two,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: Spacing.three,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    padding: Spacing.three,
+    shadowColor: '#6D3DF5',
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
   exerciseHeader: {
     flexDirection: 'row',
@@ -296,6 +402,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
+  exerciseIdentity: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  exerciseIcon: {
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 26,
+    backgroundColor: '#F0EAFB',
+  },
+  exerciseIconText: { color: '#6D3DF5', fontSize: 28 },
+  exerciseName: { flex: 1, fontSize: 22, lineHeight: 30 },
   setRow: {
     minHeight: 44,
     flexDirection: 'row',
@@ -308,20 +430,19 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: Spacing.three,
   },
-  metric: {
-    minWidth: 150,
-    flexBasis: '50%',
-    flexGrow: 1,
-    gap: Spacing.one,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingVertical: Spacing.four,
-  },
   button: {
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.three,
+    backgroundColor: '#F0EAFB',
+  },
+  bottomAction: {
+    position: 'absolute',
+    left: Spacing.four,
+    right: Spacing.four,
+    bottom: Spacing.three,
   },
   feedback: {
     flex: 1,

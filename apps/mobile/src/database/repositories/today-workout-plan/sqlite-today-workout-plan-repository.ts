@@ -33,7 +33,7 @@ export function createSqliteTodayWorkoutPlanRepository(
                 title_snapshot, position, status, created_at, updated_at
          FROM today_workout_plans
          WHERE local_date = ?
-         ORDER BY position ASC, created_at ASC, id ASC;`,
+         ORDER BY position DESC, created_at DESC, id DESC;`,
         localDate,
       );
 

@@ -117,6 +117,7 @@ function buildCreateWorkoutTemplateInput(
       targetRepsMin: DEFAULT_TEMPLATE_EXERCISE_CONFIG.targetRepsMin,
       targetRepsMax: DEFAULT_TEMPLATE_EXERCISE_CONFIG.targetRepsMax,
       restSeconds: DEFAULT_TEMPLATE_EXERCISE_CONFIG.restSeconds,
+      weight: null,
       createdAt: timestamp,
       updatedAt: timestamp,
     })),

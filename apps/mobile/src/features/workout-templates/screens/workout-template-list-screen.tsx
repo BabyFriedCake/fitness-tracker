@@ -3,7 +3,9 @@ import {
   FlatList,
   Pressable,
   StyleSheet,
+  View,
 } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import { useRouter, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -58,16 +60,9 @@ export function WorkoutTemplateListContent({
         <ThemedView style={styles.content}>
           <ThemedView style={styles.header}>
             <ThemedView style={styles.headerCopy}>
-              <ThemedText type="small" themeColor="textSecondary">
-                训练库
-              </ThemedText>
               <ThemedText type="title">我的模板</ThemedText>
             </ThemedView>
-            <PrimaryActionButton
-              label="+"
-              accessibilityLabel="新增训练模板"
-              onPress={onCreateTemplate}
-            />
+            <CreateTemplateButton onPress={onCreateTemplate} />
           </ThemedView>
 
           {state.status === 'loading' && <LoadingState />}
@@ -158,6 +153,7 @@ function TemplateList({
   return (
     <FlatList
       data={templates}
+      showsVerticalScrollIndicator={false}
       keyExtractor={(template) => template.id}
       renderItem={({ item }) => (
         <TemplateCard template={item} onOpenTemplate={onOpenTemplate} />
@@ -180,16 +176,13 @@ function TemplateCard({
   readonly onOpenTemplate: (templateId: WorkoutTemplateId) => void;
 }) {
   const theme = useTheme();
-  const metrics = [
-    `${template.exerciseCount} 个动作`,
-    `${template.totalTargetSets} 组`,
-  ];
+  const metrics = `${template.exerciseCount} 个动作 · ${template.totalTargetSets} 组`;
 
   return (
     <Pressable
       onPress={() => onOpenTemplate(template.id)}
       accessibilityRole="button"
-      accessibilityLabel={`查看训练模板${template.name}，${metrics.join('，')}，${formatTemplateStatus(template.status)}`}
+      accessibilityLabel={`查看训练模板${template.name}，${metrics.replace(' · ', '，')}，${formatTemplateStatus(template.status)}`}
       style={({ pressed }) => [
         styles.templateCard,
         {
@@ -199,25 +192,28 @@ function TemplateCard({
         pressed && styles.pressed,
       ]}
     >
-      <ThemedView style={styles.cardHeader}>
-        <ThemedText type="subtitle" style={styles.templateName}>
-          {template.name}
-        </ThemedText>
-        <ThemedText type="subtitle" themeColor="textSecondary">
-          →
-        </ThemedText>
-      </ThemedView>
-      <ThemedText type="small" themeColor="textSecondary">
-        {metrics.join(' · ')}
+      <ThemedText type="subtitle" style={styles.templateName}>
+        {template.name}
       </ThemedText>
-      <ThemedView style={styles.templateActions}>
+      <View style={styles.templateMetrics}>
+        <SymbolView
+          name="square.stack.3d.up.fill"
+          size={20}
+          weight="semibold"
+          tintColor="#6D3DF5"
+        />
         <ThemedText type="small" themeColor="textSecondary">
-          查看详情
+          {metrics}
         </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {formatTemplateStatus(template.status)}
-        </ThemedText>
-      </ThemedView>
+        {template.weightSummary ? (
+          <>
+            <View style={styles.metricDivider} />
+            <ThemedText type="small" themeColor="textSecondary">
+              {template.weightSummary}
+            </ThemedText>
+          </>
+        ) : null}
+      </View>
     </Pressable>
   );
 }
@@ -241,7 +237,7 @@ function PrimaryActionButton({
       style={({ pressed }) => [
         styles.primaryButton,
         {
-          backgroundColor: theme.text,
+          backgroundColor: theme.actionPrimary,
         },
         pressed && styles.pressed,
       ]}
@@ -251,11 +247,29 @@ function PrimaryActionButton({
         style={[
           styles.primaryButtonText,
           {
-            color: theme.background,
+            color: theme.actionOnPrimary,
           },
         ]}
       >
         {label}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
+function CreateTemplateButton({ onPress }: { readonly onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="新增训练模板"
+      style={({ pressed }) => [
+        styles.createTemplateButton,
+        pressed && styles.pressed,
+      ]}
+    >
+      <ThemedText type="default" style={styles.createTemplateButtonText}>
+        +
       </ThemedText>
     </Pressable>
   );
@@ -322,7 +336,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Spacing.three,
-    paddingTop: Spacing.five,
+    paddingTop: Spacing.six,
   },
   headerCopy: {
     flex: 1,
@@ -338,29 +352,32 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.four,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
   },
   templateName: {
-    flex: 1,
+    fontSize: 32,
+    lineHeight: 40,
   },
-  templateActions: {
-    minHeight: 44,
+  templateMetrics: {
+    minHeight: 28,
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#DFDDD4',
-    paddingTop: Spacing.three,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  metricDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 22,
+    backgroundColor: '#DCD4ED',
   },
   statusChip: {
     minHeight: 32,
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.two,
   },
@@ -371,6 +388,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 41,
   },
+  createTemplateButton: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 28,
+    backgroundColor: '#6D3DF5',
+    shadowColor: '#6D3DF5',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  createTemplateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '700',
+  },
   primaryButtonText: {
     textAlign: 'center',
   },
@@ -379,7 +415,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
