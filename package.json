@@ -12,6 +12,13 @@
     "typecheck": "pnpm --filter mobile typecheck",
     "test": "pnpm --filter mobile test",
     "format": "pnpm --filter mobile format",
-    "format:check": "pnpm --filter mobile format:check"
+    "format:check": "pnpm --filter mobile format:check",
+    "api": "pnpm --filter @fitness-tracker/api",
+    "api:test": "pnpm --filter @fitness-tracker/api test",
+    "api:typecheck": "pnpm --filter @fitness-tracker/api typecheck",
+    "api:build": "pnpm --filter @fitness-tracker/api build",
+    "admin": "pnpm --filter @fitness-tracker/admin",
+    "admin:typecheck": "pnpm --filter @fitness-tracker/admin typecheck",
+    "admin:build": "pnpm --filter @fitness-tracker/admin build"
   }
 }

@@ -42,3 +42,20 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Admin API typecheck
+        run: pnpm api:typecheck
+
+      - name: Admin API tests
+        run: pnpm api:test
+
+      - name: Admin API build
+        run: pnpm api:build
+
+      - name: Admin Web build
+        run: pnpm admin:build
+
+      - name: Validate public content Compose configuration
+        run: |
+          cp docker-compose.public-content.env.example .env
+          docker compose -f docker-compose.public-content.yml config --quiet

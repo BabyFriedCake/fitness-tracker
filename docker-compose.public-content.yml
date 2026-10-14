@@ -1,0 +1,54 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      # Set either ADMIN_JWT_SECRET or ADMIN_JWKS_URL before starting.
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-}
+      ADMIN_JWKS_URL: ${ADMIN_JWKS_URL:-}
+      ADMIN_JWT_ISSUER: ${ADMIN_JWT_ISSUER:-}
+      ADMIN_JWT_AUDIENCE: ${ADMIN_JWT_AUDIENCE:-}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      public-content-postgres:
+        condition: service_healthy
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  public-content-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fitness_tracker
+      POSTGRES_USER: fitness_tracker
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    ports:
+      - "5433:5432"
+    volumes:
+      - public-content-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitness_tracker -d fitness_tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  public-content-postgres-data:

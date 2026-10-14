@@ -807,6 +807,58 @@ Exit Review：PASS WITH WARNINGS
 
 ---
 
+# Sprint 17 - Public Content Admin（代码基线已完成，生产化待完成）
+
+目标：
+
+建立独立的公共内容管理后台，用于维护标准动作和公共训练模板，
+不修改用户训练事实，并保持移动端 local-first 与离线训练能力。
+
+计划任务：
+
+- [x] S17-00 公共内容后台范围与架构决策
+- [x] S17-01 Admin Web 与 API 基础设施
+- [x] S17-02 公共动作库管理
+- [x] S17-03 公共模板管理与发布
+- [x] S17-04 管理员认证、角色与审计
+- [x] S17-05 Sprint Exit Review（PASS WITH WARNINGS）
+
+当前进度：Admin Web/API、公共动作与模板 PostgreSQL 适配器、JWT/RBAC 和审计基线已完成；
+生产 OIDC/JWKS、部署编排、媒体上传和移动端内容同步仍待完成。
+
+当前边界：
+
+- 不实现用户账号、云同步或训练历史上传。
+- 不让后台直接访问移动端 SQLite。
+- 不修改 WorkoutSession、WorkoutSet、Runtime 或历史训练事实。
+- 公共模板必须通过版本/快照语义发布。
+
+---
+
+# Sprint 18 - Productionization & Public Content Sync（进行中）
+
+目标：将 Sprint 17 的后台代码基线推进到可部署状态，并以版本化 published 内容安全同步到移动端。
+
+计划任务：
+
+- [ ] S18-01 认证与密钥配置
+- [ ] S18-02 服务端部署与运维
+- [ ] S18-03 媒体存储与授权
+- [ ] S18-04 Public Content API 与移动端同步
+- [ ] S18-05 Production Exit Review
+
+详细计划：`docs/08-Development/sprint-18-plan.md`。
+
+当前进度：JWKS 验证适配器、公共快照版本与 ETag、发布内容依赖过滤、本地媒体授权流、
+事务化并发 Migration、生产认证配置校验、Admin/API 容器编排基线、权限角色管理和 CI Compose
+配置校验已完成；正式身份提供方、生产对象存储、部署平台、备份监控以及移动端公共内容 ID
+映射仍待确认，不得标记为 Sprint 18 完成。
+
+生产化审查记录：`docs/09-Release/Sprint-18-Productionization-Exit-Report.md`，当前结论为
+`FAIL FOR PRODUCTION RELEASE`。
+
+---
+
 # Long Term Vision
 
 最终目标：
